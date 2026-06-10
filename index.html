@@ -368,12 +368,14 @@
                 color: "#475569", 
                 mult: 1.5, 
                 luck: 0.01, 
-                desc: "안정적인 각도로 평균 튕김 수가 매우 높음 (대박: 1%)",
+                desc: "안정적인 각도로 평균 튕김 수가 매우 높음 (대박: 0.1%)",
                 physics: {
                     vzDecay: 0.88,       // 수직 에너지 감쇠
                     vyDecay: 0.965,      // 수평 속도 높은 보존율
                     baseVzPower: 1.1,    // 수직 도약을 극도로 억제 (물 위를 스치듯 날아감)
-                    frictionFactor: 0.995 // 수면 저항 극소화
+                    frictionFactor: 0.995, // 수면 저항 극소화
+                    critChance: 0.001,   // 크리티컬 대박 확률 (0.1%)
+                    critMult: 1.1
                 }
             },
             { 
@@ -386,7 +388,9 @@
                     vzDecay: 0.82,       
                     vyDecay: 0.94,       
                     baseVzPower: 1.5,    // 무난하고 낮은 도약
-                    frictionFactor: 0.986
+                    frictionFactor: 0.986,
+                    critChance: 0.02,    // 크리티컬 대박 확률 (2%)
+                    critMult: 1.25
                 }
             },
             { 
@@ -394,12 +398,23 @@
                 color: "#1e293b", 
                 mult: 0.6, 
                 luck: 0.03, 
-                desc: "낮은 확률이지만 대박나면 대량 채굴 가능 (대박: 3%)",
+                desc: "평균적으론 무겁지만 2.5% 확률로 관성 폭발 대박 (대박: 2.5%)",
                 physics: {
-                    vzDecay: 0.72,       // 무겁기 때문에 수직으로의 통통 튀는 반발은 빠르게 소멸
-                    vyDecay: 0.985,      // 엄청난 질량 관성으로 수평 전진 에너지는 거의 무한 보존
-                    baseVzPower: 0.8,    // 물 위를 기어가는 수준의 낮은 튕김
-                    frictionFactor: 0.998 // 묵직하게 물살을 가르는 전진 관성
+                    // 기본 무거운 물리 성능
+                    vzDecay: 0.70,       
+                    vyDecay: 0.90,       
+                    baseVzPower: 0.8,    
+                    frictionFactor: 0.970,
+                    
+                    // 2.5% 확률로 발동될 관성 대폭발 물리 스펙
+                    critChance: 0.025,
+                    critPhysics: {
+                        vzDecay: 0.90,
+                        vyDecay: 0.98,
+                        baseVzPower: 1.6,
+                        frictionFactor: 0.998,
+                        isCrit: true
+                    }
                 }
             },
             { 
@@ -407,12 +422,17 @@
                 color: "#fbbf24", 
                 mult: 2.5, 
                 luck: 0.05, 
-                desc: "신화급 확률로 수평선을 뚫는 극대량 채굴석 (대박: 5%)",
+                desc: "50% 확률로 타 특성 복제, 로또 1등 4배 확률(1/200만)로 은하 활공",
                 physics: {
-                    vzDecay: 0.92,       
-                    vyDecay: 0.993,      // 수평 속도가 감속 없이 빛의 속도로 유지
-                    baseVzPower: 2.0,    // 비현실적 추진력을 주되, 위로 붕 뜨지 않게 제어
-                    frictionFactor: 0.999 // 수면을 활공하듯 질주
+                    // 로또 1등의 4배 확률 (1 / 2,036,265)
+                    lottoChance: 1 / 2036265,
+                    lottoPhysics: {
+                        vzDecay: 0.99,
+                        vyDecay: 0.999,
+                        baseVzPower: 2.5,
+                        frictionFactor: 0.9999,
+                        isLotto: true
+                    }
                 }
             }
         ];
@@ -448,7 +468,10 @@
         let animationFrameId = null;
         let stoneState = {
             x: 0, y: 0, z: 0,
-            vx: 0, vy: 0, vz: 0
+            vx: 0, vy: 0, vz: 0,
+            activePhysics: null,
+            isCrit: false,
+            isLotto: false
         };
         const gravity = 0.16;
         let bounceCount = 0;
@@ -943,6 +966,54 @@
                 stoneState.vz = swipeSpeed * Math.sin(rad) * 0.75; 
                 stoneState.vx = (dx / duration) * 2; 
                 
+                // --- ☄️ [돌의 종류별 발사 시점 확률적 특성 결정 로직] ---
+                let activePhysics = null;
+                let isCrit = false;
+                let isLotto = false;
+                
+                if (selectedStone.name === "XNOT 황금 운석") {
+                    // 1. 로또 4배 확률 롤링 (1 / 2,036,265)
+                    const lottoChance = selectedStone.physics.lottoChance;
+                    if (window.forceLotto || Math.random() < lottoChance) {
+                        activePhysics = JSON.parse(JSON.stringify(selectedStone.physics.lottoPhysics));
+                        isLotto = true;
+                    } else {
+                        // 2. 50:50으로 납작한 슬레이트 혹은 고밀도 현무암 복제
+                        const isSlateType = Math.random() < 0.5;
+                        if (isSlateType) {
+                            const slateRef = stones.find(s => s.name === "납작한 슬레이트");
+                            activePhysics = JSON.parse(JSON.stringify(slateRef.physics));
+                            if (window.forceCrit || Math.random() < activePhysics.critChance) {
+                                isCrit = true; // 슬레이트 크리티컬
+                            }
+                        } else {
+                            const basaltRef = stones.find(s => s.name === "고밀도 현무암");
+                            if (window.forceCrit || Math.random() < basaltRef.physics.critChance) {
+                                activePhysics = JSON.parse(JSON.stringify(basaltRef.physics.critPhysics));
+                                isCrit = true; // 현무암 크리티컬
+                            } else {
+                                activePhysics = JSON.parse(JSON.stringify(basaltRef.physics));
+                            }
+                        }
+                    }
+                } else if (selectedStone.name === "고밀도 현무암") {
+                    if (window.forceCrit || Math.random() < selectedStone.physics.critChance) {
+                        activePhysics = JSON.parse(JSON.stringify(selectedStone.physics.critPhysics));
+                        isCrit = true;
+                    } else {
+                        activePhysics = JSON.parse(JSON.stringify(selectedStone.physics));
+                    }
+                } else {
+                    activePhysics = JSON.parse(JSON.stringify(selectedStone.physics));
+                    if (window.forceCrit || Math.random() < activePhysics.critChance) {
+                        isCrit = true;
+                    }
+                }
+                
+                stoneState.activePhysics = activePhysics;
+                stoneState.isCrit = isCrit;
+                stoneState.isLotto = isLotto;
+                
                 bounceCount = 0;
                 perfectCount = 0;
                 isDead = false;
@@ -952,7 +1023,20 @@
                 isPlaying = true;
                 
                 scoreDisplay.innerText = "BOUNCE: 0";
-                message.innerText = "수면에 닿는 순간 화면을 터치하세요!";
+                
+                if (isLotto) {
+                    message.innerText = "🌌 은하 활공 발동! (Galaxy Glide - 초희귀 로또 확률!)";
+                    triggerHaptic('heavy');
+                } else if (isCrit) {
+                    if (selectedStone.name === "고밀도 현무암" || (selectedStone.name === "XNOT 황금 운석" && activePhysics.frictionFactor === 0.998)) {
+                        message.innerText = "💥 현무암 관성 대폭발 발동! (Inertia Blast - 2.5% 확률!)";
+                    } else {
+                        message.innerText = "✨ 크리티컬 튕김 발동!";
+                    }
+                    triggerHaptic('medium');
+                } else {
+                    message.innerText = "수면에 닿는 순간 화면을 터치하세요!";
+                }
                 
                 container.addEventListener('mousedown', registerBounceTap);
                 container.addEventListener('touchstart', registerBounceTap, { passive: true });
@@ -996,8 +1080,8 @@
             
             // 던질 때의 속도에 따른 저항 완화 적용
             const speedFrictionMitigation = 1.0 + (currentSwipeSpeed * 0.0001);
-            // 돌의 고유 마찰 계수 가져오기 (기본값 0.978)
-            const stoneFriction = (selectedStone && selectedStone.physics) ? selectedStone.physics.frictionFactor : 0.978;
+            // 롤링된 활성 물리 마찰 계수 가져오기
+            const stoneFriction = (stoneState.activePhysics) ? stoneState.activePhysics.frictionFactor : 0.978;
             
             stoneState.vy *= Math.min(0.9998, stoneFriction * weightMultiplier * speedFrictionMitigation);
             stoneState.vx *= Math.min(0.999, 0.99 * weightMultiplier);
@@ -1109,8 +1193,8 @@
             
             const elasticityMultiplier = Math.pow(1.08, upgrades.elasticity);
             
-            // 돌의 고유 물리 특성 스펙 추출 (안전을 위해 fallback 기본값 지정)
-            const stonePhysics = (selectedStone && selectedStone.physics) ? selectedStone.physics : { vzDecay: 0.83, vyDecay: 0.92, baseVzPower: 4.8, frictionFactor: 0.978 };
+            // 발사 시 롤링된 활성 물리 특성 스펙 추출 (없을 경우 기본값 fallback)
+            const stonePhysics = stoneState.activePhysics || (selectedStone && selectedStone.physics) || { vzDecay: 0.83, vyDecay: 0.92, baseVzPower: 4.8, frictionFactor: 0.978 };
             
             if (rating === "PERFECT") {
                 perfectCount++;
