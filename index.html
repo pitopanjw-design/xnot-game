@@ -950,9 +950,10 @@
             
             if (stoneState.z <= 0) {
                 if (!hasTappedThisBounce) {
-                    if (getAngleZone(launchAngle) === "SAFETY") {
+                    const zone = getAngleZone(launchAngle);
+                    if (zone === "SAFETY" || zone === "PERFECT") {
                         hasTappedThisBounce = true;
-                        processBounce("GOOD");
+                        processBounce(zone === "PERFECT" ? "PERFECT" : "GOOD");
                     } else {
                         triggerWaterMiss();
                     }
@@ -1100,12 +1101,15 @@
             
             const zone = getAngleZone(launchAngle);
             
-            // Safety Zone에서는 추가적인 반발 및 전진 보너스
+            // 각 게이지 구역별 추가 반발 및 전진 보너스 (Perfect가 Safety보다 압도적으로 멀리 가도록 설계)
             let zoneMult = 1.0;
             let zoneVzBonus = 0;
-            if (zone === "SAFETY") {
-                zoneMult = 1.25; // 감쇠 완화 및 가속
-                zoneVzBonus = 0.8;
+            if (zone === "PERFECT") {
+                zoneMult = 1.45;    // 수평 속도 대폭 증가 (1.45배 가속)
+                zoneVzBonus = 1.5;  // 수직 반발 대폭 증가
+            } else if (zone === "SAFETY") {
+                zoneMult = 1.15;    // 수평 속도 유지 (약 0.98배 보존)
+                zoneVzBonus = 0.6;  // 수직 반발 적당히 증가
             }
             
             stoneState.z = 0.1; 
