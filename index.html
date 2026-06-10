@@ -370,10 +370,10 @@
                 luck: 0.01, 
                 desc: "안정적인 각도로 평균 튕김 수가 매우 높음 (대박: 1%)",
                 physics: {
-                    vzDecay: 0.89,       // 수직 에너지 감쇠 완화 (오래 튕김)
-                    vyDecay: 0.95,       // 수평 속도 감쇠 완화
-                    baseVzPower: 5.6,    // 높은 기본 수직 튕김력
-                    frictionFactor: 0.988 // 수면 마찰을 거의 안 받음
+                    vzDecay: 0.88,       // 수직 에너지 감쇠
+                    vyDecay: 0.965,      // 수평 속도 높은 보존율
+                    baseVzPower: 1.1,    // 수직 도약을 극도로 억제 (물 위를 스치듯 날아감)
+                    frictionFactor: 0.995 // 수면 저항 극소화
                 }
             },
             { 
@@ -383,10 +383,10 @@
                 luck: 0.02, 
                 desc: "표준 성능의 무난한 기본 조약돌 (대박: 2%)",
                 physics: {
-                    vzDecay: 0.83,       // 무난한 수직 감쇠
-                    vyDecay: 0.92,       // 무난한 수평 감쇠
-                    baseVzPower: 4.8,
-                    frictionFactor: 0.978
+                    vzDecay: 0.82,       
+                    vyDecay: 0.94,       
+                    baseVzPower: 1.5,    // 무난하고 낮은 도약
+                    frictionFactor: 0.986
                 }
             },
             { 
@@ -396,10 +396,10 @@
                 luck: 0.03, 
                 desc: "낮은 확률이지만 대박나면 대량 채굴 가능 (대박: 3%)",
                 physics: {
-                    vzDecay: 0.75,       // 무거워서 도약 높이는 빠르게 줄어듬
-                    vyDecay: 0.97,       // 무겁기 때문에 관성(추진력)은 엄청 오랫동안 유지됨
-                    baseVzPower: 4.2,    // 조금 낮게 도약함
-                    frictionFactor: 0.994 // 엄청난 질량으로 마찰 무시
+                    vzDecay: 0.72,       // 무겁기 때문에 수직으로의 통통 튀는 반발은 빠르게 소멸
+                    vyDecay: 0.985,      // 엄청난 질량 관성으로 수평 전진 에너지는 거의 무한 보존
+                    baseVzPower: 0.8,    // 물 위를 기어가는 수준의 낮은 튕김
+                    frictionFactor: 0.998 // 묵직하게 물살을 가르는 전진 관성
                 }
             },
             { 
@@ -409,10 +409,10 @@
                 luck: 0.05, 
                 desc: "신화급 확률로 수평선을 뚫는 극대량 채굴석 (대박: 5%)",
                 physics: {
-                    vzDecay: 0.93,       // 거의 안 줄어드는 미친 반동
-                    vyDecay: 0.985,      // 전진 속도가 거의 유지됨
-                    baseVzPower: 7.2,    // 폭발적인 튕김
-                    frictionFactor: 0.997 // 수면 위를 거의 활공함
+                    vzDecay: 0.92,       
+                    vyDecay: 0.993,      // 수평 속도가 감속 없이 빛의 속도로 유지
+                    baseVzPower: 2.0,    // 비현실적 추진력을 주되, 위로 붕 뜨지 않게 제어
+                    frictionFactor: 0.999 // 수면을 활공하듯 질주
                 }
             }
         ];
@@ -1114,8 +1114,8 @@
             
             if (rating === "PERFECT") {
                 perfectCount++;
-                baseVzPower = stonePhysics.baseVzPower + (selectedStone.mult * 1.5);
-                multEffect = 1.0; 
+                baseVzPower = stonePhysics.baseVzPower + (selectedStone.mult * 0.4);
+                multEffect = 1.06; // 수평 가속 추가 보너스
                 
                 const earned = Math.round(100 * selectedStone.mult * 2.5);
                 message.innerText = `완벽한 타이밍과 각도! (+${earned} SP)`;
@@ -1126,8 +1126,8 @@
                 // 퍼펙트 햅틱 (가장 강함)
                 triggerHaptic('heavy');
             } else if (rating === "GOOD") {
-                baseVzPower = (stonePhysics.baseVzPower * 0.75) + (selectedStone.mult * 1.0);
-                multEffect = 0.85; 
+                baseVzPower = (stonePhysics.baseVzPower * 0.8) + (selectedStone.mult * 0.2);
+                multEffect = 0.98; // 거의 다 보존
                 
                 const earned = Math.round(100 * selectedStone.mult * 1.2);
                 message.innerText = `좋은 타이밍! (+${earned} SP)`;
@@ -1139,7 +1139,7 @@
                 triggerHaptic('medium');
             } else { 
                 baseVzPower = stonePhysics.baseVzPower * 0.4;
-                multEffect = 0.5; 
+                multEffect = 0.72; // 적절한 감속
                 
                 const earned = Math.round(100 * selectedStone.mult * 0.4);
                 message.innerText = "조금 어긋난 타이밍... 속도가 감소합니다.";
@@ -1162,15 +1162,15 @@
             
             const zone = getAngleZone(launchAngle);
             
-            // 각 게이지 구역별 추가 반발 및 전진 보너스 (Perfect가 Safety보다 압도적으로 멀리 가도록 설계)
+            // 각 게이지 구역별 추가 반발 및 전진 보너스 (수직 반사를 철저히 억제하고 수평 전진 강화)
             let zoneMult = 1.0;
             let zoneVzBonus = 0;
             if (zone === "PERFECT") {
-                zoneMult = 1.45;    // 수평 속도 대폭 증가 (1.45배 가속)
-                zoneVzBonus = 1.5;  // 수직 반발 대폭 증가
+                zoneMult = 1.25;    // 수평 속도 가속 (1.25배)
+                zoneVzBonus = 0.2;  // 수직 반동 최소 추가
             } else if (zone === "SAFETY") {
-                zoneMult = 1.15;    // 수평 속도 유지 (약 0.98배 보존)
-                zoneVzBonus = 0.6;  // 수직 반발 적당히 증가
+                zoneMult = 1.08;    // 수평 속도 유지
+                zoneVzBonus = 0.05; // 수직 반동 미세 추가
             }
             
             // 튕김 높이(vz)는 바운스가 증가할수록 에너지를 잃고 급격히 낮아짐 (템포가 빨라짐)
