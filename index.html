@@ -1096,6 +1096,10 @@
             
             spawnBouncePointMark(screenX, screenY, bounceCount);
             
+            // --- 🌊 [물수제비 동력 감쇠 시스템 도입] ---
+            // 바운스가 거듭될수록 튕기는 에너지가 지수 감쇠 (체공 시간이 짧아져 다다닥 튕김)
+            const bounceDecay = Math.pow(0.78, bounceCount - 1);
+            
             // 슬라이드 속도 반영 (속도 보너스 인자 계산)
             const speedBonus = 1.0 + (currentSwipeSpeed / 30);
             
@@ -1112,14 +1116,18 @@
                 zoneVzBonus = 0.6;  // 수직 반발 적당히 증가
             }
             
+            // 튕김 높이(vz)는 바운스가 증가할수록 에너지를 잃고 급격히 낮아짐 (템포가 빨라짐)
             stoneState.z = 0.1; 
-            stoneState.vz = (baseVzPower + zoneVzBonus) * elasticityMultiplier * speedBonus; 
+            stoneState.vz = (baseVzPower + zoneVzBonus) * elasticityMultiplier * speedBonus * bounceDecay; 
             
-            // 수평 전진 감속 방지 (속도 비례 복구)
+            // 수평 전진 감쇠도 갈수록 심해지도록 밸런싱 (vy 지수 감쇠 적용)
+            const velocityDecay = Math.pow(0.9, bounceCount - 1);
             const currentVy = stoneState.vy;
-            const nextVy = currentVy * multEffect * (1.0 + (currentSwipeSpeed * 0.004)) * zoneMult;
-            // vy가 이전보다 커질 수는 없도록(Perfect 제외) 최대 감쇠 방지 상한선 적용
-            stoneState.vy = Math.min(nextVy, currentVy * Math.max(0.96, multEffect * zoneMult));
+            const nextVy = currentVy * multEffect * (1.0 + (currentSwipeSpeed * 0.004)) * zoneMult * velocityDecay;
+            
+            // vy 최대 상한값도 갈수록 억제하여 멀리 가지 못하게 함
+            const maxVyLimit = currentVy * Math.max(0.96, multEffect * zoneMult) * velocityDecay;
+            stoneState.vy = Math.min(nextVy, maxVyLimit);
             
             stoneState.vx *= 0.9;
             
