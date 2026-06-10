@@ -699,7 +699,8 @@
             function updateGauge() {
                 if (currentStatus !== "READY_TO_LAUNCH") return;
                 
-                angleValue += angleDirection * 0.04;
+                // 게이지 왕복 속도를 50% 줄여 조작 난이도를 낮춤 (기존 0.04 -> 0.02)
+                angleValue += angleDirection * 0.02;
                 if (angleValue >= 1) {
                     angleValue = 1;
                     angleDirection = -1;
