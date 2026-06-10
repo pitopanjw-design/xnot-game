@@ -13,27 +13,93 @@
             --danger: #ef4444; 
             --accent: #38bdf8;
             --gold: #fbbf24;
+            --glass-bg: rgba(15, 23, 42, 0.62);
+            --glass-border: rgba(255, 255, 255, 0.12);
         }
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; font-family: 'Outfit', sans-serif; background: var(--bg); color: white; user-select: none; -webkit-user-select: none; touch-action: none; }
         
-        #game-container { position: relative; width: 100%; height: 100%; background: linear-gradient(to top, #0284c7, #38bdf8); overflow: hidden; touch-action: none; }
+        #game-container { 
+            position: relative; width: 100%; height: 100%; 
+            background: url('river_sunset_bg.png') no-repeat center center; 
+            background-size: cover;
+            overflow: hidden; touch-action: none; 
+        }
         
-        /* 원근선 격자판 */
+        /* 강물 오버레이 (노을빛 반사 효과 및 푸른 강물 연출) */
+        .water-overlay {
+            position: absolute; left: 0; right: 0; bottom: 0; height: 55%;
+            background: linear-gradient(to top, rgba(2, 132, 199, 0.4), rgba(124, 58, 237, 0.12) 40%, rgba(251, 146, 60, 0.05) 80%, transparent);
+            pointer-events: none;
+            z-index: 1;
+        }
+        
+        /* 수면 광원 반짝임 */
+        .water-shimmer {
+            position: absolute; inset: 0;
+            background: radial-gradient(circle at 50% 90%, rgba(255, 255, 255, 0.12), transparent 70%);
+            mix-blend-mode: overlay;
+            animation: water-shimmer-anim 8s ease-in-out infinite alternate;
+            z-index: 1;
+            pointer-events: none;
+        }
+        @keyframes water-shimmer-anim {
+            0% { opacity: 0.4; transform: scale(0.97) translateY(5px); }
+            100% { opacity: 0.8; transform: scale(1.03) translateY(-5px); }
+        }
+        
+        /* 원근선 격자판 (강물 격자선) */
         .grid-layer {
             position: absolute; inset: 0;
             background-image: 
-                linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px);
-            background-size: 40px 40px;
-            transform: perspective(300px) rotateX(75deg);
+                linear-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+            background-size: 50px 50px;
+            transform: perspective(260px) rotateX(75deg);
             transform-origin: top center;
-            height: 150%; top: -20%;
+            height: 140%; top: -10%;
             pointer-events: none;
+            z-index: 1;
+        }
+
+        /* 1인칭 강변 자갈밭 Shore */
+        #river-shore {
+            position: absolute; bottom: -10px; left: -10px; right: -10px; height: 110px;
+            background: linear-gradient(to top, #0f172a, #1e293b 35%, rgba(30, 41, 59, 0));
+            z-index: 9; /* 돌멩이보다 아래, 물수제비 물보라 위에 배치 */
+            pointer-events: none;
+        }
+        #river-shore::before {
+            content: '';
+            position: absolute; inset: 0;
+            background-image: 
+                radial-gradient(circle at 10% 70%, #334155 22px, transparent 23px),
+                radial-gradient(circle at 22% 80%, #475569 18px, transparent 19px),
+                radial-gradient(circle at 35% 75%, #1e293b 25px, transparent 26px),
+                radial-gradient(circle at 48% 85%, #64748b 15px, transparent 16px),
+                radial-gradient(circle at 62% 70%, #334155 24px, transparent 25px),
+                radial-gradient(circle at 75% 82%, #475569 20px, transparent 21px),
+                radial-gradient(circle at 88% 75%, #1e293b 28px, transparent 29px),
+                radial-gradient(circle at 96% 80%, #64748b 16px, transparent 17px);
+            opacity: 0.9;
+            filter: blur(1.2px); /* 카메라 아웃포커스(심도) 처리로 입체감 강화 */
         }
 
         /* 자산 정보 표시 */
         .asset-bar { position: absolute; top: 15px; left: 15px; right: 15px; display: flex; justify-content: space-between; gap: 8px; z-index: 200; pointer-events: none; }
-        .asset-box { background: rgba(15, 23, 42, 0.85); padding: 10px 16px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.15); font-weight: bold; font-size: 14px; display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); backdrop-filter: blur(5px); }
+        .asset-box { 
+            background: var(--glass-bg); 
+            padding: 10px 16px; 
+            border-radius: 20px; 
+            border: 1px solid var(--glass-border); 
+            font-weight: bold; 
+            font-size: 14px; 
+            display: flex; 
+            align-items: center; 
+            gap: 6px; 
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3); 
+            backdrop-filter: blur(10px); 
+            -webkit-backdrop-filter: blur(10px);
+        }
         #hearts-count { color: var(--danger); }
         #sp-count { color: var(--primary); }
         #user-name { color: #f8fafc; font-weight: 900; }
@@ -74,7 +140,7 @@
             cursor: grab; z-index: 10;
             box-shadow: 0 10px 20px rgba(0,0,0,0.5);
             display: none; touch-action: none;
-            transition: background 0.3s;
+            transition: background 0.3s, box-shadow 0.3s, width 0.3s, height 0.3s;
         }
 
         /* 이펙트 캔버스 */
@@ -137,8 +203,23 @@
         #message { font-size: 18px; color: white; margin-top: 8px; font-weight: bold; text-shadow: 0 2px 6px rgba(0,0,0,0.6); }
         
         /* 룰렛 화면 */
-        #roulette-screen { position: absolute; inset: 0; background: rgba(15, 23, 42, 0.95); z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .wheel-container { width: 240px; height: 240px; border: 8px solid var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; position: relative; margin-bottom: 25px; background: #1e293b; box-shadow: 0 0 30px rgba(222,255,154,0.35); cursor: pointer; transition: transform 0.1s ease-out; }
+        #roulette-screen { 
+            position: absolute; inset: 0; 
+            background: radial-gradient(circle at 50% 50%, rgba(15, 23, 42, 0.65), rgba(15, 23, 42, 0.92)); 
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; 
+        }
+        .wheel-container { 
+            width: 240px; height: 240px; 
+            border-radius: 50%; 
+            display: flex; align-items: center; justify-content: center; 
+            position: relative; margin-bottom: 25px; 
+            background: rgba(30, 41, 59, 0.8); 
+            border: 2px solid rgba(222, 255, 154, 0.35);
+            box-shadow: 0 0 40px rgba(222,255,154,0.25); 
+            cursor: pointer; transition: transform 0.1s ease-out; 
+        }
         .pointer { position: absolute; top: -20px; width: 0; height: 0; border-left: 15px solid transparent; border-right: 15px solid transparent; border-top: 25px solid #ef4444; z-index: 110; }
         #stone-display-name { font-size: 24px; font-weight: bold; color: white; text-align: center; padding: 10px; pointer-events: none; }
         
@@ -147,7 +228,7 @@
         .secondary-btn { background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2); padding: 12px 30px; font-size: 16px; font-weight: bold; border-radius: 30px; cursor: pointer; margin-top: 15px; transition: background 0.2s, transform 0.2s; }
         .secondary-btn:active { transform: scale(0.95); }
         .secondary-btn:hover { background: rgba(255,255,255,0.18); }
-
+ 
         /* 판정 글자 효과 */
         .effect-text {
             position: absolute; font-size: 48px; font-weight: 900;
@@ -174,16 +255,20 @@
             75% { opacity: 1; }
             100% { transform: translate(-50%, -180%) scale(0.9) rotate(0deg); opacity: 0; }
         }
-
+ 
         /* 결과 화면 모달 */
         #result-modal {
-            position: absolute; inset: 0; background: rgba(15, 23, 42, 0.9);
+            position: absolute; inset: 0; 
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
             z-index: 250; display: none; flex-direction: column; align-items: center; justify-content: center;
         }
         .result-box {
-            background: #1e293b; border: 2px solid var(--primary); border-radius: 24px;
+            background: rgba(30, 41, 59, 0.88); 
+            border: 2px solid var(--primary); border-radius: 24px;
             padding: 40px; width: 80%; max-width: 400px; text-align: center;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+            box-shadow: 0 20px 45px rgba(0,0,0,0.4);
             animation: modal-appear 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
         }
         @keyframes modal-appear {
@@ -194,17 +279,20 @@
         .result-item { display: flex; justify-content: space-between; font-size: 18px; margin: 15px 0; padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.08); }
         .result-label { color: #94a3b8; }
         .result-val { font-weight: bold; }
-
+ 
         /* 업그레이드 상점 모달 */
         #shop-modal {
-            position: absolute; inset: 0; background: rgba(15, 23, 42, 0.94);
+            position: absolute; inset: 0; 
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
             z-index: 280; display: none; flex-direction: column; align-items: center; justify-content: center;
-            backdrop-filter: blur(6px);
         }
         .shop-box {
-            background: #1e293b; border: 2px solid var(--primary); border-radius: 28px;
+            background: rgba(30, 41, 59, 0.9); 
+            border: 2px solid var(--primary); border-radius: 28px;
             padding: 30px; width: 90%; max-width: 440px; text-align: center;
-            box-shadow: 0 25px 50px rgba(0,0,0,0.6);
+            box-shadow: 0 25px 50px rgba(0,0,0,0.5);
             animation: modal-appear 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
         }
         .shop-title { font-size: 24px; font-weight: 900; color: var(--primary); margin-bottom: 5px; }
@@ -245,8 +333,15 @@
 <body>
 
     <div id="game-container">
+        <!-- 배경 강물 빛 반짝임 및 깊이감 오버레이 -->
+        <div class="water-overlay"></div>
+        <div class="water-shimmer"></div>
+        
         <div class="grid-layer"></div>
         <canvas id="effect-canvas"></canvas>
+        
+        <!-- 하단 자갈밭 강안 Shore -->
+        <div id="river-shore"></div>
 
         <div class="asset-bar">
             <!-- 텔레그램 유저 프로필 카드 -->
@@ -361,6 +456,8 @@
     </div>
 
     <script>
+
+
         // --- 📊 [확률 대조정 완료] ---
         const stones = [
             { 
@@ -560,10 +657,14 @@
             
             // 2차: 백그라운드 텔레그램 클라우드 동기화 (네트워크 비동기)
             if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.CloudStorage) {
-                window.Telegram.WebApp.CloudStorage.setItem('stone_skipper_data', dataStr, (err, success) => {
-                    if (err) console.error("텔레그램 클라우드 저장 실패:", err);
-                    else console.log("텔레그램 클라우드 저장 완료.");
-                });
+                try {
+                    window.Telegram.WebApp.CloudStorage.setItem('stone_skipper_data', dataStr, (err, success) => {
+                        if (err) console.error("텔레그램 클라우드 저장 실패:", err);
+                        else console.log("텔레그램 클라우드 저장 완료.");
+                    });
+                } catch(e) {
+                    console.warn("텔레그램 CloudStorage.setItem 미지원 환경:", e);
+                }
             }
         }
 
@@ -587,49 +688,53 @@
 
             // 2차: 텔레그램 클라우드 비동기 데이터 획득 후 병합(Merge) 연산
             if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.CloudStorage) {
-                window.Telegram.WebApp.CloudStorage.getItem('stone_skipper_data', (err, value) => {
-                    if (!err && value) {
-                        try {
-                            const parsed = JSON.parse(value);
-                            const cloudSP = parsed.sp || 0;
-                            const cloudWeight = parsed.upgrades ? parsed.upgrades.weight || 0 : 0;
-                            const cloudElasticity = parsed.upgrades ? parsed.upgrades.elasticity || 0 : 0;
-                            const cloudSpin = parsed.upgrades ? parsed.upgrades.spin || 0 : 0;
-                            
-                            let isMerged = false;
-                            
-                            // 더 높은 수치 선택 (진행 상태 우선)
-                            if (cloudSP > playerSP) {
-                                playerSP = cloudSP;
-                                isMerged = true;
-                            }
-                            if (cloudWeight > upgrades.weight) {
-                                upgrades.weight = cloudWeight;
-                                isMerged = true;
-                            }
-                            if (cloudElasticity > upgrades.elasticity) {
-                                upgrades.elasticity = cloudElasticity;
-                                isMerged = true;
-                            }
-                            if (cloudSpin > upgrades.spin) {
-                                upgrades.spin = cloudSpin;
-                                isMerged = true;
-                            }
-                            
-                            if (isMerged) {
-                                console.log("텔레그램 클라우드 백업 데이터로 병합 완료.");
-                                updateAssetUI();
-                                if (shopModal.style.display === 'flex') {
-                                    updateShopUI();
+                try {
+                    window.Telegram.WebApp.CloudStorage.getItem('stone_skipper_data', (err, value) => {
+                        if (!err && value) {
+                            try {
+                                const parsed = JSON.parse(value);
+                                const cloudSP = parsed.sp || 0;
+                                const cloudWeight = parsed.upgrades ? parsed.upgrades.weight || 0 : 0;
+                                const cloudElasticity = parsed.upgrades ? parsed.upgrades.elasticity || 0 : 0;
+                                const cloudSpin = parsed.upgrades ? parsed.upgrades.spin || 0 : 0;
+                                
+                                let isMerged = false;
+                                
+                                // 더 높은 수치 선택 (진행 상태 우선)
+                                if (cloudSP > playerSP) {
+                                    playerSP = cloudSP;
+                                    isMerged = true;
                                 }
-                                // 로컬 복사본 갱신
-                                localStorage.setItem('xnot_stone_skipper_save', JSON.stringify({ sp: playerSP, upgrades: upgrades }));
+                                if (cloudWeight > upgrades.weight) {
+                                    upgrades.weight = cloudWeight;
+                                    isMerged = true;
+                                }
+                                if (cloudElasticity > upgrades.elasticity) {
+                                    upgrades.elasticity = cloudElasticity;
+                                    isMerged = true;
+                                }
+                                if (cloudSpin > upgrades.spin) {
+                                    upgrades.spin = cloudSpin;
+                                    isMerged = true;
+                                }
+                                
+                                if (isMerged) {
+                                    console.log("텔레그램 클라우드 백업 데이터로 병합 완료.");
+                                    updateAssetUI();
+                                    if (shopModal.style.display === 'flex') {
+                                        updateShopUI();
+                                    }
+                                    // 로컬 복사본 갱신
+                                    localStorage.setItem('xnot_stone_skipper_save', JSON.stringify({ sp: playerSP, upgrades: upgrades }));
+                                }
+                            } catch(e) {
+                                console.error("클라우드 세이브 파싱 에러:", e);
                             }
-                        } catch(e) {
-                            console.error("클라우드 세이브 파싱 에러:", e);
                         }
-                    }
-                });
+                    });
+                } catch(e) {
+                    console.warn("텔레그램 CloudStorage.getItem 미지원 환경:", e);
+                }
             }
         }
 
@@ -674,6 +779,41 @@
             }
         }
 
+        function setStoneStyle(stone) {
+            if (!stone) return;
+            let width = "90px";
+            let height = "60px";
+            let background = "";
+            let boxShadow = "";
+            
+            if (stone.name === "납작한 슬레이트") {
+                width = "105px";
+                height = "42px";
+                background = "radial-gradient(circle at 30% 25%, #64748b 0%, #475569 50%, #1e293b 100%)";
+                boxShadow = "0 6px 12px rgba(0,0,0,0.5), inset 0 2px 3px rgba(255,255,255,0.25)";
+            } else if (stone.name === "거친 강가 조약돌") {
+                width = "85px";
+                height = "60px";
+                background = "radial-gradient(circle at 35% 35%, #94a3b8 0%, #64748b 60%, #334155 100%)";
+                boxShadow = "0 8px 16px rgba(0,0,0,0.5), inset -2px -2px 6px rgba(0,0,0,0.4)";
+            } else if (stone.name === "고밀도 현무암") {
+                width = "95px";
+                height = "70px";
+                background = "radial-gradient(circle at 40% 40%, #475569 0%, #1e293b 60%, #090d16 100%)";
+                boxShadow = "0 12px 24px rgba(0,0,0,0.65), inset 0 -4px 8px rgba(0,0,0,0.5)";
+            } else if (stone.name === "XNOT 황금 운석") {
+                width = "90px";
+                height = "62px";
+                background = "radial-gradient(circle at 30% 30%, #fef08a 0%, #facc15 45%, #ca8a04 80%, #78350f 100%)";
+                boxShadow = "0 0 15px rgba(250, 204, 21, 0.45), 0 8px 20px rgba(0,0,0,0.4), inset 0 3px 5px rgba(255,255,255,0.5)";
+            }
+            
+            stoneEl.style.width = width;
+            stoneEl.style.height = height;
+            stoneEl.style.background = background;
+            stoneEl.style.boxShadow = boxShadow;
+        }
+
         function triggerWheel(e) {
             if (e && e.preventDefault) e.preventDefault();
             if (playerHearts <= 0) {
@@ -701,7 +841,7 @@
                     selectedStone = current;
                     wheelEl.style.transform = `rotate(0deg)`; 
                     stoneDisplayName.innerText = selectedStone.name;
-                    stoneEl.style.background = `radial-gradient(circle at 30% 30%, ${selectedStone.color}, #111)`;
+                    setStoneStyle(selectedStone);
                     
                     document.getElementById('roulette-title').innerText = "STONE READY!";
                     mainBtn.innerText = "LAUNCH STONE (❤️ 1 소모)";
@@ -1014,6 +1154,23 @@
                 stoneState.isCrit = isCrit;
                 stoneState.isLotto = isLotto;
                 
+                // 돌 던진 후 돌에 활성화될 아우라 스타일 설정
+                let launchBoxShadow = "0 8px 20px rgba(0,0,0,0.4)";
+                if (isLotto) {
+                    launchBoxShadow = "0 0 35px rgba(251, 191, 36, 0.95), 0 0 15px rgba(222, 255, 154, 0.6), 0 8px 20px rgba(0,0,0,0.4)";
+                } else if (isCrit) {
+                    if (selectedStone.name === "고밀도 현무암" || (selectedStone.name === "XNOT 황금 운석" && activePhysics.frictionFactor === 0.998)) {
+                        launchBoxShadow = "0 0 30px rgba(168, 85, 247, 0.9), 0 0 15px rgba(239, 68, 68, 0.6), 0 8px 20px rgba(0,0,0,0.4)";
+                    } else {
+                        launchBoxShadow = "0 0 25px rgba(56, 189, 248, 0.95), 0 8px 20px rgba(0,0,0,0.4)";
+                    }
+                } else {
+                    if (selectedStone.name === "XNOT 황금 운석") {
+                        launchBoxShadow = "0 0 20px rgba(250, 204, 21, 0.6), 0 8px 20px rgba(0,0,0,0.4)";
+                    }
+                }
+                stoneEl.style.boxShadow = launchBoxShadow;
+                
                 bounceCount = 0;
                 perfectCount = 0;
                 isDead = false;
@@ -1100,6 +1257,15 @@
             
             if (stoneState.vy < 0.8) {
                 triggerWaterSink();
+            }
+            
+            // 날아가고 있는 동안 궤적(Tail) 파티클 생성
+            if (currentStatus === "FLYING" && !isDead) {
+                const depthFactor = 450;
+                const scale = depthFactor / (depthFactor + stoneState.y);
+                const screenX = centerX + stoneState.x * scale;
+                const screenY = centerY + (window.innerHeight - centerY) * scale - stoneState.z * scale;
+                createTrailParticle(screenX, screenY, scale, stoneState.isCrit, stoneState.isLotto);
             }
             
             applyStoneTransform();
@@ -1347,6 +1513,57 @@
             
             container.appendChild(textEl);
             setTimeout(() => { textEl.remove(); }, 900);
+        }
+
+        // Canvas 돌 궤적 파티클 클래스
+        class TrailParticle {
+            constructor(x, y, scale, isCrit, isLotto) {
+                this.x = x + (Math.random() - 0.5) * 15 * scale;
+                this.y = y + (Math.random() - 0.5) * 10 * scale;
+                this.radius = (Math.random() * 4 + 2) * scale;
+                this.alpha = 0.8;
+                this.vx = (Math.random() - 0.5) * 1 * scale;
+                this.vy = (Math.random() - 0.5) * 1 * scale + 0.3; // 약간 하강
+                this.decay = Math.random() * 0.035 + 0.02;
+                
+                if (isLotto) {
+                    const rand = Math.random();
+                    this.color = rand > 0.6 ? "#fbbf24" : (rand > 0.3 ? "#c084fc" : "#34d399"); // 금색, 보라, 에메랄드
+                } else if (isCrit) {
+                    this.color = Math.random() > 0.5 ? "#38bdf8" : "#e0f2fe"; // 하늘색
+                } else {
+                    this.color = Math.random() > 0.6 ? "#ffedd5" : "rgba(255, 255, 255, 0.4)"; // 흰/노을빛
+                }
+            }
+            
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.alpha -= this.decay;
+            }
+            
+            draw(ctx) {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.alpha);
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                
+                if (this.color !== "rgba(255, 255, 255, 0.4)") {
+                    ctx.shadowBlur = 8;
+                    ctx.shadowColor = this.color;
+                }
+                
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        function createTrailParticle(x, y, scale, isCrit, isLotto) {
+            const count = isLotto ? 3 : (isCrit ? 2 : 1);
+            for (let i = 0; i < count; i++) {
+                particles.push(new TrailParticle(x, y, scale, isCrit, isLotto));
+            }
         }
 
         // Canvas 물방울 파티클 클래스
