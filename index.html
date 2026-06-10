@@ -96,16 +96,30 @@
         }
         #angle-gauge-bar {
             position: absolute; bottom: 0; width: 100%; height: 0%;
-            background: linear-gradient(to top, #3b82f6, #10b981, #ef4444);
+            background: rgba(255, 255, 255, 0.22);
+            border-top: 2px solid #ffffff;
             transition: height 0.05s linear;
+            z-index: 3;
+            pointer-events: none;
         }
-        #angle-gauge-perfect-zone {
-            position: absolute; bottom: 45%; left: 0; width: 100%; height: 15%;
-            background: rgba(222, 255, 154, 0.35); 
-            border-top: 2px dashed var(--primary);
-            border-bottom: 2px dashed var(--primary);
+        .angle-gauge-zone {
+            position: absolute; left: 0; width: 100%;
             box-sizing: border-box;
             display: flex; align-items: center; justify-content: center;
+        }
+        .red-zone {
+            background: rgba(239, 68, 68, 0.45); /* 옅은 빨강 */
+        }
+        .safety-zone {
+            background: rgba(56, 189, 248, 0.3); /* 옅은 하늘색 */
+            border-top: 1px dashed rgba(56, 189, 248, 0.5);
+            border-bottom: 1px dashed rgba(56, 189, 248, 0.5);
+        }
+        .perfect-zone {
+            background: rgba(222, 255, 154, 0.45); /* 옅은 연두(골드) */
+            border-top: 2px dashed var(--primary);
+            border-bottom: 2px dashed var(--primary);
+            z-index: 2;
         }
         #angle-gauge-perfect-text {
             font-size: 9px; font-weight: 900; color: var(--primary); letter-spacing: 0.5px;
@@ -114,7 +128,7 @@
         #angle-gauge-marker {
             position: absolute; left: 0; right: 0; height: 4px; background: white;
             box-shadow: 0 0 8px white, 0 0 15px white; transform: translateY(-50%);
-            z-index: 2;
+            z-index: 4;
         }
 
         /* 안내 UI */
@@ -253,10 +267,14 @@
         </div>
 
         <div id="angle-gauge-container">
-            <div id="angle-gauge-bar"></div>
-            <div id="angle-gauge-perfect-zone">
+            <div id="angle-gauge-red-zone-top" class="angle-gauge-zone red-zone"></div>
+            <div id="angle-gauge-safety-zone-top" class="angle-gauge-zone safety-zone"></div>
+            <div id="angle-gauge-perfect-zone" class="angle-gauge-zone perfect-zone">
                 <div id="angle-gauge-perfect-text">PERFECT</div>
             </div>
+            <div id="angle-gauge-safety-zone-bottom" class="angle-gauge-zone safety-zone"></div>
+            <div id="angle-gauge-red-zone-bottom" class="angle-gauge-zone red-zone"></div>
+            <div id="angle-gauge-bar"></div>
             <div id="angle-gauge-marker"></div>
         </div>
 
@@ -353,6 +371,7 @@
 
         let playerHearts = 5;
         let playerSP = 0;
+        let currentSwipeSpeed = 0;
 
         // 업그레이드 데이터 스토어 (최대 레벨 10)
         let upgrades = {
@@ -682,14 +701,82 @@
         }
 
         // --- 📐 [각도 조절 게이지 컨트롤 및 스핀 연동] ---
+        function getAngleZone(angle) {
+            const spinPerfectRange = 2 + upgrades.spin * 0.8;
+            const remainingHalf = 15 - spinPerfectRange;
+            const safetyRange = remainingHalf * 0.6;
+            const redRange = remainingHalf * 0.4;
+            
+            // Perfect zone
+            if (angle >= 20 - spinPerfectRange && angle <= 20 + spinPerfectRange) {
+                return "PERFECT";
+            }
+            
+            // Safety zone (아래쪽, 위쪽)
+            if ((angle >= 5 + redRange && angle < 20 - spinPerfectRange) ||
+                (angle > 20 + spinPerfectRange && angle <= 20 + spinPerfectRange + safetyRange)) {
+                return "SAFETY";
+            }
+            
+            // Red zone (아래쪽, 위쪽)
+            if ((angle >= 5 && angle < 5 + redRange) ||
+                (angle > 20 + spinPerfectRange + safetyRange && angle <= 35)) {
+                return "RED";
+            }
+            
+            // 기본 안전 장치
+            return "RED";
+        }
+
         function updateAngleGaugePerfectZoneUI() {
             const spinPerfectRange = 2 + upgrades.spin * 0.8;
-            const bottomPercent = ((20 - spinPerfectRange - 5) / 30) * 100;
-            const heightPercent = ((spinPerfectRange * 2) / 30) * 100;
+            
+            // 남은 위아래 각도 구간의 최대 크기 계산 (5도 ~ 35도 기준, center 20)
+            const remainingHalf = 15 - spinPerfectRange;
+            const safetyRange = remainingHalf * 0.6;
+            const redRange = remainingHalf * 0.4;
+            
+            // 1. 아래쪽 Red Zone (5도부터 redRange만큼)
+            const redBottomAngle = 5;
+            const redBottomPercent = ((redBottomAngle - 5) / 30) * 100;
+            const redBottomHeightPercent = (redRange / 30) * 100;
+            
+            // 2. 아래쪽 Safety Zone (그 위부터 safetyRange만큼)
+            const safetyBottomAngle = 5 + redRange;
+            const safetyBottomPercent = ((safetyBottomAngle - 5) / 30) * 100;
+            const safetyBottomHeightPercent = (safetyRange / 30) * 100;
+            
+            // 3. Perfect Zone (중앙)
+            const perfectBottomAngle = 20 - spinPerfectRange;
+            const perfectBottomPercent = ((perfectBottomAngle - 5) / 30) * 100;
+            const perfectHeightPercent = ((spinPerfectRange * 2) / 30) * 100;
+            
+            // 4. 위쪽 Safety Zone (Perfect Zone 위부터 safetyRange만큼)
+            const safetyTopAngle = 20 + spinPerfectRange;
+            const safetyTopPercent = ((safetyTopAngle - 5) / 30) * 100;
+            const safetyTopHeightPercent = (safetyRange / 30) * 100;
+            
+            // 5. 위쪽 Red Zone (그 위부터 redRange만큼)
+            const redTopAngle = 20 + spinPerfectRange + safetyRange;
+            const redTopPercent = ((redTopAngle - 5) / 30) * 100;
+            const redTopHeightPercent = (redRange / 30) * 100;
+            
+            // UI에 스타일 적용
+            document.getElementById('angle-gauge-red-zone-bottom').style.bottom = `${redBottomPercent}%`;
+            document.getElementById('angle-gauge-red-zone-bottom').style.height = `${redBottomHeightPercent}%`;
+            
+            document.getElementById('angle-gauge-safety-zone-bottom').style.bottom = `${safetyBottomPercent}%`;
+            document.getElementById('angle-gauge-safety-zone-bottom').style.height = `${safetyBottomHeightPercent}%`;
             
             const perfectZoneEl = document.getElementById('angle-gauge-perfect-zone');
-            perfectZoneEl.style.bottom = `${bottomPercent}%`;
-            perfectZoneEl.style.height = `${heightPercent}%`;
+            perfectZoneEl.style.bottom = `${perfectBottomPercent}%`;
+            perfectZoneEl.style.height = `${perfectHeightPercent}%`;
+            
+            document.getElementById('angle-gauge-safety-zone-top').style.bottom = `${safetyTopPercent}%`;
+            document.getElementById('angle-gauge-safety-zone-top').style.height = `${safetyTopHeightPercent}%`;
+            
+            document.getElementById('angle-gauge-red-zone-top').style.bottom = `${redTopPercent}%`;
+            document.getElementById('angle-gauge-red-zone-top').style.height = `${redTopHeightPercent}%`;
         }
 
         function startAngleGauge() {
@@ -699,8 +786,8 @@
             function updateGauge() {
                 if (currentStatus !== "READY_TO_LAUNCH") return;
                 
-                // 게이지 왕복 속도를 50% 줄여 조작 난이도를 낮춤 (기존 0.04 -> 0.02)
-                angleValue += angleDirection * 0.02;
+                // 게이지 왕복 속도를 대폭 줄여 조작 난이도를 대폭 낮춤 (0.02 -> 0.01)
+                angleValue += angleDirection * 0.01;
                 if (angleValue >= 1) {
                     angleValue = 1;
                     angleDirection = -1;
@@ -797,6 +884,7 @@
                 triggerHaptic('medium');
                 
                 const swipeSpeed = Math.min(dy / duration * 10, 28); 
+                currentSwipeSpeed = swipeSpeed;
                 
                 stoneState.x = 0;
                 stoneState.y = 0;
@@ -862,7 +950,12 @@
             
             if (stoneState.z <= 0) {
                 if (!hasTappedThisBounce) {
-                    triggerWaterMiss();
+                    if (getAngleZone(launchAngle) === "SAFETY") {
+                        hasTappedThisBounce = true;
+                        processBounce("GOOD");
+                    } else {
+                        triggerWaterMiss();
+                    }
                 }
             }
             
@@ -900,10 +993,25 @@
             if (currentStatus !== "FLYING" || isDead) return;
             if (hasTappedThisBounce) return;
             
-            const spinTimingTolerance = 3.5 + upgrades.spin * 0.45;
-            const maxZThreshold = 18 + upgrades.spin * 1.0;
+            const zone = getAngleZone(launchAngle);
             
-            if (stoneState.z <= maxZThreshold && stoneState.z >= -6 && stoneState.vz < 0) {
+            // Red zone인 경우 탭해도 안 튕김
+            if (zone === "RED") {
+                return;
+            }
+            
+            let spinTimingTolerance = 3.5 + upgrades.spin * 0.45;
+            let maxZThreshold = 18 + upgrades.spin * 1.0;
+            let minZThreshold = -6;
+            
+            // Safety zone 버프: 탭 판정 범위 대폭 확장
+            if (zone === "SAFETY") {
+                spinTimingTolerance *= 2.0;
+                maxZThreshold *= 1.8;
+                minZThreshold = -12;
+            }
+            
+            if (stoneState.z <= maxZThreshold && stoneState.z >= minZThreshold && stoneState.vz < 0) {
                 hasTappedThisBounce = true;
                 const timingDiff = Math.abs(stoneState.z); 
                 
@@ -911,10 +1019,19 @@
                 const isPerfectAngle = (launchAngle >= 20 - spinPerfectAngleRange && launchAngle <= 20 + spinPerfectAngleRange);
                 
                 let rating = "BAD";
-                if (timingDiff <= spinTimingTolerance && isPerfectAngle) {
-                    rating = "PERFECT";
-                } else if (timingDiff <= spinTimingTolerance * 2.0) {
-                    rating = "GOOD";
+                if (zone === "SAFETY") {
+                    // Safety zone에서는 최소 GOOD 판정 이상 보장
+                    if (timingDiff <= spinTimingTolerance * 0.8) {
+                        rating = "PERFECT";
+                    } else {
+                        rating = "GOOD";
+                    }
+                } else {
+                    if (timingDiff <= spinTimingTolerance && isPerfectAngle) {
+                        rating = "PERFECT";
+                    } else if (timingDiff <= spinTimingTolerance * 2.0) {
+                        rating = "GOOD";
+                    }
                 }
                 
                 processBounce(rating);
@@ -978,9 +1095,28 @@
             
             spawnBouncePointMark(screenX, screenY, bounceCount);
             
+            // 슬라이드 속도 반영 (속도 보너스 인자 계산)
+            const speedBonus = 1.0 + (currentSwipeSpeed / 30);
+            
+            const zone = getAngleZone(launchAngle);
+            
+            // Safety Zone에서는 추가적인 반발 및 전진 보너스
+            let zoneMult = 1.0;
+            let zoneVzBonus = 0;
+            if (zone === "SAFETY") {
+                zoneMult = 1.25; // 감쇠 완화 및 가속
+                zoneVzBonus = 0.8;
+            }
+            
             stoneState.z = 0.1; 
-            stoneState.vz = baseVzPower * elasticityMultiplier; 
-            stoneState.vy *= multEffect; 
+            stoneState.vz = (baseVzPower + zoneVzBonus) * elasticityMultiplier * speedBonus; 
+            
+            // 수평 전진 감속 방지 (속도 비례 복구)
+            const currentVy = stoneState.vy;
+            const nextVy = currentVy * multEffect * (1.0 + (currentSwipeSpeed * 0.004)) * zoneMult;
+            // vy가 이전보다 커질 수는 없도록(Perfect 제외) 최대 감쇠 방지 상한선 적용
+            stoneState.vy = Math.min(nextVy, currentVy * Math.max(0.96, multEffect * zoneMult));
+            
             stoneState.vx *= 0.9;
             
             hasTappedThisBounce = false;
