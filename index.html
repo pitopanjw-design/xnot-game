@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>XNOT Stone Skipper V3.5</title>
+    <!-- 텔레그램 미니앱 공식 SDK 추가 -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         :root { 
             --primary: #deff9a; 
@@ -30,10 +32,11 @@
         }
 
         /* 자산 정보 표시 */
-        .asset-bar { position: absolute; top: 15px; left: 15px; right: 15px; display: flex; justify-content: space-between; z-index: 200; pointer-events: none; }
-        .asset-box { background: rgba(15, 23, 42, 0.85); padding: 10px 20px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.15); font-weight: bold; font-size: 16px; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); backdrop-filter: blur(5px); }
+        .asset-bar { position: absolute; top: 15px; left: 15px; right: 15px; display: flex; justify-content: space-between; gap: 8px; z-index: 200; pointer-events: none; }
+        .asset-box { background: rgba(15, 23, 42, 0.85); padding: 10px 16px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.15); font-weight: bold; font-size: 14px; display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); backdrop-filter: blur(5px); }
         #hearts-count { color: var(--danger); }
         #sp-count { color: var(--primary); }
+        #user-name { color: #f8fafc; font-weight: 900; }
 
         /* 수면 파동 */
         .ripple {
@@ -232,6 +235,8 @@
         <canvas id="effect-canvas"></canvas>
 
         <div class="asset-bar">
+            <!-- 텔레그램 유저 프로필 카드 -->
+            <div class="asset-box" id="user-card" style="display: none;">👤 <span id="user-name">Guest</span></div>
             <div class="asset-box">❤️ 하트: <span id="hearts-count">5</span> / 5</div>
             <div class="asset-box">💎 <span id="sp-count">0</span> SP</div>
         </div>
@@ -425,16 +430,55 @@
         window.addEventListener('resize', resizeCanvas);
         resizeCanvas();
 
-        // --- 💾 [로컬스토리지 세이브/로드 구현] ---
+        // --- 📳 [TMA 햅틱 피드백 헬퍼 함수 구현] ---
+        function triggerHaptic(type) {
+            if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.HapticFeedback) {
+                try {
+                    switch (type) {
+                        case 'light':
+                            window.Telegram.WebApp.HapticFeedback.impactOccurred('light');
+                            break;
+                        case 'medium':
+                            window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
+                            break;
+                        case 'heavy':
+                            window.Telegram.WebApp.HapticFeedback.impactOccurred('heavy');
+                            break;
+                        case 'error':
+                            window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
+                            break;
+                        case 'success':
+                            window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                            break;
+                    }
+                } catch (e) {
+                    console.warn("햅틱 API 호출 거부 또는 미지원 디바이스:", e);
+                }
+            }
+        }
+
+        // --- 💾 [로컬스토리지 + 텔레그램 CloudStorage 이중 저장 시스템 구현] ---
         function saveData() {
-            const data = {
+            const dataObj = {
                 sp: playerSP,
                 upgrades: upgrades
             };
-            localStorage.setItem('xnot_stone_skipper_save', JSON.stringify(data));
+            const dataStr = JSON.stringify(dataObj);
+            
+            // 1차: 로컬스토리지 즉시 동기화 보존
+            localStorage.setItem('xnot_stone_skipper_save', dataStr);
+            
+            // 2차: 백그라운드 텔레그램 클라우드 동기화 (네트워크 비동기)
+            if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.CloudStorage) {
+                window.Telegram.WebApp.CloudStorage.setItem('stone_skipper_data', dataStr, (err, success) => {
+                    if (err) console.error("텔레그램 클라우드 저장 실패:", err);
+                    else console.log("텔레그램 클라우드 저장 완료.");
+                });
+            }
         }
 
         function loadData() {
+            // 1차: 로컬스토리지 즉시 복원 (빠른 진입 UX)
             const saved = localStorage.getItem('xnot_stone_skipper_save');
             if (saved) {
                 try {
@@ -446,10 +490,81 @@
                         upgrades.spin = parsed.upgrades.spin || 0;
                     }
                 } catch(e) {
-                    console.error("세이브 로드 오류:", e);
+                    console.error("로컬 세이브 로드 오류:", e);
                 }
             }
             updateAssetUI();
+
+            // 2차: 텔레그램 클라우드 비동기 데이터 획득 후 병합(Merge) 연산
+            if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.CloudStorage) {
+                window.Telegram.WebApp.CloudStorage.getItem('stone_skipper_data', (err, value) => {
+                    if (!err && value) {
+                        try {
+                            const parsed = JSON.parse(value);
+                            const cloudSP = parsed.sp || 0;
+                            const cloudWeight = parsed.upgrades ? parsed.upgrades.weight || 0 : 0;
+                            const cloudElasticity = parsed.upgrades ? parsed.upgrades.elasticity || 0 : 0;
+                            const cloudSpin = parsed.upgrades ? parsed.upgrades.spin || 0 : 0;
+                            
+                            let isMerged = false;
+                            
+                            // 더 높은 수치 선택 (진행 상태 우선)
+                            if (cloudSP > playerSP) {
+                                playerSP = cloudSP;
+                                isMerged = true;
+                            }
+                            if (cloudWeight > upgrades.weight) {
+                                upgrades.weight = cloudWeight;
+                                isMerged = true;
+                            }
+                            if (cloudElasticity > upgrades.elasticity) {
+                                upgrades.elasticity = cloudElasticity;
+                                isMerged = true;
+                            }
+                            if (cloudSpin > upgrades.spin) {
+                                upgrades.spin = cloudSpin;
+                                isMerged = true;
+                            }
+                            
+                            if (isMerged) {
+                                console.log("텔레그램 클라우드 백업 데이터로 병합 완료.");
+                                updateAssetUI();
+                                if (shopModal.style.display === 'flex') {
+                                    updateShopUI();
+                                }
+                                // 로컬 복사본 갱신
+                                localStorage.setItem('xnot_stone_skipper_save', JSON.stringify({ sp: playerSP, upgrades: upgrades }));
+                            }
+                        } catch(e) {
+                            console.error("클라우드 세이브 파싱 에러:", e);
+                        }
+                    }
+                });
+            }
+        }
+
+        // --- 🤖 [텔레그램 미니앱 SDK 초기화 코드] ---
+        function initTelegramWebApp() {
+            if (window.Telegram && window.Telegram.WebApp) {
+                const tg = window.Telegram.WebApp;
+                tg.ready();
+                tg.expand();
+                
+                // 테마 비주얼 맞춤
+                try {
+                    tg.setHeaderColor('#0f172a');
+                    tg.setBackgroundColor('#0f172a');
+                } catch(e) {}
+
+                // 유저 정보 가져오기 및 렌더링
+                const user = tg.initDataUnsafe.user;
+                if (user) {
+                    const userCard = document.getElementById('user-card');
+                    const userNameSpan = document.getElementById('user-name');
+                    userNameSpan.innerText = user.first_name || user.username || "Guest";
+                    userCard.style.display = 'flex';
+                }
+            }
         }
 
         function updateAssetUI() {
@@ -488,6 +603,9 @@
                 wheelEl.style.transform = `rotate(${tick * 45}deg)`;
                 tick++;
                 
+                // 룰렛 회전 째깍 햅틱
+                triggerHaptic('light');
+                
                 if(tick > 12) {
                     clearInterval(timer);
                     selectedStone = current;
@@ -501,6 +619,9 @@
                     mainBtn.style.color = "#0f172a";
                     currentStatus = "SPIN_DONE";
                     isSpinning = false;
+                    
+                    // 뽑기 완료 햅틱
+                    triggerHaptic('success');
                 }
             }, 90);
         }
@@ -518,7 +639,6 @@
                 playerHearts--; 
                 updateAssetUI();
 
-                // 룰렛 화면 닫기 및 게임 준비
                 rouletteScreen.style.display = 'none';
                 stoneEl.style.display = 'block';
                 stoneEl.style.left = "50%";
@@ -535,13 +655,8 @@
                 
                 currentStatus = "READY_TO_LAUNCH";
                 
-                // 스핀 능력치에 기반하여 화면 상의 Perfect Zone 시각 표시 업데이트
                 updateAngleGaugePerfectZoneUI();
-                
-                // 각도 게이지 애니메이션 루프 시작
                 startAngleGauge();
-                
-                // 이벤트 리스너 바인딩
                 bindLaunchEvents();
             }
         }
@@ -561,16 +676,14 @@
                     youtubeModal.style.display = 'none';
                     currentStatus = "PRE_SPIN";
                     updateAssetUI();
+                    triggerHaptic('success');
                 }
             }, 1000);
         }
 
         // --- 📐 [각도 조절 게이지 컨트롤 및 스핀 연동] ---
         function updateAngleGaugePerfectZoneUI() {
-            // 스핀 레벨당 PERFECT 판정 폭 증가 (레벨당 ±0.8도 확장, 기본 ±2도)
             const spinPerfectRange = 2 + upgrades.spin * 0.8;
-            
-            // 게이지 전체 범위: 5도 ~ 35도 (총 30도 폭)
             const bottomPercent = ((20 - spinPerfectRange - 5) / 30) * 100;
             const heightPercent = ((spinPerfectRange * 2) / 30) * 100;
             
@@ -586,7 +699,6 @@
             function updateGauge() {
                 if (currentStatus !== "READY_TO_LAUNCH") return;
                 
-                // 0 ~ 1 사이 왕복
                 angleValue += angleDirection * 0.04;
                 if (angleValue >= 1) {
                     angleValue = 1;
@@ -596,11 +708,9 @@
                     angleDirection = 1;
                 }
                 
-                // 화면 게이지 업데이트
                 angleGaugeBar.style.height = `${angleValue * 100}%`;
                 angleGaugeMarker.style.bottom = `${angleValue * 100}%`;
                 
-                // 각도 맵핑: 5도 ~ 35도
                 launchAngle = 5 + angleValue * 30;
                 
                 angleGaugeTimer = requestAnimationFrame(updateGauge);
@@ -657,7 +767,7 @@
             const dy = clientY - startY;
             const dx = clientX - startX;
             
-            if (dy < 0) { // 위로 드래그할 때만
+            if (dy < 0) { 
                 stoneEl.style.transform = `translate(calc(-50% + ${dx}px), ${dy}px) scale(1.05)`;
             }
             if (e.cancelable) e.preventDefault();
@@ -675,24 +785,22 @@
             const dx = clientX - startX;
             const duration = Date.now() - startTime;
             
-            // 드래그 거리가 충분한지
             if (dy > 50 && duration > 0) {
                 unbindLaunchEvents();
                 cancelAnimationFrame(angleGaugeTimer);
                 
-                // 가이드 및 게이지 비활성화
                 swipeGuide.style.display = 'none';
                 angleGaugeContainer.style.display = 'none';
                 
-                // 발사 속도 공식
+                // 돌 던지기 햅틱 트리거
+                triggerHaptic('medium');
+                
                 const swipeSpeed = Math.min(dy / duration * 10, 28); 
                 
-                // 물리 엔진 변수 세팅
                 stoneState.x = 0;
                 stoneState.y = 0;
                 stoneState.z = 15; 
                 
-                // 발사 각도 적용
                 const rad = launchAngle * Math.PI / 180;
                 stoneState.vy = swipeSpeed * Math.cos(rad);
                 stoneState.vz = swipeSpeed * Math.sin(rad) * 0.75; 
@@ -731,7 +839,6 @@
 
         function updatePhysics() {
             if (isDead) {
-                // 가라앉은 상태 물리
                 stoneState.vz -= gravity * 0.5;
                 stoneState.z += stoneState.vz;
                 
@@ -742,28 +849,22 @@
                 return;
             }
             
-            // 3D 위치 갱신
             stoneState.x += stoneState.vx;
             stoneState.y += stoneState.vy;
             stoneState.z += stoneState.vz;
             
-            // 중력 적용
             stoneState.vz -= gravity;
             
-            // 🏋️ [물리 공식 연동 - 무게 (Weight)]
-            // 무게 레벨당 수평 전진 저항 감쇠율 완화 (관성 증가, 기본 마찰 0.995)
             const weightMultiplier = 1.0 + (upgrades.weight * 0.0008);
             stoneState.vy *= Math.min(0.9995, 0.995 * weightMultiplier);
             stoneState.vx *= Math.min(0.999, 0.99 * weightMultiplier);
             
-            // 수면에 닿았는지 체크 (z <= 0)
             if (stoneState.z <= 0) {
                 if (!hasTappedThisBounce) {
                     triggerWaterMiss();
                 }
             }
             
-            // 전진 속도가 너무 느려지면 가라앉음
             if (stoneState.vy < 0.8) {
                 triggerWaterSink();
             }
@@ -793,24 +894,18 @@
             }
         }
 
-        // --- 🎯 [수면 타이밍 및 바운스 판정 - 스핀 연동] ---
+        // --- 🎯 [수면 타이밍 및 바운스 판정] ---
         function registerBounceTap(e) {
             if (currentStatus !== "FLYING" || isDead) return;
             if (hasTappedThisBounce) return;
             
-            // 🌀 [물리 공식 연동 - 스핀 (Spin)]
-            // 스핀 레벨당 Perfect 타이밍 탭 수치 오차 허용치 완화 (기본 3.5)
             const spinTimingTolerance = 3.5 + upgrades.spin * 0.45;
-            
-            // 탭 판정 범위 설정: Z 가 판정 한계 이내에 들어왔는지
             const maxZThreshold = 18 + upgrades.spin * 1.0;
             
             if (stoneState.z <= maxZThreshold && stoneState.z >= -6 && stoneState.vz < 0) {
                 hasTappedThisBounce = true;
                 const timingDiff = Math.abs(stoneState.z); 
                 
-                // 🌀 [물리 공식 연동 - 스핀 (Spin)]
-                // 스핀 레벨당 Perfect 각도 판정 폭 확장 (기본 ±2도)
                 const spinPerfectAngleRange = 2 + upgrades.spin * 0.8;
                 const isPerfectAngle = (launchAngle >= 20 - spinPerfectAngleRange && launchAngle <= 20 + spinPerfectAngleRange);
                 
@@ -839,8 +934,6 @@
             spawnRatingText(screenX, screenY, rating);
             spawnRipple(screenX, screenY);
             
-            // 🥎 [물리 공식 연동 - 탄성 (Elasticity)]
-            // 탄성 레벨당 바운스 시 위로 튀어오르는 반동력 복리 증가 (레벨당 8% 증가)
             const elasticityMultiplier = Math.pow(1.08, upgrades.elasticity);
             
             if (rating === "PERFECT") {
@@ -853,6 +946,9 @@
                 playerSP += earned;
                 
                 createParticles(screenX, screenY, true, false);
+                
+                // 퍼펙트 햅틱 (가장 강함)
+                triggerHaptic('heavy');
             } else if (rating === "GOOD") {
                 baseVzPower = 3.6 + (selectedStone.mult * 1.0);
                 multEffect = 0.85; 
@@ -862,7 +958,10 @@
                 playerSP += earned;
                 
                 createParticles(screenX, screenY, false, false);
-            } else { // BAD
+                
+                // 굿 햅틱 (중간)
+                triggerHaptic('medium');
+            } else { 
                 baseVzPower = 1.8;
                 multEffect = 0.5; 
                 
@@ -871,20 +970,22 @@
                 playerSP += earned;
                 
                 createParticles(screenX, screenY, false, false, 8);
+                
+                // 배드 햅틱 (약함)
+                triggerHaptic('light');
             }
             
             spawnBouncePointMark(screenX, screenY, bounceCount);
             
-            // 리바운드 힘 및 전진 속도 계산식에 탄성/저항 적용
             stoneState.z = 0.1; 
-            stoneState.vz = baseVzPower * elasticityMultiplier; // 탄성계수 대입
+            stoneState.vz = baseVzPower * elasticityMultiplier; 
             stoneState.vy *= multEffect; 
             stoneState.vx *= 0.9;
             
             hasTappedThisBounce = false;
             scoreDisplay.innerText = `BOUNCE: ${bounceCount}`;
             updateAssetUI();
-            saveData(); // 실시간 세이브
+            saveData(); 
         }
 
         // --- 💥 [타이밍 어긋나 수면 침몰 처리] ---
@@ -902,6 +1003,9 @@
             
             createParticles(screenX, screenY, false, true, 20);
             message.innerText = "타이밍을 놓쳐서 돌이 수면에 가라앉았습니다.";
+            
+            // 미스 진동 피드백
+            triggerHaptic('error');
         }
 
         function triggerWaterSink() {
@@ -916,6 +1020,8 @@
             spawnRipple(screenX, screenY);
             createParticles(screenX, screenY, false, true, 12);
             message.innerText = "동력을 잃어 가라앉았습니다.";
+            
+            triggerHaptic('error');
         }
 
         // --- 🎨 [비주얼 이펙트 렌더링 함수들] ---
@@ -1014,7 +1120,6 @@
         function drawCanvasEffects() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
-            // 파티클 업데이트 및 드로잉
             for (let i = particles.length - 1; i >= 0; i--) {
                 const p = particles[i];
                 p.update();
@@ -1025,7 +1130,6 @@
                 }
             }
             
-            // 타이밍 링 그리기 (스핀 레벨에 따른 판정폭 반영)
             if (currentStatus === "FLYING" && !isDead && stoneState.vz < 0 && stoneState.z <= 30) {
                 const depthFactor = 450;
                 const scale = depthFactor / (depthFactor + stoneState.y);
@@ -1041,7 +1145,6 @@
                 
                 const urgency = Math.max(0, 1 - stoneState.z / 30);
                 
-                // 스핀 각도 판정 폭 반영
                 const spinPerfectAngleRange = 2 + upgrades.spin * 0.8;
                 const isPerfectAngle = (launchAngle >= 20 - spinPerfectAngleRange && launchAngle <= 20 + spinPerfectAngleRange);
                 
@@ -1082,8 +1185,11 @@
             
             playerSP += earnedSP;
             
-            saveData(); // 데이터 보존
+            saveData(); 
             updateAssetUI();
+            
+            // 정산 진동
+            triggerHaptic('success');
             
             resultModal.style.display = 'flex';
         }
@@ -1104,7 +1210,6 @@
         // --- 🛒 [업그레이드 상점 로직 및 UI 제어] ---
         function getUpgradeCost(type) {
             const level = upgrades[type];
-            // 비용 누적 공식: 300 * 1.65 ^ Level
             return Math.floor(baseUpgradeCost * Math.pow(1.65, level));
         }
 
@@ -1113,14 +1218,15 @@
             
             shopModal.style.display = 'flex';
             updateShopUI();
+            triggerHaptic('light');
         }
 
         function closeShop() {
             shopModal.style.display = 'none';
+            triggerHaptic('light');
         }
 
         function updateShopUI() {
-            // 보유 자금 바인딩
             document.getElementById('shop-sp-count').innerText = playerSP.toLocaleString();
             
             const types = ['weight', 'elasticity', 'spin'];
@@ -1129,7 +1235,6 @@
                 const lv = upgrades[type];
                 const btn = document.getElementById(`btn-upgrade-${type}`);
                 
-                // 정보 텍스트 갱신
                 document.getElementById(`lv-${type}`).innerText = lv;
                 
                 if (lv >= maxUpgradeLevel) {
@@ -1143,7 +1248,6 @@
                     document.getElementById(`next-lv-${type}`).innerText = nextLv;
                     btn.innerHTML = `${cost.toLocaleString()} SP`;
                     
-                    // 구매력 판정
                     if (playerSP >= cost) {
                         btn.disabled = false;
                     } else {
@@ -1151,18 +1255,14 @@
                     }
                 }
                 
-                // 스펙 향상 수치 갱신
                 if (type === 'weight') {
-                    // 무게: 수평 마찰 저항 완화율
                     const val = (lv * 0.08).toFixed(1);
                     document.getElementById('val-weight').innerText = val;
                 } else if (type === 'elasticity') {
-                    // 탄성: 리바운드 수직 속도 증가율
                     const val = Math.round((Math.pow(1.08, lv) - 1) * 100);
                     document.getElementById('val-elasticity').innerText = val;
                 } else if (type === 'spin') {
-                    // 스핀: 타이밍 판정 범위 및 각도 버퍼 완화율
-                    const val = Math.round((lv * 12.8)); // 10레벨 시 약 128% 완화
+                    const val = Math.round((lv * 12.8)); 
                     document.getElementById('val-spin').innerText = val;
                 }
             });
@@ -1177,16 +1277,18 @@
                 playerSP -= cost;
                 upgrades[type]++;
                 
-                saveData(); // 로컬스토리지 저장
+                saveData(); 
                 updateAssetUI();
                 updateShopUI();
                 
-                // 파티클 상점 이펙트 (보유 칩 증가처럼 상점 버튼 위에서 황금 파티클 팝업)
+                // 강화 성공 햅틱 알림
+                triggerHaptic('success');
                 message.innerText = `업그레이드 성공! (Lv.${upgrades[type]})`;
             }
         }
 
-        // 앱 기동 시 데이터 로드 실행
+        // 앱 시작 시 로드 및 초기화
+        initTelegramWebApp();
         loadData();
     </script>
 </body>
