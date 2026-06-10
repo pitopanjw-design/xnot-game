@@ -363,10 +363,58 @@
     <script>
         // --- 📊 [확률 대조정 완료] ---
         const stones = [
-            { name: "납작한 슬레이트", color: "#475569", mult: 1.5, luck: 0.01, desc: "안정적인 각도로 평균 튕김 수가 매우 높음 (대박: 1%)" },
-            { name: "거친 강가 조약돌", color: "#64748b", mult: 1.0, luck: 0.02, desc: "표준 성능의 무난한 기본 조약돌 (대박: 2%)" },
-            { name: "고밀도 현무암", color: "#1e293b", mult: 0.6, luck: 0.03, desc: "낮은 확률이지만 대박나면 대량 채굴 가능 (대박: 3%)" },
-            { name: "XNOT 황금 운석", color: "#fbbf24", mult: 2.5, luck: 0.05, desc: "신화급 확률로 수평선을 뚫는 극대량 채굴석 (대박: 5%)" }
+            { 
+                name: "납작한 슬레이트", 
+                color: "#475569", 
+                mult: 1.5, 
+                luck: 0.01, 
+                desc: "안정적인 각도로 평균 튕김 수가 매우 높음 (대박: 1%)",
+                physics: {
+                    vzDecay: 0.89,       // 수직 에너지 감쇠 완화 (오래 튕김)
+                    vyDecay: 0.95,       // 수평 속도 감쇠 완화
+                    baseVzPower: 5.6,    // 높은 기본 수직 튕김력
+                    frictionFactor: 0.988 // 수면 마찰을 거의 안 받음
+                }
+            },
+            { 
+                name: "거친 강가 조약돌", 
+                color: "#64748b", 
+                mult: 1.0, 
+                luck: 0.02, 
+                desc: "표준 성능의 무난한 기본 조약돌 (대박: 2%)",
+                physics: {
+                    vzDecay: 0.83,       // 무난한 수직 감쇠
+                    vyDecay: 0.92,       // 무난한 수평 감쇠
+                    baseVzPower: 4.8,
+                    frictionFactor: 0.978
+                }
+            },
+            { 
+                name: "고밀도 현무암", 
+                color: "#1e293b", 
+                mult: 0.6, 
+                luck: 0.03, 
+                desc: "낮은 확률이지만 대박나면 대량 채굴 가능 (대박: 3%)",
+                physics: {
+                    vzDecay: 0.75,       // 무거워서 도약 높이는 빠르게 줄어듬
+                    vyDecay: 0.97,       // 무겁기 때문에 관성(추진력)은 엄청 오랫동안 유지됨
+                    baseVzPower: 4.2,    // 조금 낮게 도약함
+                    frictionFactor: 0.994 // 엄청난 질량으로 마찰 무시
+                }
+            },
+            { 
+                name: "XNOT 황금 운석", 
+                color: "#fbbf24", 
+                mult: 2.5, 
+                luck: 0.05, 
+                desc: "신화급 확률로 수평선을 뚫는 극대량 채굴석 (대박: 5%)",
+                physics: {
+                    vzDecay: 0.93,       // 거의 안 줄어드는 미친 반동
+                    vyDecay: 0.985,      // 전진 속도가 거의 유지됨
+                    baseVzPower: 7.2,    // 폭발적인 튕김
+                    frictionFactor: 0.997 // 수면 위를 거의 활공함
+                }
+            }
         ];
 
         let playerHearts = 5;
@@ -945,7 +993,13 @@
             stoneState.vz -= gravity;
             
             const weightMultiplier = 1.0 + (upgrades.weight * 0.0008);
-            stoneState.vy *= Math.min(0.9995, 0.995 * weightMultiplier);
+            
+            // 던질 때의 속도에 따른 저항 완화 적용
+            const speedFrictionMitigation = 1.0 + (currentSwipeSpeed * 0.0001);
+            // 돌의 고유 마찰 계수 가져오기 (기본값 0.978)
+            const stoneFriction = (selectedStone && selectedStone.physics) ? selectedStone.physics.frictionFactor : 0.978;
+            
+            stoneState.vy *= Math.min(0.9998, stoneFriction * weightMultiplier * speedFrictionMitigation);
             stoneState.vx *= Math.min(0.999, 0.99 * weightMultiplier);
             
             if (stoneState.z <= 0) {
@@ -1055,9 +1109,12 @@
             
             const elasticityMultiplier = Math.pow(1.08, upgrades.elasticity);
             
+            // 돌의 고유 물리 특성 스펙 추출 (안전을 위해 fallback 기본값 지정)
+            const stonePhysics = (selectedStone && selectedStone.physics) ? selectedStone.physics : { vzDecay: 0.83, vyDecay: 0.92, baseVzPower: 4.8, frictionFactor: 0.978 };
+            
             if (rating === "PERFECT") {
                 perfectCount++;
-                baseVzPower = 4.8 + (selectedStone.mult * 1.5);
+                baseVzPower = stonePhysics.baseVzPower + (selectedStone.mult * 1.5);
                 multEffect = 1.0; 
                 
                 const earned = Math.round(100 * selectedStone.mult * 2.5);
@@ -1069,7 +1126,7 @@
                 // 퍼펙트 햅틱 (가장 강함)
                 triggerHaptic('heavy');
             } else if (rating === "GOOD") {
-                baseVzPower = 3.6 + (selectedStone.mult * 1.0);
+                baseVzPower = (stonePhysics.baseVzPower * 0.75) + (selectedStone.mult * 1.0);
                 multEffect = 0.85; 
                 
                 const earned = Math.round(100 * selectedStone.mult * 1.2);
@@ -1081,7 +1138,7 @@
                 // 굿 햅틱 (중간)
                 triggerHaptic('medium');
             } else { 
-                baseVzPower = 1.8;
+                baseVzPower = stonePhysics.baseVzPower * 0.4;
                 multEffect = 0.5; 
                 
                 const earned = Math.round(100 * selectedStone.mult * 0.4);
@@ -1098,7 +1155,7 @@
             
             // --- 🌊 [물수제비 동력 감쇠 시스템 도입] ---
             // 바운스가 거듭될수록 튕기는 에너지가 지수 감쇠 (체공 시간이 짧아져 다다닥 튕김)
-            const bounceDecay = Math.pow(0.78, bounceCount - 1);
+            const bounceDecay = Math.pow(stonePhysics.vzDecay, bounceCount - 1);
             
             // 슬라이드 속도 반영 (속도 보너스 인자 계산)
             const speedBonus = 1.0 + (currentSwipeSpeed / 30);
@@ -1121,7 +1178,7 @@
             stoneState.vz = (baseVzPower + zoneVzBonus) * elasticityMultiplier * speedBonus * bounceDecay; 
             
             // 수평 전진 감쇠도 갈수록 심해지도록 밸런싱 (vy 지수 감쇠 적용)
-            const velocityDecay = Math.pow(0.9, bounceCount - 1);
+            const velocityDecay = Math.pow(stonePhysics.vyDecay, bounceCount - 1);
             const currentVy = stoneState.vy;
             const nextVy = currentVy * multEffect * (1.0 + (currentSwipeSpeed * 0.004)) * zoneMult * velocityDecay;
             
