@@ -458,6 +458,7 @@
             text-transform: uppercase;
             background: linear-gradient(to right, var(--primary), #ffffff, var(--accent));
             -webkit-background-clip: text;
+            background-clip: text;
             -webkit-text-fill-color: transparent;
             text-shadow: 0 4px 10px rgba(0,0,0,0.4);
         }
@@ -552,6 +553,19 @@
 <body>
 
     <div id="game-container">
+        <!-- 시작 화면 (Intro Screen) -->
+        <div id="intro-screen">
+            <div class="intro-box-wrapper">
+                <div class="intro-box-inner">
+                    <h1 class="intro-title" id="intro-title" data-i18n="introTitle">XNOT Stone Skipper</h1>
+                    <p class="intro-desc" id="intro-desc" data-i18n="introDesc">
+                        XNOT 물수제비 채굴은 차세대 디지털 자산인 XNOT 코인을 강물 위 물수제비의 탄성을 이용해 채굴하는 하이퍼 캐주얼 광산 게임입니다. 돌을 튕겨 최적의 탄성을 얻고 SP를 채굴하세요!
+                    </p>
+                    <button class="action-btn" id="intro-start-btn" data-i18n="introStartBtn" style="width: 100%;" onclick="closeIntroScreen(event)">채굴 시작하기 ⛏️</button>
+                </div>
+            </div>
+        </div>
+
         <!-- 배경 강물 빛 반짝임 및 깊이감 오버레이 -->
         <div class="water-overlay"></div>
         <div class="water-shimmer"></div>
@@ -565,13 +579,13 @@
         <div class="asset-bar">
             <!-- 텔레그램 유저 프로필 카드 -->
             <div class="asset-box" id="user-card" style="display: none;">👤 <span id="user-name">Guest</span></div>
-            <div class="asset-box">❤️ 하트: <span id="hearts-count">5</span> / 5</div>
+            <div class="asset-box"><span data-i18n="hearts">❤️ 하트</span>: <span id="hearts-count">5</span> / 5</div>
             <div class="asset-box">💎 <span id="sp-count">0</span> SP</div>
             <div class="asset-box" id="mute-btn" style="pointer-events: auto; cursor: pointer; transition: transform 0.1s;" onclick="toggleMute(event)">🔊</div>
         </div>
 
         <div id="roulette-screen">
-            <h2 id="roulette-title" style="color:var(--primary); margin-bottom:20px; text-align:center; padding: 0 20px; font-weight: 900;">TOUCH THE WHEEL TO START</h2>
+            <h2 id="roulette-title" style="color:var(--primary); margin-bottom:20px; text-align:center; padding: 0 20px; font-weight: 900;" data-i18n="lobbyTitle">TOUCH THE WHEEL TO START</h2>
             <div style="position: relative;">
                 <div class="pointer"></div>
                 <div id="roulette-wheel" class="wheel-container" onclick="triggerWheel(event)">
@@ -579,39 +593,39 @@
                     <!-- 1. 납작한 슬레이트 (0 ~ 90도, 중앙 45도) -->
                     <div class="wheel-sector" style="transform: rotate(45deg) translateY(-85px) rotate(-45deg);">
                         <div class="mini-stone slate"></div>
-                        <div class="sector-text">슬레이트</div>
+                        <div class="sector-text" data-i18n="stone0">슬레이트</div>
                     </div>
                     <!-- 2. 거친 강가 조약돌 (90 ~ 180도, 중앙 135도) -->
                     <div class="wheel-sector" style="transform: rotate(135deg) translateY(-85px) rotate(-135deg);">
                         <div class="mini-stone pebble"></div>
-                        <div class="sector-text">조약돌</div>
+                        <div class="sector-text" data-i18n="stone1">조약돌</div>
                     </div>
                     <!-- 3. 고밀도 현무암 (180 ~ 270도, 중앙 225도) -->
                     <div class="wheel-sector" style="transform: rotate(225deg) translateY(-85px) rotate(-225deg);">
                         <div class="mini-stone basalt"></div>
-                        <div class="sector-text">현무암</div>
+                        <div class="sector-text" data-i18n="stone2">현무암</div>
                     </div>
                     <!-- 4. XNOT 황금 운석 (270 ~ 360도, 중앙 315도) -->
                     <div class="wheel-sector" style="transform: rotate(315deg) translateY(-85px) rotate(-315deg);">
                         <div class="mini-stone gold"></div>
-                        <div class="sector-text" style="color: #78350f;">황금운석</div>
+                        <div class="sector-text" style="color: #78350f;" data-i18n="stone3">황금운석</div>
                     </div>
                     <!-- 휠 중앙 캡 -->
                     <div class="wheel-center-cap">
-                        <div id="stone-display-name">돌 뽑기 터치!</div>
+                        <div id="stone-display-name" data-i18n="wheelTouch">돌 뽑기 터치!</div>
                     </div>
                 </div>
             </div>
             <p id="stone-desc" style="color: #94a3b8; font-size: 15px; margin-top: -15px; margin-bottom: 25px; text-align: center; padding: 0 20px; min-height: 40px;"></p>
-            <button id="main-action-btn" class="action-btn" onclick="handleMainButtonClick(event)">SPIN WHEEL</button>
-            <button id="shop-btn" class="secondary-btn" onclick="openShop()">⚙️ 돌 능력 강화 상점</button>
+            <button id="main-action-btn" class="action-btn" onclick="handleMainButtonClick(event)" data-i18n="spinBtn">SPIN WHEEL</button>
+            <button id="shop-btn" class="secondary-btn" onclick="openShop()" data-i18n="shopBtn">⚙️ 돌 능력 강화 상점</button>
         </div>
 
         <div id="angle-gauge-container">
             <div id="angle-gauge-red-zone-top" class="angle-gauge-zone red-zone"></div>
             <div id="angle-gauge-safety-zone-top" class="angle-gauge-zone safety-zone"></div>
             <div id="angle-gauge-perfect-zone" class="angle-gauge-zone perfect-zone">
-                <div id="angle-gauge-perfect-text">PERFECT</div>
+                <div id="angle-gauge-perfect-text" data-i18n="perfect">PERFECT</div>
             </div>
             <div id="angle-gauge-safety-zone-bottom" class="angle-gauge-zone safety-zone"></div>
             <div id="angle-gauge-red-zone-bottom" class="angle-gauge-zone red-zone"></div>
@@ -620,10 +634,10 @@
         </div>
 
         <div id="youtube-modal">
-            <h2 style="color:#ef4444; font-weight: 900; font-size: 28px;">유튜브 광고 시청 중...</h2>
-            <p style="color:#94a3b8; font-size:16px; margin-bottom:30px; text-align:center; padding:0 20px;">하트를 충전하기 위해 대표님 채널 영상을 시청하고 있습니다.</p>
+            <h2 style="color:#ef4444; font-weight: 900; font-size: 28px;" data-i18n="adTitle">유튜브 광고 시청 중...</h2>
+            <p style="color:#94a3b8; font-size:16px; margin-bottom:30px; text-align:center; padding:0 20px;" data-i18n="adDesc">하트를 충전하기 위해 대표님 채널 영상을 시청하고 있습니다.</p>
             <div id="video-timer" style="font-size:56px; font-weight:900; color:white; margin-bottom:40px; text-shadow: 0 4px 10px rgba(0,0,0,0.5);">5</div>
-            <p style="color:var(--primary); font-weight:bold;">시청 완료 시 하트 5개가 완충됩니다.</p>
+            <p style="color:var(--primary); font-weight:bold;" data-i18n="adComplete">시청 완료 시 하트 5개가 완충됩니다.</p>
         </div>
 
         <!-- 결과 화면 모달 -->
@@ -631,26 +645,26 @@
             <div class="result-box-wrapper">
                 <div class="result-box-inner">
                     <img src="result_emblem.png" class="result-emblem-img" alt="Gold Trophy Emblem">
-                    <div class="result-title">물수제비 결과</div>
+                    <div class="result-title" data-i18n="resTitle">물수제비 결과</div>
                     <div class="result-items-container">
                         <div class="result-item-card">
-                            <span class="result-label">🪨 선택한 돌</span>
+                            <span class="result-label" data-i18n="resStone">🪨 선택한 돌</span>
                             <span id="res-stone-name" class="result-val">조약돌</span>
                         </div>
                         <div class="result-item-card">
-                            <span class="result-label">🎯 튕김 횟수</span>
+                            <span class="result-label" data-i18n="resBounces">🎯 튕김 횟수</span>
                             <span id="res-bounce-count" class="result-val">0 회</span>
                         </div>
                         <div class="result-item-card">
-                            <span class="result-label">⭐ Perfect 횟수</span>
+                            <span class="result-label" data-i18n="resPerfects">⭐ Perfect 횟수</span>
                             <span id="res-perfect-count" class="result-val" style="color:var(--gold);">0 회</span>
                         </div>
                         <div class="result-item-card">
-                            <span class="result-label">💎 획득 SP</span>
+                            <span class="result-label" data-i18n="resEarned">💎 획득 SP</span>
                             <span id="res-earned-sp" class="result-val" style="color:var(--primary);">+0 SP</span>
                         </div>
                     </div>
-                    <button class="action-btn" style="width: 100%; margin-top: 5px; padding: 14px;" onclick="closeResultModal()">확인</button>
+                    <button class="action-btn" style="width: 100%; margin-top: 5px; padding: 14px;" onclick="closeResultModal()" data-i18n="resConfirm">확인</button>
                 </div>
             </div>
         </div>
@@ -658,16 +672,16 @@
         <!-- 상점 모달 -->
         <div id="shop-modal">
             <div class="shop-box">
-                <div class="shop-title">💪 돌 속성 업그레이드 상점</div>
-                <div class="shop-sp-display">보유 💎 <span id="shop-sp-count">0</span> SP</div>
+                <div class="shop-title" data-i18n="shopTitle">💪 돌 속성 업그레이드 상점</div>
+                <div class="shop-sp-display"><span data-i18n="shopBalance">보유</span> 💎 <span id="shop-sp-count">0</span> SP</div>
                 
                 <div class="upgrade-list">
                     <!-- 무게 카드 -->
                     <div class="upgrade-card">
                         <div class="upgrade-info">
-                            <div class="upgrade-name">🏋️ 무게 (Weight)</div>
-                            <div class="upgrade-desc">돌의 관성을 높여 공기/수면 저항을 줄입니다. (수평 속도 유지)</div>
-                            <div class="upgrade-stats">Lv.<span id="lv-weight">0</span> → Lv.<span id="next-lv-weight">1</span> (<span id="val-weight">0</span>% 저항 완화)</div>
+                            <div class="upgrade-name" data-i18n="upgradeWeight">🏋️ 무게 (Weight)</div>
+                            <div class="upgrade-desc" data-i18n="upgradeWeightDesc">돌의 관성을 높여 공기/수면 저항을 줄입니다. (수평 속도 유지)</div>
+                            <div class="upgrade-stats">Lv.<span id="lv-weight">0</span> → Lv.<span id="next-lv-weight">1</span> (<span id="val-weight">0</span>% <span data-i18n="upgradeWeightStat">저항 완화</span>)</div>
                         </div>
                         <button class="upgrade-btn" id="btn-upgrade-weight" onclick="buyUpgrade('weight')"><span id="cost-weight">300</span> SP</button>
                     </div>
@@ -675,9 +689,9 @@
                     <!-- 탄성 카드 -->
                     <div class="upgrade-card">
                         <div class="upgrade-info">
-                            <div class="upgrade-name">🥎 탄성 (Elasticity)</div>
-                            <div class="upgrade-desc">수면에 부딪혀 튀어 오르는 높이가 증가합니다. (리바운드 반동 증가)</div>
-                            <div class="upgrade-stats">Lv.<span id="lv-elasticity">0</span> → Lv.<span id="next-lv-elasticity">1</span> (<span id="val-elasticity">0</span>% 반동 증가)</div>
+                            <div class="upgrade-name" data-i18n="upgradeElasticity">🥎 탄성 (Elasticity)</div>
+                            <div class="upgrade-desc" data-i18n="upgradeElasticityDesc">수면에 부딪혀 튀어 오르는 높이가 증가합니다. (리바운드 반동 증가)</div>
+                            <div class="upgrade-stats">Lv.<span id="lv-elasticity">0</span> → Lv.<span id="next-lv-elasticity">1</span> (<span id="val-elasticity">0</span>% <span data-i18n="upgradeElasticityStat">반동 증가</span>)</div>
                         </div>
                         <button class="upgrade-btn" id="btn-upgrade-elasticity" onclick="buyUpgrade('elasticity')"><span id="cost-elasticity">300</span> SP</button>
                     </div>
@@ -685,9 +699,9 @@
                     <!-- 스핀 카드 -->
                     <div class="upgrade-card">
                         <div class="upgrade-info">
-                            <div class="upgrade-name">🌀 스핀 (Spin)</div>
-                            <div class="upgrade-desc">Perfect 판정 타이밍과 각도 허용 오차를 넓혀줍니다.</div>
-                            <div class="upgrade-stats">Lv.<span id="lv-spin">0</span> → Lv.<span id="next-lv-spin">1</span> (Perfect 판정 범위 +<span id="val-spin">0</span>%)</div>
+                            <div class="upgrade-name" data-i18n="upgradeSpin">🌀 스핀 (Spin)</div>
+                            <div class="upgrade-desc" data-i18n="upgradeSpinDesc">Perfect 판정 타이밍과 각도 허용 오차를 넓혀줍니다.</div>
+                            <div class="upgrade-stats">Lv.<span id="lv-spin">0</span> → Lv.<span id="next-lv-spin">1</span> (Perfect <span data-i18n="upgradeSpinStat">판정 범위</span> +<span id="val-spin">0</span>%)</div>
                         </div>
                         <button class="upgrade-btn" id="btn-upgrade-spin" onclick="buyUpgrade('spin')"><span id="cost-spin">300</span> SP</button>
                     </div>
@@ -921,6 +935,251 @@
             triggerHaptic('light');
         }
 
+        // --- 🌐 [다국어 (i18n) 번역 데이터 사전] ---
+        const i18n = {
+            ko: {
+                introTitle: "XNOT 물수제비 채굴",
+                introDesc: "XNOT 물수제비 채굴은 차세대 디지털 자산인 XNOT 코인을 강물 위 물수제비의 탄성을 이용해 채굴하는 하이퍼 캐주얼 광산 게임입니다. 돌을 튕겨 최적의 탄성을 얻고 SP를 채굴하세요!",
+                introStartBtn: "채굴 시작하기 ⛏️",
+                lobbyTitle: "룰렛을 터치하여 돌을 뽑으세요",
+                spinBtn: "룰렛 돌리기",
+                shopBtn: "⚙️ 돌 능력 강화 상점",
+                stoneReady: "돌 준비 완료!",
+                launchBtn: "돌 던지기 (하트 1 소모)",
+                wheelTouch: "돌 뽑기 터치!",
+                stone0: "납작한 슬레이트",
+                stone0Desc: "안정적인 각도로 평균 튕김 수가 매우 높음 (대박: 0.1%)",
+                stone1: "거친 강가 조약돌",
+                stone1Desc: "표준 성능의 무난한 기본 조약돌 (대박: 2%)",
+                stone2: "고밀도 현무암",
+                stone2Desc: "평균적으론 무겁지만 2.5% 확률로 관성 폭발 대박 (대박: 2.5%)",
+                stone3: "XNOT 황금 운석",
+                stone3Desc: "50% 확률로 타 특성 복제, 로또 1등 4배 확률(1/200만)로 은하 활공",
+                ready: "READY",
+                prepareMsg: "돌을 잡고 위로 빠르게 던지세요!",
+                swipeGuide: "▲ 위로 빠르게 쓸어올리세요! ▲",
+                heartsLack: "하트 부족! 에너지를 충전하세요.",
+                watchAd: "❤️ 유튜브 시청하고 하트 완충",
+                adTitle: "유튜브 광고 시청 중...",
+                adDesc: "하트를 충전하기 위해 대표님 채널 영상을 시청하고 있습니다.",
+                adComplete: "시청 완료 시 하트 5개가 완충됩니다.",
+                perfectTiming: "완벽한 타이밍과 각도!",
+                goodTiming: "좋은 타이밍!",
+                badTiming: "조금 어긋난 타이밍... 속도가 감소합니다.",
+                missMsg: "타이밍을 놓쳐서 돌이 수면에 가라앉았습니다.",
+                sinkMsg: "동력을 잃어 가라앉았습니다.",
+                resTitle: "물수제비 결과",
+                resStone: "선택한 돌",
+                resBounces: "튕김 횟수",
+                resPerfects: "Perfect 횟수",
+                resEarned: "획득 SP",
+                resConfirm: "확인",
+                shopTitle: "💪 돌 속성 업그레이드 상점",
+                shopBalance: "보유",
+                shopClose: "상점 닫기",
+                upgradeWeight: "🏋️ 무게 (Weight)",
+                upgradeWeightDesc: "돌의 관성을 높여 공기/수면 저항을 줄입니다. (수평 속도 유지)",
+                upgradeWeightStat: "저항 완화",
+                upgradeElasticity: "🥎 탄성 (Elasticity)",
+                upgradeElasticityDesc: "수면에 부딪혀 튀어 오르는 높이가 증가합니다. (리바운드 반동 증가)",
+                upgradeElasticityStat: "반동 증가",
+                upgradeSpin: "🌀 스핀 (Spin)",
+                upgradeSpinDesc: "Perfect 판정 타이밍과 각도 허용 오차를 넓혀줍니다.",
+                upgradeSpinStat: "판정 범위",
+                hearts: "❤️ 하트",
+                readyToMine: "채굴 준비 완료",
+                perfect: "PERFECT",
+                bouncesUnit: "회",
+                lightningLaunch: "초광속 발사!",
+                fastLaunch: "쾌속 발사!",
+                normalLaunch: "일반 발사",
+                speedText: "속도",
+                upgradeSuccess: "속성 강화 성공!"
+            },
+            en: {
+                introTitle: "XNOT Stone Skipper",
+                introDesc: "XNOT Stone Skipper is a hyper-casual mining game where you mine XNOT Coin, the next-generation digital asset, using the elasticity of skipping stones on the river. Bounce stones to mine SP!",
+                introStartBtn: "Start Mining ⛏️",
+                lobbyTitle: "Touch the wheel to spin a stone",
+                spinBtn: "SPIN WHEEL",
+                shopBtn: "⚙️ Upgrade Properties",
+                stoneReady: "STONE READY!",
+                launchBtn: "LAUNCH STONE (Cost 1 ❤️)",
+                wheelTouch: "Touch to Spin!",
+                stone0: "Flat Slate",
+                stone0Desc: "Highly stable angle, extreme bounce average (Jackpot: 0.1%)",
+                stone1: "Rough Pebble",
+                stone1Desc: "Standard performance, decent starter stone (Jackpot: 2%)",
+                stone2: "Dense Basalt",
+                stone2Desc: "Heavy average, 2.5% chance of inertia explosion jackpot (Jackpot: 2.5%)",
+                stone3: "XNOT Gold Meteor",
+                stone3Desc: "50% mimic chance, 1/2M lottery chance of galaxy gliding",
+                ready: "READY",
+                prepareMsg: "Grab the stone and swipe up fast!",
+                swipeGuide: "▲ SWIPE UP FAST! ▲",
+                heartsLack: "No hearts! Recharge energy.",
+                watchAd: "❤️ Watch YouTube to Refill",
+                adTitle: "Watching Ad...",
+                adDesc: "Watching the channel video to recharge hearts.",
+                adComplete: "5 hearts will be refilled upon completion.",
+                perfectTiming: "Perfect timing and angle!",
+                goodTiming: "Good timing!",
+                badTiming: "Slightly off timing... speed decays.",
+                missMsg: "Missed the timing, the stone sank.",
+                sinkMsg: "Inertia lost, the stone sank.",
+                resTitle: "Skip Results",
+                resStone: "Selected Stone",
+                resBounces: "Bounces",
+                resPerfects: "Perfects",
+                resEarned: "Earned SP",
+                resConfirm: "Confirm",
+                shopTitle: "💪 Stone Property Upgrade",
+                shopBalance: "Balance",
+                shopClose: "Close Shop",
+                upgradeWeight: "🏋️ Weight",
+                upgradeWeightDesc: "Increases inertia to reduce air/water friction. (Keeps speed)",
+                upgradeWeightStat: "friction reduction",
+                upgradeElasticity: "🥎 Elasticity",
+                upgradeElasticityDesc: "Increases bounce height on contact. (Higher rebound)",
+                upgradeElasticityStat: "rebound increase",
+                upgradeSpin: "🌀 Spin",
+                upgradeSpinDesc: "Widens Perfect timing and angle window.",
+                upgradeSpinStat: "Perfect window",
+                hearts: "❤️ Hearts",
+                readyToMine: "Ready to Mine",
+                perfect: "PERFECT",
+                bouncesUnit: "times",
+                lightningLaunch: "Lightning Launch!",
+                fastLaunch: "Fast Launch!",
+                normalLaunch: "Normal Launch",
+                speedText: "Speed",
+                upgradeSuccess: "Upgrade Success!"
+            },
+            ru: {
+                introTitle: "XNOT Stone Skipper",
+                introDesc: "XNOT Stone Skipper — это гиперказуальная игра, в которой вы добываете цифровой актив нового поколения XNOT Coin, используя физику камней на воде. Запускайте камни и добывайте SP!",
+                introStartBtn: "Начать добычу ⛏️",
+                lobbyTitle: "Нажмите на колесо, чтобы выбрать камень",
+                spinBtn: "КРУТИТЬ КОЛЕСО",
+                shopBtn: "⚙️ Улучшить свойства",
+                stoneReady: "КАМЕНЬ ГОТОВ!",
+                launchBtn: "ЗАПУСТИТЬ (Стоимость 1 ❤️)",
+                wheelTouch: "Нажмите!",
+                stone0: "Плоский сланец",
+                stone0Desc: "Очень стабильный угол, высокий средний показатель (Джекпот: 0.1%)",
+                stone1: "Речная галька",
+                stone1Desc: "Стандартные характеристики, хороший базовый камень (Джекпот: 2%)",
+                stone2: "Плотный базальт",
+                stone2Desc: "Тяжелый камень, 2.5% шанс на взрывной джекпот инерции (Джекпот: 2.5%)",
+                stone3: "Золотой метеорит XNOT",
+                stone3Desc: "50% шанс копирования свойств, 1/2M шанс на космический полет",
+                ready: "ГОТОВ",
+                prepareMsg: "Зажмите камень и проведите вверх!",
+                swipeGuide: "▲ ПРОВЕДИТЕ ВВЕРХ БЫСТРО! ▲",
+                heartsLack: "Нет сердец! Восстановите энергию.",
+                watchAd: "❤️ Смотреть видео для восстановления",
+                adTitle: "Просмотр рекламы...",
+                adDesc: "Смотрим видео на канале для пополнения сердец.",
+                adComplete: "5 сердец будут восстановлены после завершения.",
+                perfectTiming: "Идеальный тайминг и угол!",
+                goodTiming: "Хороший тайминг!",
+                badTiming: "Немного промахнулись... скорость падает.",
+                missMsg: "Пропустили тайминг, камень затонул.",
+                sinkMsg: "Инерция потеряна, камень затонул.",
+                resTitle: "Результаты",
+                resStone: "Выбранный камень",
+                resBounces: "Рикошеты",
+                resPerfects: "Идеально",
+                resEarned: "Получено SP",
+                resConfirm: "ОК",
+                shopTitle: "💪 Магазин улучшений свойств",
+                shopBalance: "Баланс",
+                shopClose: "Закрыть",
+                upgradeWeight: "🏋️ Вес",
+                upgradeWeightDesc: "Увеличивает инерцию для снижения сопротивления. (Сохраняет скорость)",
+                upgradeWeightStat: "снижение сопр.",
+                upgradeElasticity: "🥎 Эластичность",
+                upgradeElasticityDesc: "Увеличивает высоту отскока от воды. (Сильнее отскок)",
+                upgradeElasticityStat: "увелич. отскока",
+                upgradeSpin: "🌀 Спин",
+                upgradeSpinDesc: "Расширяет окно таймингов для Идеально.",
+                upgradeSpinStat: "Окно Идеально",
+                hearts: "❤️ Сердца",
+                readyToMine: "Готов к добыче",
+                perfect: "PERFECT",
+                bouncesUnit: "раз",
+                lightningLaunch: "Молниеносный запуск!",
+                fastLaunch: "Быстрый запуск!",
+                normalLaunch: "Обычный запуск",
+                speedText: "Скорость",
+                upgradeSuccess: "Свойство улучшено!"
+            }
+        };
+
+        let currentLang = 'en';
+
+        function initLanguage() {
+            let lang = 'en';
+            if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe && window.Telegram.WebApp.initDataUnsafe.user) {
+                lang = window.Telegram.WebApp.initDataUnsafe.user.language_code || 'en';
+            } else {
+                lang = navigator.language || navigator.userLanguage || 'en';
+            }
+            lang = lang.toLowerCase().split('-')[0];
+            
+            if (i18n[lang]) {
+                currentLang = lang;
+            } else {
+                currentLang = 'en';
+            }
+        }
+
+        function t(key) {
+            return (i18n[currentLang] && i18n[currentLang][key]) ? i18n[currentLang][key] : (i18n['en'][key] || key);
+        }
+
+        function applyTranslations() {
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (i18n[currentLang] && i18n[currentLang][key]) {
+                    if (key === 'resStone') {
+                        el.innerHTML = `🪨 ${t('resStone')}`;
+                    } else if (key === 'resBounces') {
+                        el.innerHTML = `🎯 ${t('resBounces')}`;
+                    } else if (key === 'resPerfects') {
+                        el.innerHTML = `⭐ ${t('resPerfects')}`;
+                    } else if (key === 'resEarned') {
+                        el.innerHTML = `💎 ${t('resEarned')}`;
+                    } else {
+                        el.innerText = t(key);
+                    }
+                }
+            });
+            
+            // 룰렛 화면 내 고정 섹터 텍스트들 즉시 업데이트
+            const sectors = document.querySelectorAll('.wheel-sector');
+            if (sectors.length >= 4) {
+                sectors[0].querySelector('.sector-text').innerText = t('stone0');
+                sectors[1].querySelector('.sector-text').innerText = t('stone1');
+                sectors[2].querySelector('.sector-text').innerText = t('stone2');
+                sectors[3].querySelector('.sector-text').innerText = t('stone3');
+            }
+        }
+
+        function closeIntroScreen(e) {
+            if (e && e.preventDefault) e.preventDefault();
+            SoundManager.resume();
+            triggerHaptic('success');
+            
+            const intro = document.getElementById('intro-screen');
+            if (intro) {
+                intro.style.opacity = '0';
+                setTimeout(() => {
+                    intro.style.display = 'none';
+                }, 500);
+            }
+        }
+
         // --- 🌄 [배경 화면 다이내믹 로테이션 시스템] ---
         const backgrounds = [
             'river_sunset_bg.png',
@@ -943,10 +1202,12 @@
         const stones = [
             { 
                 name: "납작한 슬레이트", 
+                nameKey: "stone0",
                 color: "#475569", 
                 mult: 1.5, 
                 luck: 0.01, 
                 desc: "안정적인 각도로 평균 튕김 수가 매우 높음 (대박: 0.1%)",
+                descKey: "stone0Desc",
                 physics: {
                     vzDecay: 0.88,       // 수직 에너지 감쇠
                     vyDecay: 0.965,      // 수평 속도 높은 보존율
@@ -958,10 +1219,12 @@
             },
             { 
                 name: "거친 강가 조약돌", 
+                nameKey: "stone1",
                 color: "#64748b", 
                 mult: 1.0, 
                 luck: 0.02, 
                 desc: "표준 성능의 무난한 기본 조약돌 (대박: 2%)",
+                descKey: "stone1Desc",
                 physics: {
                     vzDecay: 0.82,       
                     vyDecay: 0.94,       
@@ -973,10 +1236,12 @@
             },
             { 
                 name: "고밀도 현무암", 
+                nameKey: "stone2",
                 color: "#1e293b", 
                 mult: 0.6, 
                 luck: 0.03, 
                 desc: "평균적으론 무겁지만 2.5% 확률로 관성 폭발 대박 (대박: 2.5%)",
+                descKey: "stone2Desc",
                 physics: {
                     // 기본 무거운 물리 성능
                     vzDecay: 0.70,       
@@ -997,10 +1262,12 @@
             },
             { 
                 name: "XNOT 황금 운석", 
+                nameKey: "stone3",
                 color: "#fbbf24", 
                 mult: 2.5, 
                 luck: 0.05, 
                 desc: "50% 확률로 타 특성 복제, 로또 1등 4배 확률(1/200만)로 은하 활공",
+                descKey: "stone3Desc",
                 physics: {
                     // 로또 1등의 4배 확률 (1 / 2,036,265)
                     lottoChance: 1 / 2036265,
@@ -1287,13 +1554,13 @@
             spCountEl.innerText = playerSP.toLocaleString();
             
             if (playerHearts <= 0 && currentStatus === "PRE_SPIN") {
-                document.getElementById('roulette-title').innerText = "하트 부족! 에너지를 충전하세요.";
-                mainBtn.innerText = "❤️ 유튜브 시청하고 하트 완충";
+                document.getElementById('roulette-title').innerText = t('heartsLack');
+                mainBtn.innerText = t('watchAd');
                 mainBtn.style.background = "#ef4444";
                 mainBtn.style.color = "white";
             } else if (currentStatus === "PRE_SPIN") {
-                document.getElementById('roulette-title').innerText = "TOUCH THE WHEEL TO START";
-                mainBtn.innerText = "SPIN WHEEL";
+                document.getElementById('roulette-title').innerText = t('lobbyTitle');
+                mainBtn.innerText = t('spinBtn');
                 mainBtn.style.background = "var(--primary)";
                 mainBtn.style.color = "#0f172a";
             }
@@ -1408,14 +1675,14 @@
                 wheelEl.style.transform = `rotate(${totalRotate % 360}deg)`;
                 
                 selectedStone = current;
-                stoneDisplayName.innerText = selectedStone.name;
+                stoneDisplayName.innerText = t(selectedStone.nameKey);
                 stoneDisplayName.style.color = selectedStone.color === "#1e293b" ? "#f8fafc" : selectedStone.color;
-                stoneDesc.innerText = selectedStone.desc;
+                stoneDesc.innerText = t(selectedStone.descKey);
                 
                 setStoneStyle(selectedStone);
                 
-                document.getElementById('roulette-title').innerText = "STONE READY!";
-                mainBtn.innerText = "LAUNCH STONE (❤️ 1 소모)";
+                document.getElementById('roulette-title').innerText = t('stoneReady');
+                mainBtn.innerText = t('launchBtn');
                 mainBtn.style.background = "#deff9a";
                 mainBtn.style.color = "#0f172a";
                 currentStatus = "SPIN_DONE";
@@ -1448,8 +1715,8 @@
                 stoneEl.style.transform = "translateX(-50%) scale(1)";
                 stoneEl.style.opacity = "1";
                 
-                scoreDisplay.innerText = "READY";
-                message.innerText = "돌을 잡고 위로 빠르게 던지세요!";
+                scoreDisplay.innerText = t('ready');
+                message.innerText = t('prepareMsg');
                 
                 swipeGuide.style.display = 'block';
                 angleGaugeContainer.style.display = 'block';
@@ -1838,15 +2105,15 @@
             
             // 순발력 속도 등급에 따른 판정 연출
             if (swipeSpeed >= 30) {
-                message.innerText = `⚡ LIGHTNING LAUNCH! ⚡ (속도: ${Math.round(swipeSpeed * 5.2)} km/h)`;
-                spawnDramaticText("LIGHTNING LAUNCH!", "lotto-style");
+                message.innerText = `⚡ ${t('lightningLaunch')} ⚡ (${t('speedText')}: ${Math.round(swipeSpeed * 5.2)} km/h)`;
+                spawnDramaticText(t('lightningLaunch'), "lotto-style");
                 triggerScreenShake('heavy');
             } else if (swipeSpeed >= 20) {
-                message.innerText = `🔥 FAST LAUNCH! 🔥 (속도: ${Math.round(swipeSpeed * 5.2)} km/h)`;
-                spawnDramaticText("FAST LAUNCH!", "critical-style");
+                message.innerText = `🔥 ${t('fastLaunch')} 🔥 (${t('speedText')}: ${Math.round(swipeSpeed * 5.2)} km/h)`;
+                spawnDramaticText(t('fastLaunch'), "critical-style");
                 triggerScreenShake('medium');
             } else {
-                message.innerText = `NORMAL LAUNCH (속도: ${Math.round(swipeSpeed * 5.2)} km/h)`;
+                message.innerText = `${t('normalLaunch')} (${t('speedText')}: ${Math.round(swipeSpeed * 5.2)} km/h)`;
                 triggerHaptic('medium');
             }
             
@@ -2020,7 +2287,7 @@
                 multEffect = 1.06; // 수평 가속 추가 보너스
                 
                 const earned = Math.round(100 * selectedStone.mult * 2.5);
-                message.innerText = `완벽한 타이밍과 각도! (+${earned} SP)`;
+                message.innerText = `${t('perfectTiming')} (+${earned} SP)`;
                 playerSP += earned;
                 
                 createParticles(screenX, screenY, true, false);
@@ -2029,24 +2296,9 @@
                 triggerHaptic('heavy');
                 SoundManager.playBounceSound(true);
                 
-                // 콤보별 거대 네온 텍스트 및 화면 흔들림 연출 적용
+                // 첫 PERFECT일 때만 거대 네온 텍스트 및 화면 흔들림 연출 적용 (이후에는 팅 소리와 햅틱만 가볍게 표현)
                 if (perfectCount === 1) {
-                    spawnDramaticText("PERFECT BOUNCE!", "critical-style");
-                    triggerScreenShake('medium');
-                } else if (perfectCount === 2) {
-                    spawnDramaticText("DOUBLE PERFECT!", "critical-style");
-                    triggerScreenShake('medium');
-                } else if (perfectCount === 3) {
-                    spawnDramaticText("TRIPLE PERFECT!", "critical-style");
-                    triggerScreenShake('medium');
-                } else if (perfectCount === 5) {
-                    spawnDramaticText("HYPER BOUNCE!!", "lotto-style");
-                    triggerScreenShake('heavy');
-                } else if (perfectCount >= 7) {
-                    spawnDramaticText("GODLIKE BOUNCE!!!", "lotto-style");
-                    triggerScreenShake('heavy');
-                } else {
-                    spawnDramaticText(`${perfectCount} Combo!`, "critical-style");
+                    spawnDramaticText(t('perfect') + " BOUNCE!", "critical-style");
                     triggerScreenShake('medium');
                 }
             } else if (rating === "GOOD") {
@@ -2054,7 +2306,7 @@
                 multEffect = 0.98; // 거의 다 보존
                 
                 const earned = Math.round(100 * selectedStone.mult * 1.2);
-                message.innerText = `좋은 타이밍! (+${earned} SP)`;
+                message.innerText = `${t('goodTiming')} (+${earned} SP)`;
                 playerSP += earned;
                 
                 createParticles(screenX, screenY, false, false);
@@ -2067,7 +2319,7 @@
                 multEffect = 0.72; // 적절한 감속
                 
                 const earned = Math.round(100 * selectedStone.mult * 0.4);
-                message.innerText = "조금 어긋난 타이밍... 속도가 감소합니다.";
+                message.innerText = t('badTiming');
                 playerSP += earned;
                 
                 createParticles(screenX, screenY, false, false, 8);
@@ -2134,7 +2386,7 @@
             spawnRipple(screenX, screenY);
             
             createParticles(screenX, screenY, false, true, 20);
-            message.innerText = "타이밍을 놓쳐서 돌이 수면에 가라앉았습니다.";
+            message.innerText = t('missMsg');
             
             // 미스 진동 피드백 및 침몰 사운드
             triggerHaptic('error');
@@ -2152,7 +2404,7 @@
             
             spawnRipple(screenX, screenY);
             createParticles(screenX, screenY, false, true, 12);
-            message.innerText = "동력을 잃어 가라앉았습니다.";
+            message.innerText = t('sinkMsg');
             
             // 침몰 진동 및 사운드
             triggerHaptic('error');
@@ -2397,10 +2649,10 @@
             stoneEl.style.display = 'none';
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
-            document.getElementById('res-stone-name').innerText = selectedStone.name;
+            document.getElementById('res-stone-name').innerText = t(selectedStone.nameKey);
             document.getElementById('res-stone-name').style.color = selectedStone.color === "#1e293b" ? "#94a3b8" : selectedStone.color;
-            document.getElementById('res-bounce-count').innerText = `${bounceCount} 회`;
-            document.getElementById('res-perfect-count').innerText = `${perfectCount} 회`;
+            document.getElementById('res-bounce-count').innerText = `${bounceCount} ${t('bouncesUnit')}`;
+            document.getElementById('res-perfect-count').innerText = `${perfectCount} ${t('bouncesUnit')}`;
             
             const earnedSP = Math.round(((bounceCount * 100) + (perfectCount * 150)) * selectedStone.mult);
             document.getElementById('res-earned-sp').innerText = `+${earnedSP.toLocaleString()} SP`;
@@ -2422,8 +2674,8 @@
             currentStatus = "PRE_SPIN";
             
             rouletteScreen.style.display = 'flex';
-            document.getElementById('roulette-title').innerText = "TOUCH THE WHEEL TO START";
-            stoneDisplayName.innerText = "돌 뽑기 터치!";
+            document.getElementById('roulette-title').innerText = t('lobbyTitle');
+            stoneDisplayName.innerText = t('wheelTouch');
             stoneDisplayName.style.color = "white";
             stoneDesc.innerText = "";
             
@@ -2510,13 +2762,15 @@
                 // 강화 성공 햅틱 알림 및 상행 멜로디 재생
                 triggerHaptic('success');
                 SoundManager.playUpgradeSound();
-                message.innerText = `업그레이드 성공! (Lv.${upgrades[type]})`;
+                message.innerText = `${t('upgradeSuccess')} (Lv.${upgrades[type]})`;
             }
         }
 
         // 앱 시작 시 로드 및 초기화
         initTelegramWebApp();
+        initLanguage();
         loadData();
+        applyTranslations();
         changeRandomBackground(); // 첫 시작 시 배경 무작위 설정
     </script>
 </body>
