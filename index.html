@@ -230,18 +230,13 @@
             width: 280px; height: 280px; 
             border-radius: 50%; 
             position: relative; margin-bottom: 25px; 
-            /* 캐주얼 3D 게임 그래픽 스타일의 고급 네온 HSL 코닉 그라데이션 */
-            background: conic-gradient(
-                #3f4c5e 0deg 90deg,     /* 슬레이트 구역 (고급스러운 다크 스틸 그레이) */
-                #0284c7 90deg 180deg,   /* 조약돌 구역 (밝고 경쾌한 네온 스카이 블루) */
-                #1e1b4b 180deg 270deg,  /* 현무암 구역 (심해 느낌의 무거운 바이올렛 블랙) */
-                #d97706 270deg 360deg   /* 황금운석 구역 (빛나는 리치 엠버 골드) */
-            ); 
-            /* 금속 림 및 3D 다중 음영 섀도우 극대화 */
+            /* 고품질 3D 룰렛 원반 텍스처 이미지 적용 */
+            background: url('roulette_wheel.png') no-repeat center center;
+            background-size: cover;
+            /* 입체적인 금속 그림자 연출 */
             box-shadow: 
-                0 0 0 8px #1e293b, 
-                0 0 0 12px rgba(245, 158, 11, 0.35),
-                inset 0 0 30px rgba(0, 0, 0, 0.8),
+                0 0 0 3px rgba(245, 158, 11, 0.2),
+                inset 0 0 20px rgba(0, 0, 0, 0.6),
                 0 15px 35px rgba(0,0,0,0.55);
             cursor: pointer; 
             overflow: hidden;
