@@ -294,30 +294,31 @@
         }
         .mini-stone {
             margin-bottom: 4px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.4);
-            border: 1px solid rgba(255,255,255,0.15);
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            background-color: transparent;
+            border: none;
+            border-radius: 0;
+            box-shadow: none;
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
         }
         .mini-stone.slate {
-            width: 44px; height: 16px;
-            border-radius: 50% 50% 45% 45% / 60% 60% 40% 40%;
-            background: linear-gradient(180deg, #64748b 0%, #475569 40%, #1e293b 100%);
-            box-shadow: 0 4px 6px rgba(0,0,0,0.5), inset 0 1px 0px rgba(255,255,255,0.2);
+            width: 44px; height: 20px;
+            background-image: url('stone_slate.png');
         }
         .mini-stone.pebble {
-            width: 26px; height: 26px;
-            border-radius: 48% 52% 50% 50% / 50% 50% 50% 50%;
-            background: repeating-linear-gradient(45deg, rgba(255,255,255,0.06) 0px, rgba(255,255,255,0.06) 2px, transparent 2px, transparent 8px), #64748b;
+            width: 32px; height: 32px;
+            background-image: url('stone_pebble.png');
         }
         .mini-stone.basalt {
-            width: 28px; height: 26px;
-            border-radius: 42% 58% 45% 55% / 55% 45% 55% 45%;
-            background: radial-gradient(circle at 30% 30%, #000000 1px, transparent 2px), radial-gradient(circle at 70% 60%, #000000 1.5px, transparent 2.5px), #1e293b;
+            width: 34px; height: 34px;
+            background-image: url('stone_basalt.png');
         }
         .mini-stone.gold {
-            width: 28px; height: 24px;
-            border-radius: 45% 55% 50% 50% / 50% 45% 55% 50%;
-            background: radial-gradient(circle at 35% 35%, #fffbeb 0%, #eab308 60%, #854d0e 100%);
-            box-shadow: 0 0 10px rgba(234, 179, 8, 0.7), 0 4px 8px rgba(0,0,0,0.4);
+            width: 34px; height: 34px;
+            background-image: url('stone_gold.png');
+            filter: drop-shadow(0 0 8px rgba(234, 179, 8, 0.6)) drop-shadow(0 4px 6px rgba(0,0,0,0.4));
         }
 
         .wheel-center-cap {
@@ -722,26 +723,22 @@
             <div style="position: relative;">
                 <div class="pointer"></div>
                 <div id="roulette-wheel" class="wheel-container" onclick="triggerWheel(event)">
-                    <!-- 4개 섹터 (각 90도 범위) -->
-                    <!-- 1. 납작한 슬레이트 (0 ~ 90도, 중앙 45도 ➡️ 3시 방향 0도 오프셋 보정) -->
-                    <div class="wheel-sector" style="transform: rotate(0deg) translateY(-85px) rotate(0deg);">
+                    <!-- 4개 섹터 (각 90도 범위) - 텍스트는 룰렛 밖 넘침 방지를 위해 삭제하고 이미지만 표시 -->
+                    <!-- 1. 납작한 슬레이트 (3시 방향) -->
+                    <div class="wheel-sector" style="transform: rotate(0deg) translateY(-75px) rotate(0deg);">
                         <div class="mini-stone slate"></div>
-                        <div class="sector-text" data-i18n="stone0">슬레이트</div>
                     </div>
-                    <!-- 2. 거친 강가 조약돌 (90 ~ 180도, 중앙 135도 ➡️ 6시 방향 90도 오프셋 보정) -->
-                    <div class="wheel-sector" style="transform: rotate(90deg) translateY(-85px) rotate(-90deg);">
+                    <!-- 2. 거친 강가 조약돌 (6시 방향) -->
+                    <div class="wheel-sector" style="transform: rotate(90deg) translateY(-75px) rotate(-90deg);">
                         <div class="mini-stone pebble"></div>
-                        <div class="sector-text" data-i18n="stone1">조약돌</div>
                     </div>
-                    <!-- 3. 고밀도 현무암 (180 ~ 270도, 중앙 225도 ➡️ 9시 방향 180도 오프셋 보정) -->
-                    <div class="wheel-sector" style="transform: rotate(180deg) translateY(-85px) rotate(-180deg);">
+                    <!-- 3. 고밀도 현무암 (9시 방향) -->
+                    <div class="wheel-sector" style="transform: rotate(180deg) translateY(-75px) rotate(-180deg);">
                         <div class="mini-stone basalt"></div>
-                        <div class="sector-text" data-i18n="stone2">현무암</div>
                     </div>
-                    <!-- 4. XNOT 황금 운석 (270 ~ 360도, 중앙 315도 ➡️ 12시 방향 270도 오프셋 보정) -->
-                    <div class="wheel-sector" style="transform: rotate(270deg) translateY(-85px) rotate(-270deg);">
+                    <!-- 4. XNOT 황금 운석 (12시 방향) -->
+                    <div class="wheel-sector" style="transform: rotate(270deg) translateY(-75px) rotate(-270deg);">
                         <div class="mini-stone gold"></div>
-                        <div class="sector-text" style="color: #78350f;" data-i18n="stone3">황금운석</div>
                     </div>
                     <!-- 휠 중앙 캡 -->
                     <div class="wheel-center-cap">
@@ -1294,15 +1291,6 @@
                     }
                 }
             });
-            
-            // 룰렛 화면 내 고정 섹터 텍스트들 즉시 업데이트
-            const sectors = document.querySelectorAll('.wheel-sector');
-            if (sectors.length >= 4) {
-                sectors[0].querySelector('.sector-text').innerText = t('stone0');
-                sectors[1].querySelector('.sector-text').innerText = t('stone1');
-                sectors[2].querySelector('.sector-text').innerText = t('stone2');
-                sectors[3].querySelector('.sector-text').innerText = t('stone3');
-            }
         }
 
         function closeIntroScreen(e) {
@@ -1710,41 +1698,42 @@
             if (!stone) return;
             let width = "90px";
             let height = "60px";
-            let background = "";
-            let boxShadow = "";
-            let borderRadius = "50%";
+            let bgImage = "";
+            let filter = "drop-shadow(0 6px 10px rgba(0,0,0,0.5))";
             
             if (stone.name === "납작한 슬레이트") {
-                width = "110px";
-                height = "40px";
-                borderRadius = "50% 50% 45% 45% / 60% 60% 40% 40%";
-                background = "linear-gradient(180deg, #64748b 0%, #475569 40%, #334155 70%, #1e293b 100%)";
-                boxShadow = "0 6px 12px rgba(0,0,0,0.55), inset 0 2px 0px rgba(255,255,255,0.2), 0 2px 0px #334155, 0 4px 0px #1e293b";
+                width = "120px";
+                height = "55px";
+                bgImage = "url('stone_slate.png')";
+                filter = "drop-shadow(0 6px 10px rgba(0,0,0,0.55))";
             } else if (stone.name === "거친 강가 조약돌") {
-                width = "80px";
-                height = "80px";
-                borderRadius = "48% 52% 50% 50% / 50% 50% 50% 50%";
-                background = "radial-gradient(circle at 35% 35%, rgba(255,255,255,0.15) 0%, transparent 60%), repeating-linear-gradient(45deg, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 2px, transparent 2px, transparent 15px), #64748b";
-                boxShadow = "0 8px 16px rgba(0,0,0,0.5), inset -3px -3px 8px rgba(0,0,0,0.4), inset 3px 3px 8px rgba(255,255,255,0.2)";
+                width = "85px";
+                height = "85px";
+                bgImage = "url('stone_pebble.png')";
+                filter = "drop-shadow(0 8px 12px rgba(0,0,0,0.5))";
             } else if (stone.name === "고밀도 현무암") {
+                width = "95px";
+                height = "95px";
+                bgImage = "url('stone_basalt.png')";
+                filter = "drop-shadow(0 10px 16px rgba(0,0,0,0.65))";
+            } else if (stone.name === "XNOT 황금 운석") {
                 width = "90px";
                 height = "85px";
-                borderRadius = "42% 58% 45% 55% / 55% 45% 55% 45%";
-                background = "radial-gradient(circle at 20% 30%, #000000 2px, transparent 3px), radial-gradient(circle at 50% 70%, #000000 3px, transparent 4px), radial-gradient(circle at 75% 40%, #000000 2px, transparent 3px), radial-gradient(circle at 35% 80%, #000000 2.5px, transparent 3.5px), radial-gradient(circle at 40% 40%, #475569 0%, #1e293b 70%, #090d16 100%)";
-                boxShadow = "0 10px 20px rgba(0,0,0,0.6), inset -4px -4px 10px rgba(0,0,0,0.7), inset 4px 4px 8px rgba(255,255,255,0.05)";
-            } else if (stone.name === "XNOT 황금 운석") {
-                width = "85px";
-                height = "75px";
-                borderRadius = "45% 55% 50% 50% / 50% 45% 55% 50%";
-                background = "radial-gradient(circle at 35% 35%, #fffbeb 0%, #fef08a 25%, #eab308 60%, #854d0e 100%)";
-                boxShadow = "0 0 25px rgba(234, 179, 8, 0.8), 0 8px 25px rgba(0,0,0,0.5), inset 0 3px 5px rgba(255,255,255,0.6)";
+                bgImage = "url('stone_gold.png')";
+                filter = "drop-shadow(0 0 20px rgba(234, 179, 8, 0.75)) drop-shadow(0 8px 15px rgba(0,0,0,0.45))";
             }
             
             stoneEl.style.width = width;
             stoneEl.style.height = height;
-            stoneEl.style.borderRadius = borderRadius;
-            stoneEl.style.background = background;
-            stoneEl.style.boxShadow = boxShadow;
+            stoneEl.style.borderRadius = "0";
+            stoneEl.style.border = "none";
+            stoneEl.style.backgroundColor = "transparent";
+            stoneEl.style.backgroundImage = bgImage;
+            stoneEl.style.backgroundSize = "contain";
+            stoneEl.style.backgroundRepeat = "no-repeat";
+            stoneEl.style.backgroundPosition = "center";
+            stoneEl.style.boxShadow = "none";
+            stoneEl.style.filter = filter;
         }
 
         // 휠 회전 각도 획득용 헬퍼 함수
@@ -2214,21 +2203,30 @@
             stoneState.isLotto = isLotto;
             
             // 돌 던진 후 돌에 활성화될 아우라 스타일 설정
-            let launchBoxShadow = "0 8px 20px rgba(0,0,0,0.4)";
+            let launchFilter = "drop-shadow(0 8px 12px rgba(0,0,0,0.4))";
             if (isLotto) {
-                launchBoxShadow = "0 0 35px rgba(251, 191, 36, 0.95), 0 0 15px rgba(222, 255, 154, 0.6), 0 8px 20px rgba(0,0,0,0.4)";
+                launchFilter = "drop-shadow(0 0 25px rgba(251, 191, 36, 0.95)) drop-shadow(0 0 15px rgba(222, 255, 154, 0.6)) drop-shadow(0 8px 12px rgba(0,0,0,0.4))";
             } else if (isCrit) {
                 if (selectedStone.name === "고밀도 현무암" || (selectedStone.name === "XNOT 황금 운석" && activePhysics.frictionFactor === 0.998)) {
-                    launchBoxShadow = "0 0 30px rgba(168, 85, 247, 0.9), 0 0 15px rgba(239, 68, 68, 0.6), 0 8px 20px rgba(0,0,0,0.4)";
+                    launchFilter = "drop-shadow(0 0 20px rgba(168, 85, 247, 0.9)) drop-shadow(0 0 10px rgba(239, 68, 68, 0.6)) drop-shadow(0 8px 12px rgba(0,0,0,0.4))";
                 } else {
-                    launchBoxShadow = "0 0 25px rgba(56, 189, 248, 0.95), 0 8px 20px rgba(0,0,0,0.4)";
+                    launchFilter = "drop-shadow(0 0 20px rgba(56, 189, 248, 0.95)) drop-shadow(0 8px 12px rgba(0,0,0,0.4))";
                 }
             } else {
                 if (selectedStone.name === "XNOT 황금 운석") {
-                    launchBoxShadow = "0 0 20px rgba(250, 204, 21, 0.6), 0 8px 20px rgba(0,0,0,0.4)";
+                    launchFilter = "drop-shadow(0 0 15px rgba(250, 204, 21, 0.6)) drop-shadow(0 8px 12px rgba(0,0,0,0.4))";
+                } else {
+                    if (selectedStone.name === "납작한 슬레이트") {
+                        launchFilter = "drop-shadow(0 6px 10px rgba(0,0,0,0.55))";
+                    } else if (selectedStone.name === "거친 강가 조약돌") {
+                        launchFilter = "drop-shadow(0 8px 12px rgba(0,0,0,0.5))";
+                    } else if (selectedStone.name === "고밀도 현무암") {
+                        launchFilter = "drop-shadow(0 10px 16px rgba(0,0,0,0.65))";
+                    }
                 }
             }
-            stoneEl.style.boxShadow = launchBoxShadow;
+            stoneEl.style.boxShadow = "none";
+            stoneEl.style.filter = launchFilter;
             
             bounceCount = 0;
             perfectCount = 0;
