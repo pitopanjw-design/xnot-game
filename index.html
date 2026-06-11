@@ -410,26 +410,93 @@
         /* 결과 화면 모달 */
         #result-modal {
             position: absolute; inset: 0; 
-            background: rgba(15, 23, 42, 0.65);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
+            background: rgba(15, 23, 42, 0.45);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
             z-index: 250; display: none; flex-direction: column; align-items: center; justify-content: center;
         }
-        .result-box {
-            background: rgba(30, 41, 59, 0.88); 
-            border: 2px solid var(--primary); border-radius: 24px;
-            padding: 40px; width: 80%; max-width: 400px; text-align: center;
-            box-shadow: 0 20px 45px rgba(0,0,0,0.4);
-            animation: modal-appear 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        .result-box-wrapper {
+            background: rgba(30, 41, 59, 0.75);
+            border-radius: 28px;
+            padding: 3px;
+            background-image: linear-gradient(135deg, var(--primary), var(--accent), var(--gold));
+            box-shadow: 0 0 30px rgba(56, 189, 248, 0.2), 0 20px 50px rgba(0,0,0,0.65);
+            animation: modal-appear 0.45s cubic-bezier(0.19, 1, 0.22, 1) forwards;
+            width: 85%; max-width: 380px;
+        }
+        .result-box-inner {
+            background: radial-gradient(circle at 50% 10%, rgba(30, 41, 59, 0.96), rgba(15, 23, 42, 0.98));
+            border-radius: 26px;
+            padding: 30px 25px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
         @keyframes modal-appear {
-            from { transform: scale(0.8); opacity: 0; }
-            to { transform: scale(1); opacity: 1; }
+            from { transform: scale(0.75) translateY(30px); opacity: 0; }
+            to { transform: scale(1) translateY(0); opacity: 1; }
         }
-        .result-title { font-size: 28px; font-weight: 900; color: var(--primary); margin-bottom: 25px; }
-        .result-item { display: flex; justify-content: space-between; font-size: 18px; margin: 15px 0; padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.08); }
-        .result-label { color: #94a3b8; }
-        .result-val { font-weight: bold; }
+        .result-emblem-img {
+            width: 100px;
+            height: 100px;
+            margin-bottom: 15px;
+            filter: drop-shadow(0 8px 16px rgba(251, 191, 36, 0.45));
+            animation: emblem-float 3s ease-in-out infinite alternate;
+        }
+        @keyframes emblem-float {
+            0% { transform: translateY(0px) rotate(0deg); }
+            100% { transform: translateY(-8px) rotate(2deg); }
+        }
+        .result-title { 
+            font-size: 26px; 
+            font-weight: 900; 
+            color: #ffffff; 
+            margin-top: 5px;
+            margin-bottom: 25px; 
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            background: linear-gradient(to right, var(--primary), #ffffff, var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 4px 10px rgba(0,0,0,0.4);
+        }
+        .result-items-container {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 30px;
+        }
+        .result-item-card { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center;
+            font-size: 15px; 
+            padding: 14px 18px; 
+            background: rgba(15, 23, 42, 0.55);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            box-shadow: inset 0 1px 3px rgba(255,255,255,0.05);
+            width: 100%;
+            box-sizing: border-box;
+            transition: transform 0.2s;
+        }
+        .result-item-card:hover {
+            transform: scale(1.02);
+            border-color: rgba(222, 255, 154, 0.25);
+        }
+        .result-label { 
+            color: #94a3b8; 
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .result-val { 
+            font-weight: 900; 
+            font-size: 17px;
+            color: #f8fafc;
+        }
  
         /* 업그레이드 상점 모달 */
         #shop-modal {
@@ -559,25 +626,30 @@
 
         <!-- 결과 화면 모달 -->
         <div id="result-modal">
-            <div class="result-box">
-                <div class="result-title">물수제비 결과</div>
-                <div class="result-item">
-                    <span class="result-label">선택한 돌</span>
-                    <span id="res-stone-name" class="result-val">조약돌</span>
+            <div class="result-box-wrapper">
+                <div class="result-box-inner">
+                    <img src="result_emblem.png" class="result-emblem-img" alt="Gold Trophy Emblem">
+                    <div class="result-title">물수제비 결과</div>
+                    <div class="result-items-container">
+                        <div class="result-item-card">
+                            <span class="result-label">🪨 선택한 돌</span>
+                            <span id="res-stone-name" class="result-val">조약돌</span>
+                        </div>
+                        <div class="result-item-card">
+                            <span class="result-label">🎯 튕김 횟수</span>
+                            <span id="res-bounce-count" class="result-val">0 회</span>
+                        </div>
+                        <div class="result-item-card">
+                            <span class="result-label">⭐ Perfect 횟수</span>
+                            <span id="res-perfect-count" class="result-val" style="color:var(--gold);">0 회</span>
+                        </div>
+                        <div class="result-item-card">
+                            <span class="result-label">💎 획득 SP</span>
+                            <span id="res-earned-sp" class="result-val" style="color:var(--primary);">+0 SP</span>
+                        </div>
+                    </div>
+                    <button class="action-btn" style="width: 100%; margin-top: 5px; padding: 14px;" onclick="closeResultModal()">확인</button>
                 </div>
-                <div class="result-item">
-                    <span class="result-label">튕김 횟수</span>
-                    <span id="res-bounce-count" class="result-val">0 회</span>
-                </div>
-                <div class="result-item">
-                    <span class="result-label">Perfect 횟수</span>
-                    <span id="res-perfect-count" class="result-val" style="color:var(--gold);">0 회</span>
-                </div>
-                <div class="result-item">
-                    <span class="result-label">획득 SP</span>
-                    <span id="res-earned-sp" class="result-val" style="color:var(--primary);">+0 SP</span>
-                </div>
-                <button class="action-btn" style="width: 100%; margin-top: 25px; padding: 14px;" onclick="closeResultModal()">확인</button>
             </div>
         </div>
 
@@ -1321,171 +1393,245 @@
         }
 
         let isDragging = false;
+        let activeTouchId = null;
 
         function dragStart(e) {
             if (currentStatus !== "READY_TO_LAUNCH") return;
+            
+            // 터치 시작 대상이 확실히 돌멩이 요소인지 확인
+            if (e.target !== stoneEl && !stoneEl.contains(e.target)) return;
+            
             isDragging = true;
             
-            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            if (e.touches && e.touches.length > 0) {
+                activeTouchId = e.touches[0].identifier;
+                startY = e.touches[0].clientY;
+                startX = e.touches[0].clientX;
+            } else {
+                activeTouchId = null;
+                startY = e.clientY;
+                startX = e.clientX;
+            }
             
-            startY = clientY;
-            startX = clientX;
             startTime = Date.now();
-            
             stoneEl.style.cursor = "grabbing";
+            stoneEl.style.transition = 'none'; // 드래그 중 transition 비활성화
+            
             if (e.cancelable) e.preventDefault();
         }
 
         function dragMove(e) {
             if (!isDragging || currentStatus !== "READY_TO_LAUNCH") return;
             
-            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            let clientY, clientX;
+            if (e.touches) {
+                // 시작된 터치와 동일한 식별자 탐색 (멀티터치 혼선 해결)
+                let targetTouch = null;
+                for (let i = 0; i < e.touches.length; i++) {
+                    if (e.touches[i].identifier === activeTouchId) {
+                        targetTouch = e.touches[i];
+                        break;
+                    }
+                }
+                if (!targetTouch) return;
+                clientY = targetTouch.clientY;
+                clientX = targetTouch.clientX;
+            } else {
+                clientY = e.clientY;
+                clientX = e.clientX;
+            }
             
-            const dy = clientY - startY;
+            const dy = startY - clientY;
             const dx = clientX - startX;
             
-            if (dy < 0) { 
-                stoneEl.style.transform = `translate(calc(-50% + ${dx}px), ${dy}px) scale(1.05)`;
+            // 손가락에 맞춰 돌멩이 위치 실시간 이동
+            if (dy > 0) { 
+                stoneEl.style.transform = `translate(calc(-50% + ${dx}px), ${-dy}px) scale(1.05)`;
+            } else {
+                stoneEl.style.transform = `translate(calc(-50% + ${dx}px), ${-dy}px) scale(1.0)`;
             }
+            
+            // [💥 핵심 요건: 150px 한계선 도달 시 즉시 발사]
+            // 화면 중간(150px)까지 밀었으면 즉시 발사를 트리거하여 순발력 시간만 정확히 판정합니다.
+            if (dy >= 150) {
+                triggerLaunch(150, dx);
+            }
+            
             if (e.cancelable) e.preventDefault();
         }
 
         function dragEnd(e) {
             if (!isDragging) return;
+            
+            // 모바일 터치 종료 시 터치 식별자 매칭 검증
+            if (e.changedTouches) {
+                let matched = false;
+                for (let i = 0; i < e.changedTouches.length; i++) {
+                    if (e.changedTouches[i].identifier === activeTouchId) {
+                        matched = true;
+                        break;
+                    }
+                }
+                if (!matched) return;
+            }
+            
             isDragging = false;
             stoneEl.style.cursor = "grab";
             
-            const clientY = e.changedTouches ? e.changedTouches[0].clientY : e.clientY;
-            const clientX = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
+            let clientY, clientX;
+            if (e.changedTouches) {
+                clientY = e.changedTouches[0].clientY;
+                clientX = e.changedTouches[0].clientX;
+            } else {
+                clientY = e.clientY;
+                clientX = e.clientX;
+            }
             
             const dy = startY - clientY;
             const dx = clientX - startX;
-            const duration = Date.now() - startTime;
             
-            if (dy > 50 && duration > 0) {
-                unbindLaunchEvents();
-                cancelAnimationFrame(angleGaugeTimer);
-                
-                swipeGuide.style.display = 'none';
-                angleGaugeContainer.style.display = 'none';
-                
-                // 돌 던지기 햅틱 트리거
-                triggerHaptic('medium');
-                
-                const swipeSpeed = Math.min(dy / duration * 10, 28); 
-                currentSwipeSpeed = swipeSpeed;
-                
-                stoneState.x = 0;
-                stoneState.y = 0;
-                stoneState.z = 15; 
-                
-                const rad = launchAngle * Math.PI / 180;
-                stoneState.vy = swipeSpeed * Math.cos(rad);
-                stoneState.vz = swipeSpeed * Math.sin(rad) * 0.75; 
-                stoneState.vx = (dx / duration) * 2; 
-                
-                // --- ☄️ [돌의 종류별 발사 시점 확률적 특성 결정 로직] ---
-                let activePhysics = null;
-                let isCrit = false;
-                let isLotto = false;
-                
-                if (selectedStone.name === "XNOT 황금 운석") {
-                    // 1. 로또 4배 확률 롤링 (1 / 2,036,265)
-                    const lottoChance = selectedStone.physics.lottoChance;
-                    if (window.forceLotto || Math.random() < lottoChance) {
-                        activePhysics = JSON.parse(JSON.stringify(selectedStone.physics.lottoPhysics));
-                        isLotto = true;
-                    } else {
-                        // 2. 50:50으로 납작한 슬레이트 혹은 고밀도 현무암 복제
-                        const isSlateType = Math.random() < 0.5;
-                        if (isSlateType) {
-                            const slateRef = stones.find(s => s.name === "납작한 슬레이트");
-                            activePhysics = JSON.parse(JSON.stringify(slateRef.physics));
-                            if (window.forceCrit || Math.random() < activePhysics.critChance) {
-                                isCrit = true; // 슬레이트 크리티컬
-                            }
-                        } else {
-                            const basaltRef = stones.find(s => s.name === "고밀도 현무암");
-                            if (window.forceCrit || Math.random() < basaltRef.physics.critChance) {
-                                activePhysics = JSON.parse(JSON.stringify(basaltRef.physics.critPhysics));
-                                isCrit = true; // 현무암 크리티컬
-                            } else {
-                                activePhysics = JSON.parse(JSON.stringify(basaltRef.physics));
-                            }
-                        }
-                    }
-                } else if (selectedStone.name === "고밀도 현무암") {
-                    if (window.forceCrit || Math.random() < selectedStone.physics.critChance) {
-                        activePhysics = JSON.parse(JSON.stringify(selectedStone.physics.critPhysics));
-                        isCrit = true;
-                    } else {
-                        activePhysics = JSON.parse(JSON.stringify(selectedStone.physics));
-                    }
-                } else {
-                    activePhysics = JSON.parse(JSON.stringify(selectedStone.physics));
-                    if (window.forceCrit || Math.random() < activePhysics.critChance) {
-                        isCrit = true;
-                    }
-                }
-                
-                stoneState.activePhysics = activePhysics;
-                stoneState.isCrit = isCrit;
-                stoneState.isLotto = isLotto;
-                
-                // 돌 던진 후 돌에 활성화될 아우라 스타일 설정
-                let launchBoxShadow = "0 8px 20px rgba(0,0,0,0.4)";
-                if (isLotto) {
-                    launchBoxShadow = "0 0 35px rgba(251, 191, 36, 0.95), 0 0 15px rgba(222, 255, 154, 0.6), 0 8px 20px rgba(0,0,0,0.4)";
-                } else if (isCrit) {
-                    if (selectedStone.name === "고밀도 현무암" || (selectedStone.name === "XNOT 황금 운석" && activePhysics.frictionFactor === 0.998)) {
-                        launchBoxShadow = "0 0 30px rgba(168, 85, 247, 0.9), 0 0 15px rgba(239, 68, 68, 0.6), 0 8px 20px rgba(0,0,0,0.4)";
-                    } else {
-                        launchBoxShadow = "0 0 25px rgba(56, 189, 248, 0.95), 0 8px 20px rgba(0,0,0,0.4)";
-                    }
-                } else {
-                    if (selectedStone.name === "XNOT 황금 운석") {
-                        launchBoxShadow = "0 0 20px rgba(250, 204, 21, 0.6), 0 8px 20px rgba(0,0,0,0.4)";
-                    }
-                }
-                stoneEl.style.boxShadow = launchBoxShadow;
-                
-                bounceCount = 0;
-                perfectCount = 0;
-                isDead = false;
-                hasTappedThisBounce = false;
-                
-                currentStatus = "FLYING";
-                isPlaying = true;
-                
-                scoreDisplay.innerText = "BOUNCE: 0";
-                
-                if (isLotto) {
-                    message.innerText = "🌌 은하 활공 발동! (Galaxy Glide - 초희귀 로또 확률!)";
-                    spawnDramaticText("GALAXY GLIDE!", "lotto-style");
-                    triggerScreenShake('heavy');
-                } else if (isCrit) {
-                    if (selectedStone.name === "고밀도 현무암" || (selectedStone.name === "XNOT 황금 운석" && activePhysics.frictionFactor === 0.998)) {
-                        message.innerText = "💥 현무암 관성 대폭발 발동! (Inertia Blast - 2.5% 확률!)";
-                        spawnDramaticText("INERTIA BLAST!", "critical-style");
-                    } else {
-                        message.innerText = "✨ 크리티컬 튕김 발동!";
-                        spawnDramaticText("CRITICAL SHOT!", "critical-style");
-                    }
-                    triggerScreenShake('medium');
-                } else {
-                    message.innerText = "수면에 닿는 순간 화면을 터치하세요!";
-                }
-                
-                container.addEventListener('mousedown', registerBounceTap);
-                container.addEventListener('touchstart', registerBounceTap, { passive: true });
-                
-                particles = [];
-                runGameLoop();
+            // 150px에 못 미치고 손을 뗀 경우 실제 뗀 거리를 기준으로 약하게 발사 (살짝 던짐)
+            if (dy > 15) {
+                triggerLaunch(dy, dx);
             } else {
+                // 미세한 탭 노이즈의 경우 취소 및 복귀
+                stoneEl.style.transition = 'transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
                 stoneEl.style.transform = "translateX(-50%) scale(1)";
             }
+        }
+
+        // 실제 던지기 실행 및 물리 밸런스 공식 주입
+        function triggerLaunch(dy, dx) {
+            isDragging = false;
+            unbindLaunchEvents();
+            cancelAnimationFrame(angleGaugeTimer);
+            
+            swipeGuide.style.display = 'none';
+            angleGaugeContainer.style.display = 'none';
+            
+            // 도달 시간 (최소 1ms 보장)
+            const duration = Math.max(1, Date.now() - startTime);
+            
+            // 최대 드래그 인식 거리는 150px로 고정(가중치 캡)
+            const effectiveDy = Math.min(dy, 150);
+            
+            // 150px 도달 감도 속도식 (최대 상한치 38로 확장)
+            const swipeSpeed = Math.min((effectiveDy / duration) * 15, 38);
+            currentSwipeSpeed = swipeSpeed;
+            
+            // 스와이프 거리가 짧으면 (150px보다 덜 밀었으면) 비례해서 파워 감쇄
+            const distanceFactor = effectiveDy / 150;
+            
+            stoneState.x = 0;
+            stoneState.y = 0;
+            stoneState.z = 15; 
+            
+            const rad = launchAngle * Math.PI / 180;
+            
+            // 거리 감쇄 인자(distanceFactor)가 동력에 직접 투입되어 살짝 던지면 즉시 침몰
+            stoneState.vy = (swipeSpeed * Math.cos(rad)) * distanceFactor;
+            stoneState.vz = (swipeSpeed * Math.sin(rad) * 0.75) * distanceFactor; 
+            stoneState.vx = ((dx / duration) * 2) * distanceFactor; 
+            
+            // --- ☄️ [돌의 종류별 발사 시점 확률적 특성 결정 로직] ---
+            let activePhysics = null;
+            let isCrit = false;
+            let isLotto = false;
+            
+            if (selectedStone.name === "XNOT 황금 운석") {
+                const lottoChance = selectedStone.physics.lottoChance;
+                if (window.forceLotto || Math.random() < lottoChance) {
+                    activePhysics = JSON.parse(JSON.stringify(selectedStone.physics.lottoPhysics));
+                    isLotto = true;
+                } else {
+                    const isSlateType = Math.random() < 0.5;
+                    if (isSlateType) {
+                        const slateRef = stones.find(s => s.name === "납작한 슬레이트");
+                        activePhysics = JSON.parse(JSON.stringify(slateRef.physics));
+                        if (window.forceCrit || Math.random() < activePhysics.critChance) {
+                            isCrit = true;
+                        }
+                    } else {
+                        const basaltRef = stones.find(s => s.name === "고밀도 현무암");
+                        if (window.forceCrit || Math.random() < basaltRef.physics.critChance) {
+                            activePhysics = JSON.parse(JSON.stringify(basaltRef.physics.critPhysics));
+                            isCrit = true;
+                        } else {
+                            activePhysics = JSON.parse(JSON.stringify(basaltRef.physics));
+                        }
+                    }
+                }
+            } else if (selectedStone.name === "고밀도 현무암") {
+                if (window.forceCrit || Math.random() < selectedStone.physics.critChance) {
+                    activePhysics = JSON.parse(JSON.stringify(selectedStone.physics.critPhysics));
+                    isCrit = true;
+                } else {
+                    activePhysics = JSON.parse(JSON.stringify(selectedStone.physics));
+                }
+            } else {
+                activePhysics = JSON.parse(JSON.stringify(selectedStone.physics));
+                if (window.forceCrit || Math.random() < activePhysics.critChance) {
+                    isCrit = true;
+                }
+            }
+            
+            // [순발력 연동 마찰 완화 공식]
+            // 도달 속도가 빠를수록 공기/수면 저항(마찰)이 지수적으로 경감되어 장거리 비행 가능
+            const speedFactor = swipeSpeed / 20; // 기준 속도 20 대비 비율
+            if (activePhysics) {
+                activePhysics.frictionFactor = Math.min(0.9994, activePhysics.frictionFactor + (speedFactor * 0.0006));
+            }
+            
+            stoneState.activePhysics = activePhysics;
+            stoneState.isCrit = isCrit;
+            stoneState.isLotto = isLotto;
+            
+            // 돌 던진 후 돌에 활성화될 아우라 스타일 설정
+            let launchBoxShadow = "0 8px 20px rgba(0,0,0,0.4)";
+            if (isLotto) {
+                launchBoxShadow = "0 0 35px rgba(251, 191, 36, 0.95), 0 0 15px rgba(222, 255, 154, 0.6), 0 8px 20px rgba(0,0,0,0.4)";
+            } else if (isCrit) {
+                if (selectedStone.name === "고밀도 현무암" || (selectedStone.name === "XNOT 황금 운석" && activePhysics.frictionFactor === 0.998)) {
+                    launchBoxShadow = "0 0 30px rgba(168, 85, 247, 0.9), 0 0 15px rgba(239, 68, 68, 0.6), 0 8px 20px rgba(0,0,0,0.4)";
+                } else {
+                    launchBoxShadow = "0 0 25px rgba(56, 189, 248, 0.95), 0 8px 20px rgba(0,0,0,0.4)";
+                }
+            } else {
+                if (selectedStone.name === "XNOT 황금 운석") {
+                    launchBoxShadow = "0 0 20px rgba(250, 204, 21, 0.6), 0 8px 20px rgba(0,0,0,0.4)";
+                }
+            }
+            stoneEl.style.boxShadow = launchBoxShadow;
+            
+            bounceCount = 0;
+            perfectCount = 0;
+            isDead = false;
+            hasTappedThisBounce = false;
+            
+            currentStatus = "FLYING";
+            isPlaying = true;
+            
+            scoreDisplay.innerText = "BOUNCE: 0";
+            
+            // 순발력 속도 등급에 따른 판정 연출
+            if (swipeSpeed >= 30) {
+                message.innerText = `⚡ LIGHTNING LAUNCH! ⚡ (속도: ${Math.round(swipeSpeed * 5.2)} km/h)`;
+                spawnDramaticText("LIGHTNING LAUNCH!", "lotto-style");
+                triggerScreenShake('heavy');
+            } else if (swipeSpeed >= 20) {
+                message.innerText = `🔥 FAST LAUNCH! 🔥 (속도: ${Math.round(swipeSpeed * 5.2)} km/h)`;
+                spawnDramaticText("FAST LAUNCH!", "critical-style");
+                triggerScreenShake('medium');
+            } else {
+                message.innerText = `NORMAL LAUNCH (속도: ${Math.round(swipeSpeed * 5.2)} km/h)`;
+                triggerHaptic('medium');
+            }
+            
+            container.addEventListener('mousedown', registerBounceTap);
+            container.addEventListener('touchstart', registerBounceTap, { passive: true });
+            
+            particles = [];
+            runGameLoop();
         }
 
         // --- 💧 [물수제비 물리 엔진 및 업그레이드 연동] ---
