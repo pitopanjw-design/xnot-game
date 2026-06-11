@@ -84,24 +84,39 @@
             filter: blur(1.2px); /* 카메라 아웃포커스(심도) 처리로 입체감 강화 */
         }
 
-        /* 자산 정보 표시 */
-        .asset-bar { position: absolute; top: 15px; left: 15px; right: 15px; display: flex; justify-content: space-between; gap: 8px; z-index: 200; pointer-events: none; }
+        /* 자산 정보 표시 - 텔레그램 상단 시스템 UI 피하기 및 모바일 최적화 */
+        .asset-bar { 
+            position: absolute; 
+            top: 65px; /* 15px -> 65px로 아래로 밀어 텔레그램 우측 컨트롤 버튼과의 충돌 완벽 방지 */
+            left: 10px; 
+            right: 10px; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center;
+            flex-wrap: wrap; /* 폭이 좁은 기기에서 줄바꿈이 이쁘게 일어나도록 설정 */
+            gap: 6px; 
+            z-index: 200; 
+            pointer-events: none; 
+        }
         .asset-box { 
             background: var(--glass-bg); 
-            padding: 10px 16px; 
-            border-radius: 20px; 
+            padding: 6px 12px; /* 패딩 축소로 모바일 찌그러짐 방지 */
+            border-radius: 16px; 
             border: 1px solid var(--glass-border); 
             font-weight: bold; 
-            font-size: 14px; 
+            font-size: 12px; /* 폰트 크기 최적화 */
             display: flex; 
             align-items: center; 
-            gap: 6px; 
-            box-shadow: 0 8px 32px rgba(0,0,0,0.3); 
-            backdrop-filter: blur(10px); 
-            -webkit-backdrop-filter: blur(10px);
+            gap: 5px; 
+            box-shadow: 0 6px 20px rgba(0,0,0,0.35); 
+            backdrop-filter: blur(8px); 
+            -webkit-backdrop-filter: blur(8px);
+            white-space: nowrap; /* 글자가 박스 안에서 임의 줄바꿈되어 찌그러지는 현상 방지 */
+            flex-shrink: 0;
+            pointer-events: auto;
         }
-        #hearts-count { color: var(--danger); }
-        #sp-count { color: var(--primary); }
+        #hearts-count { color: var(--danger); font-weight: 900; }
+        #sp-count { color: var(--primary); font-weight: 900; }
         #user-name { color: #f8fafc; font-weight: 900; }
         #mute-btn:active { transform: scale(0.9); }
 
@@ -675,7 +690,7 @@
         <!-- 하단 자갈밭 강안 Shore -->
         <div id="river-shore"></div>
 
-        <div class="asset-bar">
+        <div class="asset-bar" style="display: none;">
             <!-- 텔레그램 유저 프로필 카드 -->
             <div class="asset-box" id="user-card" style="display: none;">👤 <span id="user-name">Guest</span></div>
             <div class="asset-box"><span data-i18n="hearts">❤️ 하트</span>: <span id="hearts-count">5</span> / 5</div>
@@ -1281,6 +1296,7 @@
                 intro.style.opacity = '0';
                 setTimeout(() => {
                     intro.style.display = 'none';
+                    setAssetBarVisible(true); // 인트로 종료 시 자산 정보 바 노출
                 }, 500);
             }
         }
@@ -2771,6 +2787,7 @@
             triggerHaptic('success');
             SoundManager.playFanfareSound();
             
+            setAssetBarVisible(false); // 결과창 뜰 때 자산 바 감춤
             resultModal.style.display = 'flex';
         }
 
@@ -2785,6 +2802,7 @@
             stoneDesc.innerText = "";
             
             updateAssetUI();
+            setAssetBarVisible(true); // 결과창 닫으면 자산 바 다시 노출
             changeRandomBackground(); // 결과창 닫을 때 배경 화면 랜덤 교체
         }
 
@@ -2798,6 +2816,7 @@
             if (isSpinning || currentStatus !== "PRE_SPIN") return;
             SoundManager.resume(); // 오디오 재개
             
+            setAssetBarVisible(false); // 상점 모달이 뜰 때는 상단 자산바 감춤
             shopModal.style.display = 'flex';
             updateShopUI();
             triggerHaptic('light');
@@ -2806,6 +2825,7 @@
         function closeShop() {
             SoundManager.resume(); // 오디오 재개
             shopModal.style.display = 'none';
+            setAssetBarVisible(true); // 상점이 닫히면 다시 자산바 노출
             triggerHaptic('light');
         }
 
@@ -2890,6 +2910,14 @@
             const modal = document.getElementById('intro-info-modal');
             if (modal) {
                 modal.style.display = 'none';
+            }
+        }
+
+        // --- 📊 [상단 자산바 표시 여부 조절 헬퍼 함수] ---
+        function setAssetBarVisible(visible) {
+            const bar = document.querySelector('.asset-bar');
+            if (bar) {
+                bar.style.display = visible ? 'flex' : 'none';
             }
         }
 
