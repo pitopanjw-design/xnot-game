@@ -723,23 +723,23 @@
                 <div class="pointer"></div>
                 <div id="roulette-wheel" class="wheel-container" onclick="triggerWheel(event)">
                     <!-- 4개 섹터 (각 90도 범위) -->
-                    <!-- 1. 납작한 슬레이트 (0 ~ 90도, 중앙 45도) -->
-                    <div class="wheel-sector" style="transform: rotate(45deg) translateY(-85px) rotate(-45deg);">
+                    <!-- 1. 납작한 슬레이트 (0 ~ 90도, 중앙 45도 ➡️ 3시 방향 0도 오프셋 보정) -->
+                    <div class="wheel-sector" style="transform: rotate(0deg) translateY(-85px) rotate(0deg);">
                         <div class="mini-stone slate"></div>
                         <div class="sector-text" data-i18n="stone0">슬레이트</div>
                     </div>
-                    <!-- 2. 거친 강가 조약돌 (90 ~ 180도, 중앙 135도) -->
-                    <div class="wheel-sector" style="transform: rotate(135deg) translateY(-85px) rotate(-135deg);">
+                    <!-- 2. 거친 강가 조약돌 (90 ~ 180도, 중앙 135도 ➡️ 6시 방향 90도 오프셋 보정) -->
+                    <div class="wheel-sector" style="transform: rotate(90deg) translateY(-85px) rotate(-90deg);">
                         <div class="mini-stone pebble"></div>
                         <div class="sector-text" data-i18n="stone1">조약돌</div>
                     </div>
-                    <!-- 3. 고밀도 현무암 (180 ~ 270도, 중앙 225도) -->
-                    <div class="wheel-sector" style="transform: rotate(225deg) translateY(-85px) rotate(-225deg);">
+                    <!-- 3. 고밀도 현무암 (180 ~ 270도, 중앙 225도 ➡️ 9시 방향 180도 오프셋 보정) -->
+                    <div class="wheel-sector" style="transform: rotate(180deg) translateY(-85px) rotate(-180deg);">
                         <div class="mini-stone basalt"></div>
                         <div class="sector-text" data-i18n="stone2">현무암</div>
                     </div>
-                    <!-- 4. XNOT 황금 운석 (270 ~ 360도, 중앙 315도) -->
-                    <div class="wheel-sector" style="transform: rotate(315deg) translateY(-85px) rotate(-315deg);">
+                    <!-- 4. XNOT 황금 운석 (270 ~ 360도, 중앙 315도 ➡️ 12시 방향 270도 오프셋 보정) -->
+                    <div class="wheel-sector" style="transform: rotate(270deg) translateY(-85px) rotate(-270deg);">
                         <div class="mini-stone gold"></div>
                         <div class="sector-text" style="color: #78350f;" data-i18n="stone3">황금운석</div>
                     </div>
