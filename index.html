@@ -211,18 +211,169 @@
             z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; 
         }
         .wheel-container { 
-            width: 240px; height: 240px; 
+            width: 280px; height: 280px; 
             border-radius: 50%; 
-            display: flex; align-items: center; justify-content: center; 
             position: relative; margin-bottom: 25px; 
-            background: rgba(30, 41, 59, 0.8); 
-            border: 2px solid rgba(222, 255, 154, 0.35);
-            box-shadow: 0 0 40px rgba(222,255,154,0.25); 
-            cursor: pointer; transition: transform 0.1s ease-out; 
+            background: conic-gradient(
+                #475569 0deg 90deg, 
+                #64748b 90deg 180deg, 
+                #1e293b 180deg 270deg, 
+                #fbbf24 270deg 360deg
+            ); 
+            border: 6px solid #1e293b;
+            box-shadow: 0 0 50px rgba(251, 191, 36, 0.2), 0 15px 35px rgba(0,0,0,0.5); 
+            cursor: pointer; 
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
-        .pointer { position: absolute; top: -20px; width: 0; height: 0; border-left: 15px solid transparent; border-right: 15px solid transparent; border-top: 25px solid #ef4444; z-index: 110; }
-        #stone-display-name { font-size: 24px; font-weight: bold; color: white; text-align: center; padding: 10px; pointer-events: none; }
+        .pointer { 
+            position: absolute; 
+            top: -15px; 
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0; height: 0; 
+            border-left: 18px solid transparent; 
+            border-right: 18px solid transparent; 
+            border-top: 30px solid #ef4444; 
+            z-index: 120; 
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.4));
+        }
         
+        /* 룰렛 섹터 텍스트 및 미니어처 돌 */
+        .wheel-sector {
+            position: absolute;
+            width: 90px;
+            height: 90px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+            z-index: 102;
+        }
+        .sector-text {
+            font-size: 13px;
+            font-weight: 900;
+            color: #ffffff;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+            letter-spacing: -0.5px;
+        }
+        .mini-stone {
+            margin-bottom: 4px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+            border: 1px solid rgba(255,255,255,0.15);
+        }
+        .mini-stone.slate {
+            width: 44px; height: 16px;
+            border-radius: 50% 50% 45% 45% / 60% 60% 40% 40%;
+            background: linear-gradient(180deg, #64748b 0%, #475569 40%, #1e293b 100%);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.5), inset 0 1px 0px rgba(255,255,255,0.2);
+        }
+        .mini-stone.pebble {
+            width: 26px; height: 26px;
+            border-radius: 48% 52% 50% 50% / 50% 50% 50% 50%;
+            background: repeating-linear-gradient(45deg, rgba(255,255,255,0.06) 0px, rgba(255,255,255,0.06) 2px, transparent 2px, transparent 8px), #64748b;
+        }
+        .mini-stone.basalt {
+            width: 28px; height: 26px;
+            border-radius: 42% 58% 45% 55% / 55% 45% 55% 45%;
+            background: radial-gradient(circle at 30% 30%, #000000 1px, transparent 2px), radial-gradient(circle at 70% 60%, #000000 1.5px, transparent 2.5px), #1e293b;
+        }
+        .mini-stone.gold {
+            width: 28px; height: 24px;
+            border-radius: 45% 55% 50% 50% / 50% 45% 55% 50%;
+            background: radial-gradient(circle at 35% 35%, #fffbeb 0%, #eab308 60%, #854d0e 100%);
+            box-shadow: 0 0 10px rgba(234, 179, 8, 0.7), 0 4px 8px rgba(0,0,0,0.4);
+        }
+
+        .wheel-center-cap {
+            position: absolute;
+            width: 90px;
+            height: 90px;
+            background: radial-gradient(circle at 50% 50%, #1e293b, #0f172a);
+            border-radius: 50%;
+            border: 3px solid rgba(222, 255, 154, 0.45);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.6), inset 0 2px 4px rgba(255,255,255,0.1);
+            z-index: 105;
+        }
+        #stone-display-name { 
+            font-size: 15px; 
+            font-weight: 900; 
+            color: white; 
+            text-align: center; 
+            pointer-events: none;
+            line-height: 1.2;
+            word-break: keep-all;
+        }
+        
+        /* 극적인 네온 텍스트 효과 */
+        .dramatic-neon-text {
+            position: absolute;
+            left: 50%;
+            top: 32%;
+            transform: translate(-50%, -50%) scale(0.2);
+            font-size: 46px;
+            font-weight: 900;
+            color: #fff;
+            text-align: center;
+            z-index: 210;
+            pointer-events: none;
+            letter-spacing: 2px;
+            font-style: italic;
+            opacity: 0;
+            text-transform: uppercase;
+        }
+        .dramatic-neon-text.critical-style {
+            color: #deff9a;
+            text-shadow: 0 0 12px #deff9a, 0 0 25px #ca8a04, 0 0 50px #eab308;
+            animation: neon-flash-in 1.3s cubic-bezier(0.15, 0.85, 0.15, 1) forwards;
+        }
+        .dramatic-neon-text.lotto-style {
+            color: #fffbeb;
+            text-shadow: 0 0 15px #fff, 0 0 30px #c084fc, 0 0 60px #a855f7, 0 0 120px #3b82f6;
+            animation: neon-flash-in-lotto 1.8s cubic-bezier(0.15, 0.85, 0.15, 1) forwards;
+        }
+        @keyframes neon-flash-in {
+            0% { transform: translate(-50%, -50%) scale(0.4) rotate(-12deg); opacity: 0; filter: brightness(2.5); }
+            15% { transform: translate(-50%, -50%) scale(1.2) rotate(6deg); opacity: 1; filter: brightness(1.5); }
+            30% { transform: translate(-50%, -50%) scale(1.0) rotate(0deg); opacity: 1; filter: brightness(1); }
+            80% { opacity: 1; transform: translate(-50%, -50%) scale(1.03); }
+            100% { transform: translate(-50%, -100%) scale(0.75); opacity: 0; }
+        }
+        @keyframes neon-flash-in-lotto {
+            0% { transform: translate(-50%, -50%) scale(0.3) rotate(-22deg); opacity: 0; }
+            20% { transform: translate(-50%, -50%) scale(1.4) rotate(12deg); opacity: 1; }
+            35% { transform: translate(-50%, -50%) scale(1.0) rotate(0deg); opacity: 1; }
+            80% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
+            100% { transform: translate(-50%, -110%) scale(0.7); opacity: 0; }
+        }
+
+        /* 화면 셰이크 진동 효과 */
+        @keyframes screen-shake {
+            0% { transform: translate(0, 0); }
+            10% { transform: translate(-5px, 4px) rotate(-0.5deg); }
+            20% { transform: translate(4px, -3px) rotate(0.5deg); }
+            30% { transform: translate(-4px, -4px) rotate(-1deg); }
+            40% { transform: translate(5px, 3px) rotate(0.5deg); }
+            50% { transform: translate(-3px, 4px) rotate(0.5deg); }
+            60% { transform: translate(4px, -3px) rotate(-0.5deg); }
+            70% { transform: translate(-4px, 2px) rotate(0.5deg); }
+            80% { transform: translate(3px, -4px) rotate(-0.5deg); }
+            90% { transform: translate(-3px, 3px) rotate(0.5deg); }
+            100% { transform: translate(0, 0) rotate(0deg); }
+        }
+        .shake-active {
+            animation: screen-shake 0.45s cubic-bezier(.36,.07,.19,.97) both;
+            transform: translate3d(0, 0, 0);
+            backface-visibility: hidden;
+            perspective: 1000px;
+        }
+
         .action-btn { background: var(--primary); color: #0f172a; border: none; padding: 18px 60px; font-size: 22px; font-weight: bold; border-radius: 40px; cursor: pointer; box-shadow: 0 5px 15px rgba(0,0,0,0.3); margin-top: 10px; transition: transform 0.2s, background-color 0.2s; }
         .action-btn:active { transform: scale(0.95); }
         .secondary-btn { background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2); padding: 12px 30px; font-size: 16px; font-weight: bold; border-radius: 30px; cursor: pointer; margin-top: 15px; transition: background 0.2s, transform 0.2s; }
@@ -352,9 +503,35 @@
 
         <div id="roulette-screen">
             <h2 id="roulette-title" style="color:var(--primary); margin-bottom:20px; text-align:center; padding: 0 20px; font-weight: 900;">TOUCH THE WHEEL TO START</h2>
-            <div class="pointer"></div>
-            <div id="roulette-wheel" class="wheel-container" onclick="triggerWheel(event)">
-                <div id="stone-display-name">돌 뽑기 터치!</div>
+            <div style="position: relative;">
+                <div class="pointer"></div>
+                <div id="roulette-wheel" class="wheel-container" onclick="triggerWheel(event)">
+                    <!-- 4개 섹터 (각 90도 범위) -->
+                    <!-- 1. 납작한 슬레이트 (0 ~ 90도, 중앙 45도) -->
+                    <div class="wheel-sector" style="transform: rotate(45deg) translateY(-85px) rotate(-45deg);">
+                        <div class="mini-stone slate"></div>
+                        <div class="sector-text">슬레이트</div>
+                    </div>
+                    <!-- 2. 거친 강가 조약돌 (90 ~ 180도, 중앙 135도) -->
+                    <div class="wheel-sector" style="transform: rotate(135deg) translateY(-85px) rotate(-135deg);">
+                        <div class="mini-stone pebble"></div>
+                        <div class="sector-text">조약돌</div>
+                    </div>
+                    <!-- 3. 고밀도 현무암 (180 ~ 270도, 중앙 225도) -->
+                    <div class="wheel-sector" style="transform: rotate(225deg) translateY(-85px) rotate(-225deg);">
+                        <div class="mini-stone basalt"></div>
+                        <div class="sector-text">현무암</div>
+                    </div>
+                    <!-- 4. XNOT 황금 운석 (270 ~ 360도, 중앙 315도) -->
+                    <div class="wheel-sector" style="transform: rotate(315deg) translateY(-85px) rotate(-315deg);">
+                        <div class="mini-stone gold"></div>
+                        <div class="sector-text" style="color: #78350f;">황금운석</div>
+                    </div>
+                    <!-- 휠 중앙 캡 -->
+                    <div class="wheel-center-cap">
+                        <div id="stone-display-name">돌 뽑기 터치!</div>
+                    </div>
+                </div>
             </div>
             <p id="stone-desc" style="color: #94a3b8; font-size: 15px; margin-top: -15px; margin-bottom: 25px; text-align: center; padding: 0 20px; min-height: 40px;"></p>
             <button id="main-action-btn" class="action-btn" onclick="handleMainButtonClick(event)">SPIN WHEEL</button>
@@ -644,6 +821,45 @@
             }
         }
 
+        // 극적인 화면 진동(Shake) 연출 함수
+        function triggerScreenShake(intensity = 'medium') {
+            const gameContainer = document.getElementById('game-container');
+            if (!gameContainer) return;
+            
+            gameContainer.classList.remove('shake-active');
+            void gameContainer.offsetWidth; // reflow 강제 유발로 애니메이션 재시작
+            gameContainer.classList.add('shake-active');
+            
+            // 진동 발생 시 햅틱도 한 번 더 연동
+            if (intensity === 'heavy') {
+                triggerHaptic('heavy');
+            } else {
+                triggerHaptic('medium');
+            }
+            
+            // 애니메이션 완료 후 클래스 제거
+            setTimeout(() => {
+                gameContainer.classList.remove('shake-active');
+            }, 500);
+        }
+
+        // 극적인 네온 특수 텍스트 연출 함수
+        function spawnDramaticText(text, styleType = 'critical-style') {
+            const gameContainer = document.getElementById('game-container');
+            if (!gameContainer) return;
+            
+            const textEl = document.createElement('div');
+            textEl.className = `dramatic-neon-text ${styleType}`;
+            textEl.innerText = text;
+            
+            gameContainer.appendChild(textEl);
+            
+            // 애니메이션 완료 후 DOM에서 제거
+            setTimeout(() => {
+                textEl.remove();
+            }, 1800);
+        }
+
         // --- 💾 [로컬스토리지 + 텔레그램 CloudStorage 이중 저장 시스템 구현] ---
         function saveData() {
             const dataObj = {
@@ -785,33 +1001,52 @@
             let height = "60px";
             let background = "";
             let boxShadow = "";
+            let borderRadius = "50%";
             
             if (stone.name === "납작한 슬레이트") {
-                width = "105px";
-                height = "42px";
-                background = "radial-gradient(circle at 30% 25%, #64748b 0%, #475569 50%, #1e293b 100%)";
-                boxShadow = "0 6px 12px rgba(0,0,0,0.5), inset 0 2px 3px rgba(255,255,255,0.25)";
+                width = "110px";
+                height = "40px";
+                borderRadius = "50% 50% 45% 45% / 60% 60% 40% 40%";
+                background = "linear-gradient(180deg, #64748b 0%, #475569 40%, #334155 70%, #1e293b 100%)";
+                boxShadow = "0 6px 12px rgba(0,0,0,0.55), inset 0 2px 0px rgba(255,255,255,0.2), 0 2px 0px #334155, 0 4px 0px #1e293b";
             } else if (stone.name === "거친 강가 조약돌") {
-                width = "85px";
-                height = "60px";
-                background = "radial-gradient(circle at 35% 35%, #94a3b8 0%, #64748b 60%, #334155 100%)";
-                boxShadow = "0 8px 16px rgba(0,0,0,0.5), inset -2px -2px 6px rgba(0,0,0,0.4)";
+                width = "80px";
+                height = "80px";
+                borderRadius = "48% 52% 50% 50% / 50% 50% 50% 50%";
+                background = "radial-gradient(circle at 35% 35%, rgba(255,255,255,0.15) 0%, transparent 60%), repeating-linear-gradient(45deg, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 2px, transparent 2px, transparent 15px), #64748b";
+                boxShadow = "0 8px 16px rgba(0,0,0,0.5), inset -3px -3px 8px rgba(0,0,0,0.4), inset 3px 3px 8px rgba(255,255,255,0.2)";
             } else if (stone.name === "고밀도 현무암") {
-                width = "95px";
-                height = "70px";
-                background = "radial-gradient(circle at 40% 40%, #475569 0%, #1e293b 60%, #090d16 100%)";
-                boxShadow = "0 12px 24px rgba(0,0,0,0.65), inset 0 -4px 8px rgba(0,0,0,0.5)";
-            } else if (stone.name === "XNOT 황금 운석") {
                 width = "90px";
-                height = "62px";
-                background = "radial-gradient(circle at 30% 30%, #fef08a 0%, #facc15 45%, #ca8a04 80%, #78350f 100%)";
-                boxShadow = "0 0 15px rgba(250, 204, 21, 0.45), 0 8px 20px rgba(0,0,0,0.4), inset 0 3px 5px rgba(255,255,255,0.5)";
+                height = "85px";
+                borderRadius = "42% 58% 45% 55% / 55% 45% 55% 45%";
+                background = "radial-gradient(circle at 20% 30%, #000000 2px, transparent 3px), radial-gradient(circle at 50% 70%, #000000 3px, transparent 4px), radial-gradient(circle at 75% 40%, #000000 2px, transparent 3px), radial-gradient(circle at 35% 80%, #000000 2.5px, transparent 3.5px), radial-gradient(circle at 40% 40%, #475569 0%, #1e293b 70%, #090d16 100%)";
+                boxShadow = "0 10px 20px rgba(0,0,0,0.6), inset -4px -4px 10px rgba(0,0,0,0.7), inset 4px 4px 8px rgba(255,255,255,0.05)";
+            } else if (stone.name === "XNOT 황금 운석") {
+                width = "85px";
+                height = "75px";
+                borderRadius = "45% 55% 50% 50% / 50% 45% 55% 50%";
+                background = "radial-gradient(circle at 35% 35%, #fffbeb 0%, #fef08a 25%, #eab308 60%, #854d0e 100%)";
+                boxShadow = "0 0 25px rgba(234, 179, 8, 0.8), 0 8px 25px rgba(0,0,0,0.5), inset 0 3px 5px rgba(255,255,255,0.6)";
             }
             
             stoneEl.style.width = width;
             stoneEl.style.height = height;
+            stoneEl.style.borderRadius = borderRadius;
             stoneEl.style.background = background;
             stoneEl.style.boxShadow = boxShadow;
+        }
+
+        // 휠 회전 각도 획득용 헬퍼 함수
+        function getCurrentRotation(el) {
+            const st = window.getComputedStyle(el, null);
+            const tr = st.getPropertyValue("transform");
+            if (tr === "none") return 0;
+            const values = tr.split('(')[1].split(')')[0].split(',');
+            const a = parseFloat(values[0]);
+            const b = parseFloat(values[1]);
+            let angle = Math.round(Math.atan2(b, a) * (180/Math.PI));
+            if (angle < 0) angle += 360;
+            return angle;
         }
 
         function triggerWheel(e) {
@@ -822,38 +1057,67 @@
             }
             if (isSpinning || currentStatus !== "PRE_SPIN") return;
             isSpinning = true;
-            let tick = 0;
             
-            const timer = setInterval(() => {
-                const current = stones[Math.floor(Math.random() * stones.length)];
-                stoneDisplayName.innerText = current.name;
-                stoneDisplayName.style.color = current.color === "#1e293b" ? "#f8fafc" : current.color;
-                stoneDesc.innerText = current.desc;
+            // 1. 당첨 돌멩이 미리 결정
+            const selectedIdx = Math.floor(Math.random() * stones.length);
+            const current = stones[selectedIdx];
+            
+            // 2. 바늘(Pointer) 위치에 올바르게 멈추기 위한 타겟 오프셋 설정
+            // 0: 슬레이트 (중앙 45도) -> 360-45 = 315도
+            // 1: 조약돌 (중앙 135도) -> 360-135 = 225도
+            // 2: 현무암 (중앙 225도) -> 360-225 = 135도
+            // 3: 황금운석 (중앙 315도) -> 360-315 = 45도
+            // 자연스러운 연출을 위해 각도에 미세 랜덤 편차(+-12도) 추가
+            const angleOffsets = [315, 225, 135, 45];
+            const offset = angleOffsets[selectedIdx] + (Math.random() * 24 - 12);
+            
+            // 3. 다회전 회전 각도 결정 (6바퀴 추가)
+            const totalRotate = 2160 + offset;
+            
+            // 4. CSS Transition을 이용한 부드러운 가감속 회전 연출
+            wheelEl.style.transition = 'transform 3.8s cubic-bezier(0.15, 0.85, 0.15, 1)';
+            wheelEl.style.transform = `rotate(${totalRotate}deg)`;
+            
+            // 5. 회전하는 동안의 째깍 햅틱 틱 피드백 활성화 (45도 경계마다 째깍)
+            let lastHapticAngle = 0;
+            function trackSpinHaptics() {
+                if (!isSpinning) return;
+                const currentAngle = getCurrentRotation(wheelEl);
+                const sectorSize = 45;
+                const lastSector = Math.floor(lastHapticAngle / sectorSize);
+                const currentSector = Math.floor(currentAngle / sectorSize);
                 
-                wheelEl.style.transform = `rotate(${tick * 45}deg)`;
-                tick++;
-                
-                // 룰렛 회전 째깍 햅틱
-                triggerHaptic('light');
-                
-                if(tick > 12) {
-                    clearInterval(timer);
-                    selectedStone = current;
-                    wheelEl.style.transform = `rotate(0deg)`; 
-                    stoneDisplayName.innerText = selectedStone.name;
-                    setStoneStyle(selectedStone);
-                    
-                    document.getElementById('roulette-title').innerText = "STONE READY!";
-                    mainBtn.innerText = "LAUNCH STONE (❤️ 1 소모)";
-                    mainBtn.style.background = "#deff9a";
-                    mainBtn.style.color = "#0f172a";
-                    currentStatus = "SPIN_DONE";
-                    isSpinning = false;
-                    
-                    // 뽑기 완료 햅틱
-                    triggerHaptic('success');
+                if (lastSector !== currentSector) {
+                    triggerHaptic('light');
                 }
-            }, 90);
+                lastHapticAngle = currentAngle;
+                requestAnimationFrame(trackSpinHaptics);
+            }
+            requestAnimationFrame(trackSpinHaptics);
+            
+            // 6. 회전 종료 핸들러
+            wheelEl.addEventListener('transitionend', function onSpinEnd() {
+                // 각도 복원 (0 ~ 360도 범위로 보정)
+                wheelEl.style.transition = 'none';
+                wheelEl.style.transform = `rotate(${totalRotate % 360}deg)`;
+                
+                selectedStone = current;
+                stoneDisplayName.innerText = selectedStone.name;
+                stoneDisplayName.style.color = selectedStone.color === "#1e293b" ? "#f8fafc" : selectedStone.color;
+                stoneDesc.innerText = selectedStone.desc;
+                
+                setStoneStyle(selectedStone);
+                
+                document.getElementById('roulette-title').innerText = "STONE READY!";
+                mainBtn.innerText = "LAUNCH STONE (❤️ 1 소모)";
+                mainBtn.style.background = "#deff9a";
+                mainBtn.style.color = "#0f172a";
+                currentStatus = "SPIN_DONE";
+                isSpinning = false;
+                
+                // 뽑기 완료 성공 피드백
+                triggerHaptic('success');
+            }, { once: true });
         }
 
         function handleMainButtonClick(e) {
@@ -1183,14 +1447,17 @@
                 
                 if (isLotto) {
                     message.innerText = "🌌 은하 활공 발동! (Galaxy Glide - 초희귀 로또 확률!)";
-                    triggerHaptic('heavy');
+                    spawnDramaticText("GALAXY GLIDE!", "lotto-style");
+                    triggerScreenShake('heavy');
                 } else if (isCrit) {
                     if (selectedStone.name === "고밀도 현무암" || (selectedStone.name === "XNOT 황금 운석" && activePhysics.frictionFactor === 0.998)) {
                         message.innerText = "💥 현무암 관성 대폭발 발동! (Inertia Blast - 2.5% 확률!)";
+                        spawnDramaticText("INERTIA BLAST!", "critical-style");
                     } else {
                         message.innerText = "✨ 크리티컬 튕김 발동!";
+                        spawnDramaticText("CRITICAL SHOT!", "critical-style");
                     }
-                    triggerHaptic('medium');
+                    triggerScreenShake('medium');
                 } else {
                     message.innerText = "수면에 닿는 순간 화면을 터치하세요!";
                 }
@@ -1375,6 +1642,27 @@
                 
                 // 퍼펙트 햅틱 (가장 강함)
                 triggerHaptic('heavy');
+                
+                // 콤보별 거대 네온 텍스트 및 화면 흔들림 연출 적용
+                if (perfectCount === 1) {
+                    spawnDramaticText("PERFECT BOUNCE!", "critical-style");
+                    triggerScreenShake('medium');
+                } else if (perfectCount === 2) {
+                    spawnDramaticText("DOUBLE PERFECT!", "critical-style");
+                    triggerScreenShake('medium');
+                } else if (perfectCount === 3) {
+                    spawnDramaticText("TRIPLE PERFECT!", "critical-style");
+                    triggerScreenShake('medium');
+                } else if (perfectCount === 5) {
+                    spawnDramaticText("HYPER BOUNCE!!", "lotto-style");
+                    triggerScreenShake('heavy');
+                } else if (perfectCount >= 7) {
+                    spawnDramaticText("GODLIKE BOUNCE!!!", "lotto-style");
+                    triggerScreenShake('heavy');
+                } else {
+                    spawnDramaticText(`${perfectCount} Combo!`, "critical-style");
+                    triggerScreenShake('medium');
+                }
             } else if (rating === "GOOD") {
                 baseVzPower = (stonePhysics.baseVzPower * 0.8) + (selectedStone.mult * 0.2);
                 multEffect = 0.98; // 거의 다 보존
@@ -1566,6 +1854,38 @@
             }
         }
 
+        // Canvas 충격파 링 클래스
+        class ShockwaveRing {
+            constructor(x, y, isPerfect) {
+                this.x = x;
+                this.y = y;
+                this.radius = 5;
+                this.maxRadius = isPerfect ? 85 : 45;
+                this.growth = isPerfect ? 4.5 : 2.5;
+                this.alpha = 1.0;
+                this.decay = isPerfect ? 0.025 : 0.045;
+                this.color = isPerfect ? "rgba(222, 255, 154, 0.85)" : "rgba(255, 255, 255, 0.65)";
+            }
+            update() {
+                this.radius += this.growth;
+                this.alpha -= this.decay;
+            }
+            draw(ctx) {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.alpha);
+                ctx.beginPath();
+                ctx.ellipse(this.x, this.y, this.radius, this.radius * 0.45, 0, 0, Math.PI * 2);
+                ctx.strokeStyle = this.color;
+                ctx.lineWidth = 3;
+                if (this.color !== "rgba(255, 255, 255, 0.65)") {
+                    ctx.shadowBlur = 12;
+                    ctx.shadowColor = "#deff9a";
+                }
+                ctx.stroke();
+                ctx.restore();
+            }
+        }
+
         // Canvas 물방울 파티클 클래스
         class SplashParticle {
             constructor(x, y, isPerfect, isSplash) {
@@ -1618,6 +1938,10 @@
         }
 
         function createParticles(x, y, isPerfect, isSplash, count = 0) {
+            // 물보라 충격파 링 생성
+            if (!isSplash) {
+                particles.push(new ShockwaveRing(x, y, isPerfect));
+            }
             const pCount = count > 0 ? count : (isPerfect ? 35 : (isSplash ? 22 : 14));
             for (let i = 0; i < pCount; i++) {
                 particles.push(new SplashParticle(x, y, isPerfect, isSplash));
