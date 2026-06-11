@@ -633,7 +633,23 @@
     </div>
 
     <script>
+        // --- 🌄 [배경 화면 다이내믹 로테이션 시스템] ---
+        const backgrounds = [
+            'river_sunset_bg.png',
+            'tropical_beach_bg.png',
+            'misty_lake_bg.png',
+            'milkyway_river_bg.png',
+            'autumn_valley_bg.png',
+            'neon_city_river_bg.png'
+        ];
 
+        function changeRandomBackground() {
+            const randomBg = backgrounds[Math.floor(Math.random() * backgrounds.length)];
+            const container = document.getElementById('game-container');
+            if (container) {
+                container.style.backgroundImage = `url('${randomBg}')`;
+            }
+        }
 
         // --- 📊 [확률 대조정 완료] ---
         const stones = [
@@ -2036,6 +2052,7 @@
             stoneDesc.innerText = "";
             
             updateAssetUI();
+            changeRandomBackground(); // 결과창 닫을 때 배경 화면 랜덤 교체
         }
 
         // --- 🛒 [업그레이드 상점 로직 및 UI 제어] ---
@@ -2121,6 +2138,7 @@
         // 앱 시작 시 로드 및 초기화
         initTelegramWebApp();
         loadData();
+        changeRandomBackground(); // 첫 시작 시 배경 무작위 설정
     </script>
 </body>
 </html>
