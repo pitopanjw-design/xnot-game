@@ -547,6 +547,66 @@
 
         #swipe-guide { position: absolute; bottom: 180px; width: 100%; text-align: center; color: var(--primary); font-size: 20px; font-weight: bold; animation: arrow-up 1.2s infinite; pointer-events: none; display: none; text-shadow: 0 2px 4px rgba(0,0,0,0.8); }
         @keyframes arrow-up { 0% { transform: translateY(10px); opacity: 0.3; } 50% { transform: translateY(-10px); opacity: 1; } 100% { transform: translateY(10px); opacity: 0.3; } }
+
+        /* 시작 화면 (Intro Screen) - 텔레그램 미니앱 모바일 기기 최적화 및 하드웨어 가속 유도 */
+        #intro-screen {
+            position: absolute; inset: 0;
+            background: rgba(15, 23, 42, 0.96); /* 모바일 GPU 부담을 최소화하는 안전한 불투명 딥 다크 배경 */
+            z-index: 350; /* 최상위에 보이도록 z-index 높게 설정 */
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            transition: opacity 0.5s ease;
+            transform: translate3d(0, 0, 0);
+            -webkit-transform: translate3d(0, 0, 0);
+        }
+        .intro-box-wrapper {
+            background: rgba(30, 41, 59, 0.75);
+            border-radius: 28px;
+            padding: 2px;
+            background-image: linear-gradient(135deg, var(--primary), var(--accent), var(--gold));
+            box-shadow: 0 0 30px rgba(56, 189, 248, 0.2), 0 20px 50px rgba(0,0,0,0.65);
+            animation: modal-appear 0.45s cubic-bezier(0.19, 1, 0.22, 1) forwards;
+            width: 88%; max-width: 380px; /* 모바일 세로 폭 최적화 */
+            box-sizing: border-box;
+        }
+        .intro-box-inner {
+            background: radial-gradient(circle at 50% 10%, rgba(30, 41, 59, 0.96), rgba(15, 23, 42, 0.98));
+            border-radius: 26px;
+            padding: 24px 20px; /* 세로 화면 잘림 방지를 위해 여백 압축 */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            box-sizing: border-box;
+        }
+        .intro-title {
+            font-size: 24px; /* 28px -> 24px 모바일 가독성 증대 */
+            font-weight: 900;
+            color: #ffffff;
+            margin-top: 5px;
+            margin-bottom: 15px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            background: linear-gradient(to right, var(--primary), #ffffff, var(--accent));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 4px 10px rgba(0,0,0,0.4);
+            text-align: center;
+        }
+        .intro-desc {
+            font-size: 13px; /* 14px -> 13px */
+            color: #94a3b8;
+            line-height: 1.5;
+            margin-bottom: 24px;
+            text-align: center;
+            word-break: keep-all;
+        }
+        .intro-emblem-img {
+            width: 80px; /* 100px -> 80px로 가로세로 스크린 축소 */
+            height: 80px;
+            margin-bottom: 12px;
+            filter: drop-shadow(0 8px 16px rgba(222, 255, 154, 0.45));
+            animation: emblem-float 3s ease-in-out infinite alternate;
+        }
     </style>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&display=swap" rel="stylesheet">
 </head>
@@ -557,6 +617,7 @@
         <div id="intro-screen">
             <div class="intro-box-wrapper">
                 <div class="intro-box-inner">
+                    <img src="intro_emblem.png" class="intro-emblem-img" alt="XNOT Stone Skipper Emblem">
                     <h1 class="intro-title" id="intro-title" data-i18n="introTitle">XNOT Stone Skipper</h1>
                     <p class="intro-desc" id="intro-desc" data-i18n="introDesc">
                         XNOT 물수제비 채굴은 차세대 디지털 자산인 XNOT 코인을 강물 위 물수제비의 탄성을 이용해 채굴하는 하이퍼 캐주얼 광산 게임입니다. 돌을 튕겨 최적의 탄성을 얻고 SP를 채굴하세요!
@@ -2766,7 +2827,28 @@
             }
         }
 
+        // URL 쿼리 파라미터 디버깅 옵션 초기화
+        function initQueryParams() {
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                window.debug = urlParams.get('debug') === 'true';
+                window.forceCrit = urlParams.get('forceCrit') === 'true';
+                window.forceLotto = urlParams.get('forceLotto') === 'true';
+                
+                if (window.debug) {
+                    console.log("디버그 모드 활성화:", {
+                        debug: window.debug,
+                        forceCrit: window.forceCrit,
+                        forceLotto: window.forceLotto
+                    });
+                }
+            } catch (e) {
+                console.warn("URL 파라미터 파싱 오류:", e);
+            }
+        }
+
         // 앱 시작 시 로드 및 초기화
+        initQueryParams();
         initTelegramWebApp();
         initLanguage();
         loadData();
