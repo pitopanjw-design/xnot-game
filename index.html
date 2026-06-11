@@ -230,31 +230,52 @@
             width: 280px; height: 280px; 
             border-radius: 50%; 
             position: relative; margin-bottom: 25px; 
+            /* 캐주얼 3D 게임 그래픽 스타일의 고급 네온 HSL 코닉 그라데이션 */
             background: conic-gradient(
-                #475569 0deg 90deg, 
-                #64748b 90deg 180deg, 
-                #1e293b 180deg 270deg, 
-                #fbbf24 270deg 360deg
+                #3f4c5e 0deg 90deg,     /* 슬레이트 구역 (고급스러운 다크 스틸 그레이) */
+                #0284c7 90deg 180deg,   /* 조약돌 구역 (밝고 경쾌한 네온 스카이 블루) */
+                #1e1b4b 180deg 270deg,  /* 현무암 구역 (심해 느낌의 무거운 바이올렛 블랙) */
+                #d97706 270deg 360deg   /* 황금운석 구역 (빛나는 리치 엠버 골드) */
             ); 
-            border: 6px solid #1e293b;
-            box-shadow: 0 0 50px rgba(251, 191, 36, 0.2), 0 15px 35px rgba(0,0,0,0.5); 
+            /* 금속 림 및 3D 다중 음영 섀도우 극대화 */
+            box-shadow: 
+                0 0 0 8px #1e293b, 
+                0 0 0 12px rgba(245, 158, 11, 0.35),
+                inset 0 0 30px rgba(0, 0, 0, 0.8),
+                0 15px 35px rgba(0,0,0,0.55);
             cursor: pointer; 
             overflow: hidden;
             display: flex;
             align-items: center;
             justify-content: center;
         }
+        /* 휠 전면 글래스 글로시 필터 오버레이 */
+        .wheel-container::after {
+            content: '';
+            position: absolute; inset: 0;
+            background: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.05) 45%, transparent 50%, rgba(0,0,0,0.3) 100%);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 106;
+        }
+
         .pointer { 
             position: absolute; 
-            top: -15px; 
+            top: -20px; 
             left: 50%;
             transform: translateX(-50%);
             width: 0; height: 0; 
-            border-left: 18px solid transparent; 
-            border-right: 18px solid transparent; 
-            border-top: 30px solid #ef4444; 
+            border-left: 20px solid transparent; 
+            border-right: 20px solid transparent; 
+            border-top: 32px solid #ef4444; 
             z-index: 120; 
-            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.4));
+            /* 3D 볼륨감 및 네온 글로우 섀도우 */
+            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5)) drop-shadow(0 0 8px rgba(239, 68, 68, 0.7));
+            animation: pointer-wobble 0.6s ease-in-out infinite alternate;
+        }
+        @keyframes pointer-wobble {
+            0% { transform: translateX(-50%) translateY(0); }
+            100% { transform: translateX(-50%) translateY(3px); }
         }
         
         /* 룰렛 섹터 텍스트 및 미니어처 돌 */
@@ -273,7 +294,7 @@
             font-size: 13px;
             font-weight: 900;
             color: #ffffff;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+            text-shadow: 0 2px 5px rgba(0,0,0,0.9), 0 0 8px rgba(255,255,255,0.3);
             letter-spacing: -0.5px;
         }
         .mini-stone {
@@ -308,14 +329,17 @@
             position: absolute;
             width: 90px;
             height: 90px;
-            background: radial-gradient(circle at 50% 50%, #1e293b, #0f172a);
+            background: radial-gradient(circle at 50% 30%, #2e3e56, #0b132b);
             border-radius: 50%;
-            border: 3px solid rgba(222, 255, 154, 0.45);
+            border: 4px solid #f59e0b; /* 골드 메탈릭 테두리 */
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.6), inset 0 2px 4px rgba(255,255,255,0.1);
-            z-index: 105;
+            box-shadow: 
+                0 0 15px rgba(245, 158, 11, 0.45), 
+                inset 0 4px 10px rgba(255,255,255,0.25), 
+                0 8px 16px rgba(0,0,0,0.6);
+            z-index: 107;
         }
         #stone-display-name { 
             font-size: 15px; 
