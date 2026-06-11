@@ -103,6 +103,7 @@
         #hearts-count { color: var(--danger); }
         #sp-count { color: var(--primary); }
         #user-name { color: #f8fafc; font-weight: 900; }
+        #mute-btn:active { transform: scale(0.9); }
 
         /* 수면 파동 */
         .ripple {
@@ -566,6 +567,7 @@
             <div class="asset-box" id="user-card" style="display: none;">👤 <span id="user-name">Guest</span></div>
             <div class="asset-box">❤️ 하트: <span id="hearts-count">5</span> / 5</div>
             <div class="asset-box">💎 <span id="sp-count">0</span> SP</div>
+            <div class="asset-box" id="mute-btn" style="pointer-events: auto; cursor: pointer; transition: transform 0.1s;" onclick="toggleMute(event)">🔊</div>
         </div>
 
         <div id="roulette-screen">
@@ -705,6 +707,220 @@
     </div>
 
     <script>
+        // --- 🔊 [Web Audio API 기반 오디오 신디사이저 시스템] ---
+        const SoundManager = {
+            ctx: null,
+            masterGain: null,
+            isMuted: false,
+
+            init() {
+                if (this.ctx) return;
+                try {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                    this.masterGain = this.ctx.createGain();
+                    this.masterGain.connect(this.ctx.destination);
+                    
+                    const savedMute = localStorage.getItem('xnot_stone_skipper_mute');
+                    this.isMuted = savedMute === 'true';
+                    this.masterGain.gain.setValueAtTime(this.isMuted ? 0 : 0.6, this.ctx.currentTime);
+                    
+                    this.updateMuteUI();
+                } catch (e) {
+                    console.warn("Web Audio API 지원 안 됨:", e);
+                }
+            },
+
+            resume() {
+                this.init();
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            },
+
+            setMute(mute) {
+                this.isMuted = mute;
+                localStorage.setItem('xnot_stone_skipper_mute', mute);
+                if (this.masterGain && this.ctx) {
+                    this.masterGain.gain.setValueAtTime(mute ? 0 : 0.6, this.ctx.currentTime);
+                }
+                this.updateMuteUI();
+            },
+
+            updateMuteUI() {
+                const btn = document.getElementById('mute-btn');
+                if (btn) {
+                    btn.innerText = this.isMuted ? '🔇' : '🔊';
+                }
+            },
+
+            playTickSound() {
+                this.resume();
+                if (this.isMuted || !this.ctx) return;
+                
+                const osc = this.ctx.createOscillator();
+                const gainNode = this.ctx.createGain();
+                osc.connect(gainNode);
+                gainNode.connect(this.masterGain);
+                
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(800, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(100, this.ctx.currentTime + 0.03);
+                
+                gainNode.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.03);
+                
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.04);
+            },
+
+            playLaunchSound(speed) {
+                this.resume();
+                if (this.isMuted || !this.ctx) return;
+                
+                const osc = this.ctx.createOscillator();
+                const gainNode = this.ctx.createGain();
+                osc.connect(gainNode);
+                gainNode.connect(this.masterGain);
+                
+                osc.type = 'triangle';
+                const startFreq = 250 + (speed * 12);
+                osc.frequency.setValueAtTime(startFreq, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(60, this.ctx.currentTime + 0.3);
+                
+                gainNode.gain.setValueAtTime(0.4, this.ctx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
+                
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.31);
+            },
+
+            playBounceSound(isPerfect) {
+                this.resume();
+                if (this.isMuted || !this.ctx) return;
+                
+                const now = this.ctx.currentTime;
+                if (isPerfect) {
+                    const frequencies = [880, 1320, 1760];
+                    frequencies.forEach((freq, index) => {
+                        const osc = this.ctx.createOscillator();
+                        const gainNode = this.ctx.createGain();
+                        osc.connect(gainNode);
+                        gainNode.connect(this.masterGain);
+                        
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(freq, now);
+                        
+                        const vol = 0.2 / (index + 1);
+                        gainNode.gain.setValueAtTime(vol, now);
+                        gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+                        
+                        osc.start(now);
+                        osc.stop(now + 0.55);
+                    });
+                } else {
+                    const osc = this.ctx.createOscillator();
+                    const gainNode = this.ctx.createGain();
+                    osc.connect(gainNode);
+                    gainNode.connect(this.masterGain);
+                    
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(140, now);
+                    osc.frequency.exponentialRampToValueAtTime(400, now + 0.12);
+                    
+                    gainNode.gain.setValueAtTime(0.35, now);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+                    
+                    osc.start(now);
+                    osc.stop(now + 0.13);
+                }
+            },
+
+            playSinkSound() {
+                this.resume();
+                if (this.isMuted || !this.ctx) return;
+                
+                const now = this.ctx.currentTime;
+                for (let i = 0; i < 3; i++) {
+                    const delay = i * 0.08;
+                    const osc = this.ctx.createOscillator();
+                    const gainNode = this.ctx.createGain();
+                    osc.connect(gainNode);
+                    gainNode.connect(this.masterGain);
+                    
+                    osc.type = 'sine';
+                    const baseFreq = 180 - (i * 35);
+                    osc.frequency.setValueAtTime(baseFreq, now + delay);
+                    osc.frequency.exponentialRampToValueAtTime(40, now + delay + 0.14);
+                    
+                    gainNode.gain.setValueAtTime(0.25, now + delay);
+                    gainNode.gain.exponentialRampToValueAtTime(0.001, now + delay + 0.14);
+                    
+                    osc.start(now + delay);
+                    osc.stop(now + delay + 0.15);
+                }
+            },
+
+            playUpgradeSound() {
+                this.resume();
+                if (this.isMuted || !this.ctx) return;
+                
+                const now = this.ctx.currentTime;
+                const osc1 = this.ctx.createOscillator();
+                const gain1 = this.ctx.createGain();
+                osc1.connect(gain1);
+                gain1.connect(this.masterGain);
+                osc1.type = 'sine';
+                osc1.frequency.setValueAtTime(523.25, now);
+                gain1.gain.setValueAtTime(0.15, now);
+                gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+                osc1.start(now);
+                osc1.stop(now + 0.13);
+                
+                const osc2 = this.ctx.createOscillator();
+                const gain2 = this.ctx.createGain();
+                osc2.connect(gain2);
+                gain2.connect(this.masterGain);
+                osc2.type = 'sine';
+                osc2.frequency.setValueAtTime(659.25, now + 0.1);
+                gain2.gain.setValueAtTime(0.15, now + 0.1);
+                gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.28);
+                osc2.start(now + 0.1);
+                osc2.stop(now + 0.29);
+            },
+
+            playFanfareSound() {
+                this.resume();
+                if (this.isMuted || !this.ctx) return;
+                
+                const now = this.ctx.currentTime;
+                const notes = [261.63, 329.63, 392.00, 523.25, 659.25, 783.99];
+                notes.forEach((freq, index) => {
+                    const delay = index * 0.07;
+                    const osc = this.ctx.createOscillator();
+                    const gainNode = this.ctx.createGain();
+                    osc.connect(gainNode);
+                    gainNode.connect(this.masterGain);
+                    
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, now + delay);
+                    
+                    gainNode.gain.setValueAtTime(0.12, now + delay);
+                    gainNode.gain.exponentialRampToValueAtTime(0.001, now + delay + 0.4);
+                    
+                    osc.start(now + delay);
+                    osc.stop(now + delay + 0.45);
+                });
+            }
+        };
+
+        function toggleMute(e) {
+            if (e && e.preventDefault) e.preventDefault();
+            SoundManager.resume();
+            SoundManager.setMute(!SoundManager.isMuted);
+            triggerHaptic('light');
+        }
+
         // --- 🌄 [배경 화면 다이내믹 로테이션 시스템] ---
         const backgrounds = [
             'river_sunset_bg.png',
@@ -1139,6 +1355,7 @@
 
         function triggerWheel(e) {
             if (e && e.preventDefault) e.preventDefault();
+            SoundManager.resume(); // 터치 인터랙션 시 오디오 컨텍스트 활성화
             if (playerHearts <= 0) {
                 openYoutubeCharge();
                 return;
@@ -1177,6 +1394,7 @@
                 
                 if (lastSector !== currentSector) {
                     triggerHaptic('light');
+                    SoundManager.playTickSound(); // 째깍 효과음 재생
                 }
                 lastHapticAngle = currentAngle;
                 requestAnimationFrame(trackSpinHaptics);
@@ -1210,6 +1428,7 @@
 
         function handleMainButtonClick(e) {
             if (e && e.preventDefault) e.preventDefault();
+            SoundManager.resume(); // 오디오 재개
             if (playerHearts <= 0 && currentStatus === "PRE_SPIN") {
                 openYoutubeCharge();
                 return;
@@ -1265,7 +1484,7 @@
 
         // --- 📐 [각도 조절 게이지 컨트롤 및 스핀 연동] ---
         function getAngleZone(angle) {
-            const spinPerfectRange = 2 + upgrades.spin * 0.8;
+            const spinPerfectRange = (2 + upgrades.spin * 0.8) * (2 / 3);
             const remainingHalf = 15 - spinPerfectRange;
             const safetyRange = remainingHalf * 0.6;
             const redRange = remainingHalf * 0.4;
@@ -1292,7 +1511,7 @@
         }
 
         function updateAngleGaugePerfectZoneUI() {
-            const spinPerfectRange = 2 + upgrades.spin * 0.8;
+            const spinPerfectRange = (2 + upgrades.spin * 0.8) * (2 / 3);
             
             // 남은 위아래 각도 구간의 최대 크기 계산 (5도 ~ 35도 기준, center 20)
             const remainingHalf = 15 - spinPerfectRange;
@@ -1397,6 +1616,7 @@
 
         function dragStart(e) {
             if (currentStatus !== "READY_TO_LAUNCH") return;
+            SoundManager.resume(); // 드래그 인터랙션 시 오디오 활성화
             
             // 터치 시작 대상이 확실히 돌멩이 요소인지 확인
             if (e.target !== stoneEl && !stoneEl.contains(e.target)) return;
@@ -1613,6 +1833,9 @@
             
             scoreDisplay.innerText = "BOUNCE: 0";
             
+            // 바람을 가르며 날아가는 휩 사운드 재생
+            SoundManager.playLaunchSound(swipeSpeed);
+            
             // 순발력 속도 등급에 따른 판정 연출
             if (swipeSpeed >= 30) {
                 message.innerText = `⚡ LIGHTNING LAUNCH! ⚡ (속도: ${Math.round(swipeSpeed * 5.2)} km/h)`;
@@ -1802,8 +2025,9 @@
                 
                 createParticles(screenX, screenY, true, false);
                 
-                // 퍼펙트 햅틱 (가장 강함)
+                // 퍼펙트 햅틱 (가장 강함) 및 맑은 팅 사운드 재생
                 triggerHaptic('heavy');
+                SoundManager.playBounceSound(true);
                 
                 // 콤보별 거대 네온 텍스트 및 화면 흔들림 연출 적용
                 if (perfectCount === 1) {
@@ -1835,8 +2059,9 @@
                 
                 createParticles(screenX, screenY, false, false);
                 
-                // 굿 햅틱 (중간)
+                // 굿 햅틱 (중간) 및 퐁 물 튀김 사운드 재생
                 triggerHaptic('medium');
+                SoundManager.playBounceSound(false);
             } else { 
                 baseVzPower = stonePhysics.baseVzPower * 0.4;
                 multEffect = 0.72; // 적절한 감속
@@ -1847,8 +2072,9 @@
                 
                 createParticles(screenX, screenY, false, false, 8);
                 
-                // 배드 햅틱 (약함)
+                // 배드 햅틱 (약함) 및 퐁 물 튀김 사운드 재생
                 triggerHaptic('light');
+                SoundManager.playBounceSound(false);
             }
             
             spawnBouncePointMark(screenX, screenY, bounceCount);
@@ -1910,8 +2136,9 @@
             createParticles(screenX, screenY, false, true, 20);
             message.innerText = "타이밍을 놓쳐서 돌이 수면에 가라앉았습니다.";
             
-            // 미스 진동 피드백
+            // 미스 진동 피드백 및 침몰 사운드
             triggerHaptic('error');
+            SoundManager.playSinkSound();
         }
 
         function triggerWaterSink() {
@@ -1927,7 +2154,9 @@
             createParticles(screenX, screenY, false, true, 12);
             message.innerText = "동력을 잃어 가라앉았습니다.";
             
+            // 침몰 진동 및 사운드
             triggerHaptic('error');
+            SoundManager.playSinkSound();
         }
 
         // --- 🎨 [비주얼 이펙트 렌더링 함수들] ---
@@ -2181,8 +2410,9 @@
             saveData(); 
             updateAssetUI();
             
-            // 정산 진동
+            // 정산 진동 및 팬파레 사운드
             triggerHaptic('success');
+            SoundManager.playFanfareSound();
             
             resultModal.style.display = 'flex';
         }
@@ -2209,6 +2439,7 @@
 
         function openShop() {
             if (isSpinning || currentStatus !== "PRE_SPIN") return;
+            SoundManager.resume(); // 오디오 재개
             
             shopModal.style.display = 'flex';
             updateShopUI();
@@ -2216,6 +2447,7 @@
         }
 
         function closeShop() {
+            SoundManager.resume(); // 오디오 재개
             shopModal.style.display = 'none';
             triggerHaptic('light');
         }
@@ -2275,8 +2507,9 @@
                 updateAssetUI();
                 updateShopUI();
                 
-                // 강화 성공 햅틱 알림
+                // 강화 성공 햅틱 알림 및 상행 멜로디 재생
                 triggerHaptic('success');
+                SoundManager.playUpgradeSound();
                 message.innerText = `업그레이드 성공! (Lv.${upgrades[type]})`;
             }
         }
