@@ -1321,6 +1321,7 @@
 
         function changeRandomBackground() {
             const randomBg = backgrounds[Math.floor(Math.random() * backgrounds.length)];
+            currentBgPath = randomBg; // 현재 배경 경로 보존
             const container = document.getElementById('game-container');
             if (container) {
                 container.style.backgroundImage = `url('${randomBg}')`;
@@ -1472,6 +1473,14 @@
         let runProgress = 0;
         let bgRipples = [];
         let wakes = [];
+
+        // 대기 화면 6종 배경 이미지 프리로드 및 현재 배경 추적 변수
+        let currentBgPath = 'river_sunset_bg.png';
+        const lobbyBgImages = {};
+        backgrounds.forEach(bg => {
+            lobbyBgImages[bg] = new Image();
+            lobbyBgImages[bg].src = bg;
+        });
 
         const bgImages = {
             Ordinary: new Image(),
@@ -2379,32 +2388,35 @@
             
             // 날아가고 있는 동안 궤적(Tail) 파티클 생성
             if (currentStatus === "FLYING" && !isDead) {
-                // 1인칭 고정 돌의 위치에 맞춘 궤적 스폰 좌표
-                const screenX = window.innerWidth / 2 + (stoneState.x * 0.1);
-                const screenY = window.innerHeight * 0.70;
-                createTrailParticle(screenX, screenY, 1.0, stoneState.isCrit, stoneState.isLotto);
+                const depthFactor = 450;
+                const scale = depthFactor / (depthFactor + stoneState.y);
+                const screenX = centerX + stoneState.x * scale;
+                const screenY = centerY + (window.innerHeight - centerY) * scale - stoneState.z * scale;
+                createTrailParticle(screenX, screenY, scale, stoneState.isCrit, stoneState.isLotto);
             }
             
             applyStoneTransform();
         }
 
         function applyStoneTransform() {
-            // 돌의 위치를 화면 중앙 하단 70% 지점에 고정 (x축 오프셋을 미세하게 적용)
-            const screenX = window.innerWidth / 2 + (stoneState.x * 0.1);
-            const screenY = window.innerHeight * 0.70;
+            const depthFactor = 450;
+            const scale = depthFactor / (depthFactor + stoneState.y);
+            
+            const screenX = centerX + stoneState.x * scale;
+            const screenY = centerY + (window.innerHeight - centerY) * scale - stoneState.z * scale;
             
             stoneEl.style.left = `${screenX}px`;
             stoneEl.style.top = `${screenY}px`;
             stoneEl.style.bottom = "auto";
             
-            // 더 이상 스케일이 작아지지 않고 고정
-            const finalScale = 0.95;
+            // 소실점 부근 크기 시인성 확보를 위해 하한치 0.18 적용
+            const finalScale = Math.max(0.18, scale * 0.85);
             
             if (isDead) {
-                stoneEl.style.transform = `translate(-50%, -50%) scale(${finalScale * 0.75})`;
+                stoneEl.style.transform = `translate(-50%, -50%) scale(${finalScale * 0.8})`;
                 stoneEl.style.opacity = Math.max(0, 1 + stoneState.z / 40);
             } else {
-                // 고속 스핀 회전 및 고정 스케일
+                // 고속 스핀 회전 및 원근 스케일링
                 const rotateDeg = stoneState.y * 3.5;
                 stoneEl.style.transform = `translate(-50%, -50%) scale(${finalScale}) rotate(${rotateDeg}deg)`;
                 stoneEl.style.opacity = 1;
@@ -2467,9 +2479,11 @@
             let baseVzPower = 0;
             let multEffect = 1.0;
             
-            // 1인칭 고정 수면 타격 포인트 정의
-            const screenX = window.innerWidth / 2 + (stoneState.x * 0.1);
-            const screenY = window.innerHeight * 0.70;
+            // 3D 원근법 수면 타격 포인트 정의
+            const depthFactor = 450;
+            const scale = depthFactor / (depthFactor + stoneState.y);
+            const screenX = centerX + stoneState.x * scale;
+            const screenY = centerY + (window.innerHeight - centerY) * scale;
             
             spawnRatingText(screenX, screenY, rating);
             spawnRipple(screenX, screenY);
@@ -2544,8 +2558,8 @@
                 SoundManager.playBounceSound(false);
             }
             
-            // V자 거품 웨이크 추가 생성
-            triggerWake(screenX, screenY);
+            // V자 거품 웨이크 추가 생성 (원근에 맞춰 생성 폭 연산)
+            triggerWake(screenX, screenY, scale);
 
             // 점수판 펄스 이펙트 처리
             if (spCountEl) {
@@ -2603,8 +2617,10 @@
             isDead = true;
             stoneState.vz = -3;
             
-            const screenX = window.innerWidth / 2 + (stoneState.x * 0.1);
-            const screenY = window.innerHeight * 0.70;
+            const depthFactor = 450;
+            const scale = depthFactor / (depthFactor + stoneState.y);
+            const screenX = centerX + stoneState.x * scale;
+            const screenY = centerY + (window.innerHeight - centerY) * scale;
             
             spawnRatingText(screenX, screenY, "MISS");
             spawnRipple(screenX, screenY);
@@ -2621,8 +2637,10 @@
             isDead = true;
             stoneState.vz = -1.5;
             
-            const screenX = window.innerWidth / 2 + (stoneState.x * 0.1);
-            const screenY = window.innerHeight * 0.70;
+            const depthFactor = 450;
+            const scale = depthFactor / (depthFactor + stoneState.y);
+            const screenX = centerX + stoneState.x * scale;
+            const screenY = centerY + (window.innerHeight - centerY) * scale;
             
             spawnRipple(screenX, screenY);
             createParticles(screenX, screenY, false, true, 12);
@@ -2631,6 +2649,21 @@
             // 침몰 진동 및 사운드
             triggerHaptic('error');
             SoundManager.playSinkSound();
+        }
+
+        // V자 거품 웨이크 추가 생성 헬퍼 함수
+        function triggerWake(x, y, scale) {
+            wakes.push({
+                x: x,
+                y: y,
+                vxL: -window.innerWidth * 0.012 * scale,
+                vxR: window.innerWidth * 0.012 * scale,
+                vy: window.innerHeight * 0.02 * scale,
+                width: 8 * scale,
+                alpha: 1.0,
+                xL: x,
+                xR: x
+            });
         }
 
         // --- 🎨 [비주얼 이펙트 렌더링 함수들] ---
@@ -2844,21 +2877,6 @@
             }
         }
 
-        // V자 거품 웨이크 추가 생성 헬퍼 함수
-        function triggerWake(x, y) {
-            wakes.push({
-                x: x,
-                y: y,
-                vxL: -window.innerWidth * 0.015,
-                vxR: window.innerWidth * 0.015,
-                vy: window.innerHeight * 0.02,
-                width: 8,
-                alpha: 1.0,
-                xL: x,
-                xR: x
-            });
-        }
-
         // 3D 배경 렌더러 함수 정의
         function drawBackground3D() {
             if (!bgCtx || !bgCanvas) return;
@@ -2869,71 +2887,37 @@
             const vpX = w / 2;
             const vpY = h * 0.45; // 수평선 설정
             
-            // 1. 하늘 그리기
-            const skyGrad = bgCtx.createLinearGradient(0, 0, 0, vpY);
-            skyGrad.addColorStop(0, '#02040a');
-            skyGrad.addColorStop(0.6, '#060e22');
-            skyGrad.addColorStop(1, '#0c1a3b');
-            bgCtx.fillStyle = skyGrad;
-            bgCtx.fillRect(0, 0, w, vpY);
-            
-            // 2. 바다 기본 배경 그리기
-            const seaGrad = bgCtx.createLinearGradient(0, vpY, 0, h);
-            seaGrad.addColorStop(0, '#09152b');
-            seaGrad.addColorStop(0.3, '#050c1a');
-            seaGrad.addColorStop(1, '#010206');
-            bgCtx.fillStyle = seaGrad;
-            bgCtx.fillRect(0, vpY, w, h - vpY);
-            
-            // 3. 등급별 New 배경 3D 원근 투영 스크롤 렌더링
             const rarity = (selectedStone && selectedStone.rarity) ? selectedStone.rarity : "Ordinary";
-            const bgImg = bgImages[rarity];
+            
+            // 1. 대기 배경 줌인 렌더링
+            const bgImg = lobbyBgImages[currentBgPath];
+            const progressVal = Math.min(1.0, stoneState.y / 35000);
+            const bgScale = 1.0 + progressVal * 0.45; // 소실점 기준 줌인율 (1.0에서 1.45배까지)
             
             if (bgImg && bgImg.complete) {
-                const slices = 25;
-                const seaHeight = h - vpY;
+                bgCtx.save();
+                bgCtx.translate(vpX, vpY);
+                bgCtx.scale(bgScale, bgScale);
+                bgCtx.drawImage(bgImg, -vpX, -vpY, w, h);
+                bgCtx.restore();
+            } else {
+                // fallback: 그라데이션
+                const skyGrad = bgCtx.createLinearGradient(0, 0, 0, vpY);
+                skyGrad.addColorStop(0, '#02040a');
+                skyGrad.addColorStop(0.6, '#060e22');
+                skyGrad.addColorStop(1, '#0c1a3b');
+                bgCtx.fillStyle = skyGrad;
+                bgCtx.fillRect(0, 0, w, vpY);
                 
-                for (let i = 0; i < slices; i++) {
-                    const ratioStart = i / slices;
-                    const ratioEnd = (i + 1) / slices;
-                    
-                    const zStart = Math.pow(ratioStart, 2.5);
-                    const zEnd = Math.pow(ratioEnd, 2.5);
-                    
-                    const yStart = vpY + seaHeight * zStart;
-                    const yEnd = vpY + seaHeight * zEnd;
-                    const sliceHeight = yEnd - yStart;
-                    
-                    if (sliceHeight <= 0) continue;
-                    
-                    const scale = 0.1 + zStart * 4.5;
-                    
-                    const texHeight = bgImg.height;
-                    const texWidth = bgImg.width;
-                    
-                    const srcY = ((ratioStart * texHeight) - (stoneState.y * 0.6)) % texHeight;
-                    const correctedSrcY = srcY < 0 ? srcY + texHeight : srcY;
-                    
-                    const destWidth = w * scale;
-                    const destX = vpX - destWidth / 2;
-                    
-                    bgCtx.save();
-                    bgCtx.globalAlpha = 0.25 + (1 - ratioStart) * 0.65; 
-                    
-                    if (rarity === "Legendary" || rarity === "Mythic") {
-                        bgCtx.globalAlpha *= 0.85; 
-                    }
-                    
-                    bgCtx.drawImage(
-                        bgImg, 
-                        0, correctedSrcY, texWidth, Math.min(texHeight - correctedSrcY, 20), 
-                        destX, yStart, destWidth, sliceHeight + 0.5
-                    );
-                    bgCtx.restore();
-                }
+                const seaGrad = bgCtx.createLinearGradient(0, vpY, 0, h);
+                seaGrad.addColorStop(0, '#09152b');
+                seaGrad.addColorStop(0.3, '#050c1a');
+                seaGrad.addColorStop(1, '#010206');
+                bgCtx.fillStyle = seaGrad;
+                bgCtx.fillRect(0, vpY, w, h - vpY);
             }
             
-            // 4. 수면 물결 가로선 스크롤 렌더링
+            // 2. 수면 물결 가로선 스크롤 렌더링
             if (bgRipples) {
                 bgRipples.forEach(l => {
                     const y = vpY + (h - vpY) * Math.pow(l.z, 2.5);
@@ -2955,7 +2939,7 @@
                 });
             }
             
-            // 5. V자 거품 웨이크 렌더링
+            // 3. V자 거품 웨이크 렌더링
             if (wakes) {
                 wakes.forEach(w => {
                     bgCtx.save();
@@ -2974,8 +2958,7 @@
                 });
             }
             
-            // 6. 원경 화산 섬 줌인 렌더링
-            const progressVal = Math.min(1.0, stoneState.y / 35000);
+            // 4. 원경 화산 섬 줌인 렌더링
             const islandScale = Math.pow(progressVal, 3.5) * 8.5 + 0.05;
             
             bgCtx.save();
@@ -3043,20 +3026,23 @@
                 }
             }
             
-            // 돌 주변 아우라/스파크 회전 효과 연출
+            const depthFactor = 450;
+            const scale = depthFactor / (depthFactor + stoneState.y);
+            const screenX = centerX + stoneState.x * scale;
+            const screenY = centerY + (window.innerHeight - centerY) * scale - stoneState.z * scale;
+            
+            // 돌 주변 아우라/스파크 회전 효과 연출 (3D 원근 스케일 및 실시간 위치 반영)
             if (currentStatus === "FLYING" && !isDead) {
-                const sX = window.innerWidth / 2 + (stoneState.x * 0.1);
-                const sY = window.innerHeight * 0.70;
                 const rarity = (selectedStone && selectedStone.rarity) ? selectedStone.rarity : "Ordinary";
                 
                 ctx.save();
-                ctx.translate(sX, sY);
+                ctx.translate(screenX, screenY);
                 
                 const auraAngle = (stoneState.y * 0.08) % (Math.PI * 2);
                 ctx.rotate(auraAngle);
                 
                 if (rarity === "Mythic" || rarity === "Legendary") {
-                    const grad = ctx.createRadialGradient(0, 0, 10, 0, 0, 75);
+                    const grad = ctx.createRadialGradient(0, 0, 10, 0, 0, 75 * scale);
                     const color1 = rarity === "Mythic" ? "rgba(251, 191, 36, 0.55)" : "rgba(192, 132, 252, 0.55)";
                     const color2 = rarity === "Mythic" ? "rgba(239, 68, 68, 0)" : "rgba(59, 130, 246, 0)";
                     
@@ -3066,39 +3052,38 @@
                     
                     ctx.fillStyle = grad;
                     ctx.beginPath();
-                    ctx.ellipse(0, 0, 65, 30, Math.PI / 6, 0, Math.PI * 2);
+                    ctx.ellipse(0, 0, 65 * scale, 30 * scale, Math.PI / 6, 0, Math.PI * 2);
                     ctx.fill();
                     
                     if (rarity === "Mythic") {
                         ctx.strokeStyle = "rgba(254, 240, 138, 0.8)";
-                        ctx.lineWidth = 2;
+                        ctx.lineWidth = 2 * scale;
                         ctx.beginPath();
-                        ctx.ellipse(0, 0, 50, 22, -Math.PI / 4, 0, Math.PI * 2);
+                        ctx.ellipse(0, 0, 50 * scale, 22 * scale, -Math.PI / 4, 0, Math.PI * 2);
                         ctx.stroke();
                     }
                 } else if (rarity === "Rare" || rarity === "Ordinary") {
                     ctx.strokeStyle = rarity === "Rare" ? "rgba(56, 189, 248, 0.75)" : "rgba(255, 255, 255, 0.4)";
                     ctx.lineWidth = 1.5;
                     ctx.beginPath();
-                    ctx.arc(0, 0, 32, 0, Math.PI * 2);
+                    ctx.arc(0, 0, 32 * scale, 0, Math.PI * 2);
                     ctx.stroke();
                     
-                    const sparkX1 = Math.cos(auraAngle * 2.5) * 32;
-                    const sparkY1 = Math.sin(auraAngle * 2.5) * 32;
+                    const sparkX1 = Math.cos(auraAngle * 2.5) * 32 * scale;
+                    const sparkY1 = Math.sin(auraAngle * 2.5) * 32 * scale;
                     ctx.fillStyle = rarity === "Rare" ? "#38bdf8" : "#ffffff";
                     ctx.beginPath();
-                    ctx.arc(sparkX1, sparkY1, 3.5, 0, Math.PI * 2);
+                    ctx.arc(sparkX1, sparkY1, 3.5 * scale, 0, Math.PI * 2);
                     ctx.fill();
                 }
                 ctx.restore();
             }
             
-            // 기존 조준 가이드 및 타겟 링 표시 로직 (고정 좌표로 맵핑)
+            // 조준 가이드 및 타겟 링 표시 로직 (실시간 수면 위치 screenY0에 매핑)
             if (currentStatus === "FLYING" && !isDead && stoneState.vz < 0 && stoneState.z <= 30) {
-                const screenX = window.innerWidth / 2 + (stoneState.x * 0.1);
-                const screenY = window.innerHeight * 0.70;
+                const screenY0 = centerY + (window.innerHeight - centerY) * scale;
                 
-                const stoneWidth = 90 * 0.8;
+                const stoneWidth = 90 * scale * 0.8;
                 const ringRadiusX = (stoneWidth / 2) * (1 + stoneState.z / 15);
                 const ringRadiusY = ringRadiusX * 0.5; 
                 
@@ -3119,7 +3104,7 @@
                     ctx.lineWidth = 2;
                 }
                 
-                ctx.ellipse(screenX, screenY, ringRadiusX, ringRadiusY, 0, 0, Math.PI * 2);
+                ctx.ellipse(screenX, screenY0, ringRadiusX, ringRadiusY, 0, 0, Math.PI * 2);
                 ctx.stroke();
                 ctx.restore();
             }
