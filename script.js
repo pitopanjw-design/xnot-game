@@ -727,15 +727,16 @@ function dragEnd(e) {
 //  🚀 동적 물리학 탄성 계수 대입 발사
 // ===========================================================
 function triggerLaunch(dy, dx) {
-    // 💡 [이중 발사 원천 봉쇄]: 이미 날아가는 중이거나 준비 상태가 아니라면 뒤이어 들어오는 중복 스레드 호출을 완벽하게 무시합니다.
+    // 💡 [이중 발사 원천 봉쇄]: 이미 비행 중이거나 준비 상태가 아니라면 중복 호출을 완벽하게 무시합니다.
     if (currentStatus !== 'READY_TO_LAUNCH') return; 
 
     isDragging = false; unbindLaunchEvents(); cancelAnimationFrame(angleTimerId);
     document.getElementById('swipe-guide').style.display = 'none';
     document.getElementById('angle-gauge-wrap').style.display = 'none';
     
-    // 실행 즉시 상태를 FLYING으로 잠가 후속 중복 입력을 원천 무력화합니다.
+    // 실행 즉시 상태를 FLYING으로 변경하여 후속 중복 입력을 원천 차단합니다.
     currentStatus = 'FLYING'; 
+    let mult = 1.0; 
 
     const dur = Math.max(1, Date.now()-startTime); const effDy = Math.min(dy, 150);
     swipeSpeed = Math.min((effDy/dur)*15, 38); const distFact = effDy/150;
@@ -781,7 +782,7 @@ function triggerLaunch(dy, dx) {
 
     SoundManager.playLaunch(swipeSpeed);
 
-    let mult = 1.0;
+    mult = 1.0;
 
     if (zone === 'EASTEREG') {
         mult = 2.0;
