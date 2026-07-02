@@ -872,7 +872,6 @@ function updatePhysics() {
         if (!isWindowActive) {
             tapWindowStart = Date.now();
             isWindowActive = true;
-            hasTappedBounce = false; // 💡 추가: 새로운 낙하 주기가 시작될 때만 탭 가능 상태로 리셋
         }
     }
     
@@ -940,11 +939,11 @@ function registerBounceTap(e) {
 
     if (elapsed <= 700) {
         hasTappedBounce = true;
-        isWindowActive = false; // 💡 추가: 퍼펙트 판정 즉시 윈도우 오프
+        isWindowActive = false; 
         processBounce('PERFECT', false);
     } else {
         hasTappedBounce = true;
-        isWindowActive = false; // 💡 추가: 배드 판정 즉시 윈도우 오프
+        isWindowActive = false;
         processBounce('BAD', false);
     }
 }
@@ -1032,6 +1031,7 @@ function processBounce(rating, isAuto = false) {
     }
     stone.vx *= 0.9;
 
+    hasTappedBounce = false;
     isWindowActive = false;
     tapsInCurrentCycle = 0;
     markerProgress = 0; 
