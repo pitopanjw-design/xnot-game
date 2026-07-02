@@ -1033,11 +1033,11 @@ function processBounce(rating, isAuto = false) {
     }
     stone.vx *= 0.9;
 
-    document.getElementById('score-display').innerText = `BOUNCE: ${bounceCount}`;
-    updateAssetUI(); saveData(); spawnBounceMarker(ex, ey, bounceCount);
     isWindowActive = false;
     tapsInCurrentCycle = 0;
     markerProgress = 0; 
+    document.getElementById('score-display').innerText = `BOUNCE: ${bounceCount}`;
+    updateAssetUI(); saveData(); spawnBounceMarker(ex, ey, bounceCount);
 }
 
 function triggerWaterMiss() {
