@@ -79,7 +79,7 @@ const SoundManager = {
             if (p) {
                 [880,1320,1760].forEach((f,i)=>this._play(f,'sine',0.5,0.2/(i+1)));
             } else {
-                this._play(140,'sine',0.13,0.35,400);
+                this._play(140, 'sine', 0.13, 0.35, 400);
             }
         } else if (stoneId === 2) {
             const startFreq = p ? 200 : 160;
@@ -872,6 +872,7 @@ function updatePhysics() {
         if (!isWindowActive) {
             tapWindowStart = Date.now();
             isWindowActive = true;
+            hasTappedBounce = false; // Reset ONLY when a new descent phase starts
         }
     }
     
@@ -937,13 +938,14 @@ function registerBounceTap(e) {
 
     const elapsed = Date.now() - tapWindowStart;
 
+    // Immediately close the window to prevent multi-tap exploits
+    isWindowActive = false; 
+
     if (elapsed <= 700) {
         hasTappedBounce = true;
-        isWindowActive = false; 
         processBounce('PERFECT', false);
     } else {
         hasTappedBounce = true;
-        isWindowActive = false;
         processBounce('BAD', false);
     }
 }
@@ -1031,12 +1033,11 @@ function processBounce(rating, isAuto = false) {
     }
     stone.vx *= 0.9;
 
-    hasTappedBounce = false;
+    document.getElementById('score-display').innerText = `BOUNCE: ${bounceCount}`;
+    updateAssetUI(); saveData(); spawnBounceMarker(ex, ey, bounceCount);
     isWindowActive = false;
     tapsInCurrentCycle = 0;
     markerProgress = 0; 
-    document.getElementById('score-display').innerText = `BOUNCE: ${bounceCount}`;
-    updateAssetUI(); saveData(); spawnBounceMarker(ex, ey, bounceCount);
 }
 
 function triggerWaterMiss() {
