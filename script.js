@@ -875,8 +875,11 @@ function updatePhysics() {
         }
     }
     
-    if (isWindowActive && (Date.now() - tapWindowStart > 700)) {
-        isWindowActive = false;
+    if (isWindowActive) {
+        markerProgress += 0.04; // 0.05에서 20% 감속된 속도 적용
+        if (markerProgress >= 1.0) {
+            isWindowActive = false;
+        }
     }
 
     if (stone.vz < 0 && stone.z <= 0 && !isDead) {
@@ -941,12 +944,10 @@ function registerBounceTap(e) {
         return;
     }
 
-    const elapsed = Date.now() - tapWindowStart;
-
     // Immediately close the window to prevent multi-tap exploits
     isWindowActive = false; 
 
-    if (elapsed <= 700) {
+    if (markerProgress < 1.0) {
         hasTappedBounce = true;
         processBounce('PERFECT', false);
     } else {
@@ -1254,15 +1255,14 @@ function drawFxCanvas() {
             const stoneY = STONE_FIXED_Y - (isDead ? stone.z*2 : stone.z * 1.8);
             const Y = stoneY - 45; 
 
-            const elapsed = Date.now() - tapWindowStart;
-            const ratio = Math.max(0, Math.min(1.0, (700 - elapsed) / 700));
+            const ratio = Math.max(0, Math.min(1.0, 1.0 - markerProgress));
 
             fxCtx.save();
             fxCtx.globalAlpha = 1.0;
             fxCtx.translate(X, Y);
 
             let scale = 1.0 + ratio * 0.3;
-            if (elapsed > 525) {
+            if (markerProgress > 0.75) {
                 if (Math.floor(Date.now() / 50) % 2 === 0) {
                     scale = 0; 
                 }
