@@ -868,11 +868,10 @@ function updatePhysics() {
     stone.vy *= effectiveFriction;
     stone.vx *= Math.min(0.999, 0.99 * wm);
 
-    if (bounceCount % 2 === 0 && stone.vz < 0) {
-        if (!isWindowActive) {
+    if (stone.vz < 0) {
+        if (!isWindowActive && !hasTappedBounce && !isDead) {
             tapWindowStart = Date.now();
             isWindowActive = true;
-            hasTappedBounce = false; // Reset ONLY when a new descent phase starts
         }
     }
     
@@ -880,10 +879,16 @@ function updatePhysics() {
         isWindowActive = false;
     }
 
-    // 💡 3번 수정: 자동 바운스 시 플래그와 타이밍 판단 로직 안정화
-    if (stone.vz < 0 && stone.z <= 0 && !hasTappedBounce && !isDead) {
-        hasTappedBounce = true;
-        processBounce('GOOD', true);
+    if (stone.vz < 0 && stone.z <= 0 && !isDead) {
+        if (hasTappedBounce) {
+            triggerWaterMiss();
+        } else {
+            if (stone.vy > 0.8) {
+                processBounce('GOOD', true);
+            } else {
+                triggerWaterSink();
+            }
+        }
     }
 
     if (stone.vz < 0 && stone.z < -6 && !isDead) {
@@ -980,29 +985,47 @@ function processBounce(rating, isAuto = false) {
     let baseVz=0, multEff=1;
 
     // 💡 2번 수정: PERFECT 및 GOOD 판정 시 가속 메커니즘을 순정 정통 공식으로 원상복구
+    const baseVzFactor = sp.baseVz || 1.5;
+
     if (rating==='PERFECT') {
-        perfectCount++; baseVz = (sp.baseVz||1.5) + (selectedStone.mult*0.4); multEff = 1.06;
-        stone.vy = stone.vy * 1.35 + (upgrades.weight * 1.5); // 강력한 전진 가속 복구!
-        const earned = Math.round(100*selectedStone.mult*2.5);
+        perfectCount++; 
+        baseVz = baseVzFactor * selectedStone.mult * 1.35; 
+        multEff = 1.06;
+        
         if (!isAuto) {
+            stone.vy = stone.vy * 1.35 + (upgrades.weight * 1.5); // 강력한 전진 가속 복구!
+            const earned = Math.round(100*selectedStone.mult*2.5);
             document.getElementById('message').innerText = `${t('perfectTiming')} (+${earned} SP)`;
+            playerSP += earned;
+        } else {
+            stone.vy = stone.vy * (sp.vyDecay || 0.95);
         }
-        playerSP += earned; createParticles(ex,ey,true,false,Math.round(pCount*1.5));
+        
+        createParticles(ex,ey,true,false,Math.round(pCount*1.5));
         haptic('heavy'); SoundManager.playBounce(true);
         if (perfectCount===1 && !isAuto) { spawnDramaticText(t('perfect')+' BOUNCE!','neon-lime'); triggerShake('medium'); }
         if (rarity==='Mythic') spawnGodSplash(ex,ey);
     } else if (rating==='GOOD') {
-        baseVz = (sp.baseVz||1.5)*0.8 + selectedStone.mult*0.2; multEff = 0.98;
-        stone.vy = stone.vy * 1.15 + (upgrades.weight * 0.5); // 쾌적한 속도 유지
-        const earned = Math.round(100*selectedStone.mult*1.2);
+        baseVz = baseVzFactor * selectedStone.mult * 1.0; 
+        multEff = 0.98;
+        
         if (!isAuto) {
+            stone.vy = stone.vy * 1.15 + (upgrades.weight * 0.5); // 쾌적한 속도 유지
+            const earned = Math.round(100*selectedStone.mult*1.2);
             document.getElementById('message').innerText = `${t('goodTiming')} (+${earned} SP)`;
+            playerSP += earned;
+        } else {
+            stone.vy = stone.vy * (sp.vyDecay || 0.95); // 자동 바운스 시 가속 배제하고 고유 감쇄 적용
+            const earned = Math.round(100*selectedStone.mult*0.8);
+            playerSP += earned;
         }
-        playerSP += earned; createParticles(ex,ey,false,false,pCount);
+        
+        createParticles(ex,ey,false,false,pCount);
         haptic('medium'); SoundManager.playBounce(false);
         if (rarity==='Mythic') spawnGodSplash(ex,ey);
     } else {
-        baseVz = (sp.baseVz||1.5)*0.22; multEff = 0.40;
+        baseVz = baseVzFactor * selectedStone.mult * 0.4; 
+        multEff = 0.40;
         stone.vy *= 0.40; // BAD 판정은 속도 디버프 처리
         const earned = Math.round(100*selectedStone.mult*0.4);
         if (!isAuto) {
@@ -1034,6 +1057,7 @@ function processBounce(rating, isAuto = false) {
     stone.vx *= 0.9;
 
     isWindowActive = false;
+    hasTappedBounce = false;
     tapsInCurrentCycle = 0;
     markerProgress = 0; 
     document.getElementById('score-display').innerText = `BOUNCE: ${bounceCount}`;
