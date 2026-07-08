@@ -1611,71 +1611,81 @@ document.addEventListener('visibilitychange', () => {
     if (document.hidden) SoundManager.pauseAll(); else SoundManager.resumeAll();
 });
 
-// ====== Telegram Invitation System Logic ======
+// ====== Telegram Invitation System Logic (Dynamic DOM Injection) ======
 
-// 1. Generate unique referral link with the exact Bot Username
-function getReferralLink() {
-    const botUsername = "XNOT_Stone_Skipper"; 
-    // Retrieve actual Telegram User ID or fallback to localStorage / generated timestamp-based ID
-    let userId = '';
-    try {
-        userId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
-    } catch(e) {}
-    
-    if (!userId) {
-        userId = localStorage.getItem('xnot_user_id') || 'user_' + Date.now();
+// Dynamically inject Telegram Invite UI into the container or body with the correct Bot ID
+function injectInviteUI() {
+    // Prevent duplicate injection
+    if (document.getElementById('invite-box')) return;
+
+    const inviteContainer = document.createElement('div');
+    inviteContainer.id = "invite-box";
+    inviteContainer.style.cssText = "position: relative; z-index: 999; margin: 20px auto; max-width: 400px; padding: 15px; background: rgba(0,0,0,0.75); border: 2px solid #0088cc; border-radius: 10px; text-align: center; color: #fff; font-family: sans-serif;";
+    inviteContainer.innerHTML = `
+        <h3 style="margin-top: 0; color: #0088cc;">✉️ 친구 초대하고 보너스 받기</h3>
+        <p style="font-size: 13px; color: #ccc; margin-bottom: 12px;">친구를 초대하면 XNOT 채굴 동력 버프를 획득합니다!</p>
+        <div style="display: flex; gap: 10px; justify-content: center;">
+            <button id="btn-tg-invite" style="background: #0088cc; color: white; border: none; padding: 10px 14px; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 13px;">텔레그램 친구 초대</button>
+            <button id="btn-copy-link" style="background: #444; color: white; border: none; padding: 10px 14px; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 13px;">링크 복사</button>
+        </div>
+    `;
+
+    // Try to append below asset bar or fallback to body
+    const assetBar = document.getElementById('asset-bar') || document.querySelector('.ui-container');
+    if (assetBar && assetBar.parentNode) {
+        assetBar.parentNode.insertBefore(inviteContainer, assetBar.nextSibling);
+    } else {
+        document.body.appendChild(inviteContainer);
     }
-    
-    if (!localStorage.getItem('xnot_user_id')) {
-        localStorage.setItem('xnot_user_id', userId);
-    }
-    
-    // Format required for Telegram Mini App deep linking
-    return `https://t.me/${botUsername}?startapp=ref_${userId}`;
+
+    // Bind Telegram Sharing Events
+    setupInviteEventListeners();
 }
 
-// 2. Initialize Invite Button Listeners
-function initInviteSystem() {
+function setupInviteEventListeners() {
     const tgInviteBtn = document.getElementById('btn-tg-invite');
     const copyLinkBtn = document.getElementById('btn-copy-link');
-    
+    // Strict verification of the corrected bot username
+    const botUsername = "xnot_skipper_bot";
+
     if (!tgInviteBtn || !copyLinkBtn) return;
 
-    // Telegram Native Share Link Trigger
+    function getReferralLink() {
+        let userId = '';
+        try {
+            userId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+        } catch(e) {}
+
+        if (!userId) {
+            userId = localStorage.getItem('xnot_user_id') || 'user_' + Date.now();
+        }
+
+        if (!localStorage.getItem('xnot_user_id')) localStorage.setItem('xnot_user_id', userId);
+        return `https://t.me/${botUsername}?startapp=ref_${userId}`;
+    }
+
     tgInviteBtn.addEventListener('click', () => {
         const refLink = getReferralLink();
         const shareText = encodeURIComponent("🪨 [XNOT 물수제비 채굴] 나랑 같이 돌 튕기고 코인 채굴하자! 지금 들어오면 한정판 조약돌 지급! 🚀");
-        
-        // Telegram official share URL schema
-        const tgShareUrl = `https://t.me/share/url?url=${encodeURIComponent(refLink)}&text=${shareText}`;
-        
-        // Open Telegram share window
-        window.open(tgShareUrl, '_blank');
+        window.open(`https://t.me/share/url?url=${encodeURIComponent(refLink)}&text=${shareText}`, '_blank');
     });
 
-    // Fallback Clipboard Copy Link
     copyLinkBtn.addEventListener('click', () => {
         const refLink = getReferralLink();
-        
         navigator.clipboard.writeText(refLink).then(() => {
-            alert("초대 링크가 클립보드에 복사되었습니다! 친구에게 공유해보세요.");
-        }).catch(err => {
-            console.error('클립보드 복사 실패:', err);
-            // Fallback for older webviews/browsers
+            alert("초대 링크가 클립보드에 복사되었습니다!");
+        }).catch(() => {
             const textArea = document.createElement("textarea");
-            textArea.value = refLink;
-            document.body.appendChild(textArea);
-            textArea.select();
-            document.execCommand('copy');
-            document.body.removeChild(textArea);
+            textArea.value = refLink; document.body.appendChild(textArea); textArea.select();
+            document.execCommand('copy'); document.body.removeChild(textArea);
             alert("초대 링크가 복사되었습니다!");
         });
     });
 }
 
-// Call init when document is fully loaded
+// Run injection safely after setup
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initInviteSystem);
+    document.addEventListener('DOMContentLoaded', injectInviteUI);
 } else {
-    initInviteSystem();
+    injectInviteUI();
 }
