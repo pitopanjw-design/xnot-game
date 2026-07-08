@@ -341,14 +341,14 @@ resizeCanvases();
 // ===========================================================
 //  ☁️ Supabase Production Credentials Setup & Synchronization
 // ===========================================================
-const SUPABASE_URL = "https://tdzheutebifrknrbnysj.supabase.co";
+const SUPABASE_URL = "https://tdzheuteifrknrbnysj.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkemhldXRlYmlmcmtucmJueXNqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0Njg1MzMsImV4cCI6MjA5OTA0NDUzM30.I4zNRb2veNPPIxg1qemz05SSCiniR25rlamw_UyQIOk";
 let supabaseClient = null;
 
 function initSupabase() {
     if (typeof supabase !== 'undefined') {
         supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        console.log("XNOT Supabase Client: Core Connection Established with tdzheutebifrknrbnysj.");
+        console.log("XNOT Supabase Client: Core Connection Established with tdzheuteifrknrbnysj.");
     } else {
         console.warn("Supabase SDK script tag not found in HTML. Falling back to local state.");
     }
@@ -361,80 +361,93 @@ initSupabase();
 //  💾 데이터 입출력 (Local & Cloud Storage)
 // ===========================================================
 async function saveData() {
-    // 0. Keep original game save logic intact
-    const d = { sp:playerSP, upgrades, walletAddress: userWalletAddress };
-    localStorage.setItem('xnot_v4_save', JSON.stringify(d));
-    try { window.Telegram?.WebApp?.CloudStorage?.setItem('stone_v4', JSON.stringify(d)); } catch(e){}
-
-    // 1. Keep local storage fallback intact
-    localStorage.setItem('xnot_high_score', highScore);
+    // 1. Maintain existing local JSON backup pattern with hearts included
+    const currentHearts = typeof playerHearts !== 'undefined' ? playerHearts : (typeof hearts !== 'undefined' ? hearts : 5);
     
-    // Generate or retrieve a persistent Telegram/User ID
-    let userId = localStorage.getItem('xnot_user_id');
-    if (!userId) {
-        userId = 'user_' + Math.random().toString(36).substring(2, 9);
+    const localSavePayload = { 
+        sp: playerSP, 
+        upgrades: upgrades,
+        hearts: currentHearts,
+        walletAddress: userWalletAddress,
+        lastSavedTime: Date.now()
+    };
+    localStorage.setItem('xnot_v4_save', JSON.stringify(localSavePayload));
+    try { window.Telegram?.WebApp?.CloudStorage?.setItem('stone_v4', JSON.stringify(localSavePayload)); } catch(e){}
+    
+    let userId = localStorage.getItem('xnot_user_id') || 'user_' + Math.random().toString(36).substring(2, 9);
+    if (!localStorage.getItem('xnot_user_id')) {
         localStorage.setItem('xnot_user_id', userId);
     }
 
-    console.log(`[Local Save] Syncing locally. ID: ${userId}, Score: ${highScore}`);
+    console.log(`[Local Sync] Profile: ${userId} | Target SP: ${playerSP} | Hearts: ${currentHearts}`);
 
-    // 2. Fire Async Live cloud update to 'xnot_users' table
-    if (typeof supabaseClient !== 'undefined' && supabaseClient !== null) {
+    // 2. Fire Async Live cloud update to Supabase including the hearts state
+    if (supabaseClient !== null) {
         try {
-            console.log("[Supabase Sync] Attempting to update cloud database...");
+            console.log("[Supabase Sync] Saving score and hearts to cloud...");
             
-            // Query if user already exists
-            let { data: existingUser, error: fetchError } = await supabaseClient
+            // Upsert / Update user metrics in the database
+            await supabaseClient
                 .from('xnot_users')
-                .select('*')
-                .eq('user_id', userId)
-                .single();
-
-            if (fetchError && fetchError.code === 'PGRST116') {
-                // User doesn't exist in xnot_skipper_test yet -> Create row
-                await supabaseClient
-                    .from('xnot_users')
-                    .insert([{ user_id: userId, high_score: parseInt(highScore), referred_friends: 0 }]);
-                console.log("[Supabase Sync] Created brand new cloud profile successfully.");
-            } else if (existingUser) {
-                // User exists -> Update score if current game beat their record
-                if (parseInt(highScore) > existingUser.high_score) {
-                    await supabaseClient
-                        .from('xnot_users')
-                        .update({ high_score: parseInt(highScore), updated_at: new Date().toISOString() })
-                        .eq('user_id', userId);
-                    console.log("[Supabase Sync] High score broken! Cloud DB updated.");
-                } else {
-                    console.log("[Supabase Sync] Current score did not beat cloud high score. Skipped update.");
-                }
-            }
+                .upsert({ 
+                    user_id: userId, 
+                    high_score: parseInt(playerSP), 
+                    updated_at: new Date().toISOString() 
+                }, { onConflict: 'user_id' });
+                
+            console.log("[Supabase Sync] Cloud save successful.");
         } catch (cloudErr) {
-            console.error("[Supabase Sync Error] Failed to update PostgreSQL cluster:", cloudErr);
+            console.error("[Supabase Sync Error] Failed to update hearts/score cluster:", cloudErr);
         }
     }
 }
+
 function loadData() {
     const savedHighScore = localStorage.getItem('xnot_high_score');
     if (savedHighScore) {
         highScore = parseInt(savedHighScore) || 0;
     }
 
-    const raw = localStorage.getItem('xnot_v4_save');
-    if (raw) {
+    const savedData = localStorage.getItem('xnot_v4_save');
+    
+    if (savedData) {
         try {
-            const p = JSON.parse(raw);
-            playerSP = p.sp||0;
-            if (p.upgrades) { upgrades.weight=p.upgrades.weight||0; upgrades.elasticity=p.upgrades.elasticity||0; upgrades.spin=p.upgrades.spin||0; }
-            userWalletAddress = p.walletAddress||null;
-        } catch(e){}
+            const parsed = JSON.parse(savedData);
+            
+            // Restore SP, upgrades, and walletAddress
+            if (parsed.sp !== undefined) playerSP = parsed.sp;
+            if (parsed.upgrades !== undefined) upgrades = parsed.upgrades;
+            if (parsed.walletAddress !== undefined) userWalletAddress = parsed.walletAddress;
+            
+            // Restore Hearts perfectly instead of hardcoding full resets!
+            if (parsed.hearts !== undefined) {
+                if (typeof playerHearts !== 'undefined') playerHearts = parsed.hearts;
+                if (typeof hearts !== 'undefined') hearts = parsed.hearts;
+                console.log(`[Load Data] Successfully restored saved hearts: ${parsed.hearts}`);
+            }
+        } catch (e) {
+            console.error("[Load Data Error] Failed to parse local storage fallback:", e);
+        }
+    } else {
+        // Safe defaults for brand new players only
+        if (typeof playerHearts !== 'undefined') playerHearts = 5;
+        if (typeof hearts !== 'undefined') hearts = 5;
     }
+    
     updateAssetUI();
     try {
         window.Telegram?.WebApp?.CloudStorage?.getItem('stone_v4', (err,val)=>{
             if (!err&&val) {
-                const p=JSON.parse(val);
-                if ((p.sp||0)>playerSP) { playerSP=p.sp; updateAssetUI(); saveData(); }
-                if (p.walletAddress && !userWalletAddress) { userWalletAddress = p.walletAddress; }
+                const parsed=JSON.parse(val);
+                if ((parsed.sp||0)>playerSP) { playerSP=parsed.sp; }
+                if (parsed.upgrades !== undefined) { upgrades = parsed.upgrades; }
+                if (parsed.walletAddress && !userWalletAddress) { userWalletAddress = parsed.walletAddress; }
+                if (parsed.hearts !== undefined) {
+                    if (typeof playerHearts !== 'undefined') playerHearts = parsed.hearts;
+                    if (typeof hearts !== 'undefined') hearts = parsed.hearts;
+                }
+                updateAssetUI();
+                saveData();
             }
         });
     } catch(e){}
@@ -638,6 +651,7 @@ function handleMainBtn(e) {
     if (currentStatus==='SPIN_DONE') {
         playerHearts--;
         updateAssetUI();
+        saveData(); // 하트 상태 즉각 저장 트리거
         playSeamlessTransition();
     }
 }
@@ -1586,17 +1600,22 @@ function endGame() {
     document.getElementById('game-container').removeEventListener('touchstart', registerBounceTap);
     document.getElementById('ingame-stone').style.display = 'none';
 
-    const earnedSP = Math.round(((bounceCount*100)+(perfectCount*150))*selectedStone.mult);
-    document.getElementById('res-stone-name').innerText = t(selectedStone.nameKey); document.getElementById('res-stone-name').style.color = selectedStone.color;
-    document.getElementById('res-bounce-count').innerText = `${bounceCount} ${t('bouncesUnit')}`; document.getElementById('res-perfect-count').innerText = `${perfectCount} ${t('bouncesUnit')}`;
+    const earnedSP = Math.round(((bounceCount * 100) + (perfectCount * 150)) * selectedStone.mult);
+    document.getElementById('res-stone-name').innerText = t(selectedStone.nameKey); 
+    document.getElementById('res-stone-name').style.color = selectedStone.color;
+    document.getElementById('res-bounce-count').innerText = `${bounceCount} ${t('bouncesUnit')}`; 
+    document.getElementById('res-perfect-count').innerText = `${perfectCount} ${t('bouncesUnit')}`;
     document.getElementById('res-earned-sp').innerText = `+${earnedSP.toLocaleString()} SP`;
 
-    playerSP += earnedSP;
-    if (earnedSP > highScore) {
-        highScore = earnedSP;
-    }
-    saveData(); updateAssetUI(); haptic('success'); SoundManager.playFanfare();
-    setAssetBarVisible(false); document.getElementById('result-modal').style.display='flex';
+    // Realignment: Add the calculated earned score to total playerSP, then trigger the updated cloud sync
+    playerSP += earnedSP; 
+    saveData(); // Call updated function mapped to playerSP
+    
+    updateAssetUI(); 
+    haptic('success'); 
+    SoundManager.playFanfare();
+    setAssetBarVisible(false); 
+    document.getElementById('result-modal').style.display = 'flex';
 }
 
 function closeResultModal() {
