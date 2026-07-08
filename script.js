@@ -345,16 +345,24 @@ const SUPABASE_URL = "https://tdzheuteifrknrbnysj.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkemhldXRlYmlmcmtucmJueXNqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0Njg1MzMsImV4cCI6MjA5OTA0NDUzM30.I4zNRb2veNPPIxg1qemz05SSCiniR25rlamw_UyQIOk";
 let supabaseClient = null;
 
+// Dynamic script injection to guarantee Supabase SDK existence
+if (typeof supabase === 'undefined') {
+    const script = document.createElement('script');
+    script.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2";
+    script.async = false;
+    script.onload = () => {
+        console.log("[Supabase SDK] Dynamic CDN Load Successful.");
+        if (typeof initSupabase === 'function') initSupabase();
+    };
+    document.head.appendChild(script);
+}
+
 function initSupabase() {
     if (typeof supabase !== 'undefined') {
         supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        console.log("XNOT Supabase Client: Core Connection Established with tdzheuteifrknrbnysj.");
-    } else {
-        console.warn("Supabase SDK script tag not found in HTML. Falling back to local state.");
+        console.log("XNOT Supabase Client: Core Connection Established.");
     }
 }
-
-// Automatically fire init on script parse
 initSupabase();
 
 
@@ -450,26 +458,36 @@ async function loadData() {
     } catch(e){}
 }
 
-// Streamlined Save Data supporting both high_score and hearts columns
 async function saveData() {
     const currentHearts = typeof playerHearts !== 'undefined' ? playerHearts : (typeof hearts !== 'undefined' ? hearts : 5);
     
+    // Local backup
     const localSavePayload = { 
         sp: playerSP, 
-        upgrades: upgrades,
-        hearts: currentHearts,
+        upgrades: upgrades, 
+        hearts: currentHearts, 
         walletAddress: userWalletAddress,
-        lastSavedTime: Date.now()
+        lastSavedTime: Date.now() 
     };
     localStorage.setItem('xnot_v4_save', JSON.stringify(localSavePayload));
     try { window.Telegram?.WebApp?.CloudStorage?.setItem('stone_v4', JSON.stringify(localSavePayload)); } catch(e){}
     
     let userId = localStorage.getItem('xnot_user_id');
-    if (!userId || supabaseClient === null) return;
+    if (!userId) {
+        userId = 'user_' + Math.random().toString(36).substring(2, 9);
+        localStorage.setItem('xnot_user_id', userId);
+    }
+
+    if (supabaseClient === null) {
+        console.error("[Supabase Defect] Cannot save data. Client is null. Verify your URL/Anon Key.");
+        return;
+    }
 
     try {
-        // Upsert to sync both the current accumulated SP and remaining energy/hearts
-        await supabaseClient
+        console.log(`[Supabase Outbound] Dispatching payload for ID [${userId}] -> SP: ${playerSP}, Hearts: ${currentHearts}`);
+        
+        // Use UPSERT with explicit error interception
+        const { data, error } = await supabaseClient
             .from('xnot_users')
             .upsert({ 
                 user_id: userId, 
@@ -478,10 +496,15 @@ async function saveData() {
                 last_saved_time: Date.now(),
                 updated_at: new Date().toISOString() 
             }, { onConflict: 'user_id' });
-            
-        console.log(`[Supabase Save] Cloud backup completed for ${userId}. SP: ${playerSP}, Hearts: ${currentHearts}`);
-    } catch (cloudErr) {
-        console.error("Cloud database backup halted:", cloudErr);
+
+        if (error) {
+            console.error("❌ [Supabase Database Rejected Our Data!]", error.message, "Code:", error.code, "Details:", error.details);
+            console.warn("💡 TIP: If the code is '42501', it means RLS is turned ON in your Supabase dashboard. Go turn off RLS for 'xnot_users' table!");
+        } else {
+            console.log("✅ [Supabase Success] Row successfully integrated into PostgreSQL cluster!");
+        }
+    } catch (criticalNetError) {
+        console.error("💥 [Supabase Critical Network Failure]", criticalNetError);
     }
 }
 
@@ -1692,11 +1715,36 @@ function closeResultModal() {
 //  📺 유튜브 보상형 에너지 완충 엔진
 // ===========================================================
 function openYoutubeCharge() {
-    document.getElementById('youtube-modal').style.display='flex'; let sec=5; document.getElementById('video-timer').innerText=sec;
-    const iv=setInterval(()=>{
-        sec--; document.getElementById('video-timer').innerText=sec;
-        if (sec<=0) { clearInterval(iv); playerHearts=5; document.getElementById('youtube-modal').style.display='none'; currentStatus='PRE_SPIN'; updateAssetUI(); haptic('success'); }
-    },1000);
+    const modal = document.getElementById('youtube-modal');
+    const timerEl = document.getElementById('video-timer');
+    modal.style.display = 'flex';
+    
+    let sec = 5;
+    timerEl.innerText = sec;
+
+    const iv = setInterval(async () => {
+        sec--;
+        timerEl.innerText = sec;
+
+        if (sec <= 0) {
+            clearInterval(iv);
+
+            // 하트 5개 즉각 충전
+            playerHearts = 5;
+            updateAssetUI();
+            haptic('success');
+
+            // CRITICAL: 충전 즉시 클라우드에 강제 저장
+            console.log("[YouTube Reward] Hearts refilled to 5. Forcing immediate cloud save...");
+            if (typeof saveData === 'function') {
+                await saveData();
+            }
+            console.log("[YouTube Reward] Cloud lockdown complete. Hearts secured.");
+
+            modal.style.display = 'none';
+            currentStatus = 'PRE_SPIN';
+        }
+    }, 1000);
 }
 
 // ===========================================================
