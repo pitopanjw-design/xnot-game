@@ -340,7 +340,7 @@ resizeCanvases();
 //  💾 데이터 입출력 (Local & Cloud Storage)
 // ===========================================================
 function saveData() {
-    const d = { sp:playerSP, upgrades };
+    const d = { sp:playerSP, upgrades, walletAddress: userWalletAddress };
     localStorage.setItem('xnot_v4_save', JSON.stringify(d));
     try { window.Telegram?.WebApp?.CloudStorage?.setItem('stone_v4', JSON.stringify(d)); } catch(e){}
 }
@@ -351,6 +351,7 @@ function loadData() {
             const p = JSON.parse(raw);
             playerSP = p.sp||0;
             if (p.upgrades) { upgrades.weight=p.upgrades.weight||0; upgrades.elasticity=p.upgrades.elasticity||0; upgrades.spin=p.upgrades.spin||0; }
+            userWalletAddress = p.walletAddress||null;
         } catch(e){}
     }
     updateAssetUI();
@@ -359,6 +360,7 @@ function loadData() {
             if (!err&&val) {
                 const p=JSON.parse(val);
                 if ((p.sp||0)>playerSP) { playerSP=p.sp; updateAssetUI(); saveData(); }
+                if (p.walletAddress && !userWalletAddress) { userWalletAddress = p.walletAddress; }
             }
         });
     } catch(e){}
@@ -377,6 +379,58 @@ function initTMA() {
         document.getElementById('user-name').innerText = u.first_name||u.username||'Guest';
         document.getElementById('user-card').style.display = 'flex';
     }
+}
+
+// ===========================================================
+//  💎 TON Connect 지갑 연동 로직
+// ===========================================================
+let tonConnectUI = null;
+let userWalletAddress = null;
+
+function initTonConnect() {
+    try {
+        const TCUI = window.TONConnectUI;
+        if (TCUI) {
+            // manifestUrl을 도메인에 관계없이 정상 서빙하도록 origin 주소와 결합
+            const manifestUrl = window.location.origin + '/tonconnect-manifest.json';
+            tonConnectUI = new TCUI.TonConnectUI({
+                manifestUrl: manifestUrl,
+                buttonRootId: 'ton-connect-button'
+            });
+
+            tonConnectUI.onStatusChange(wallet => {
+                const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
+                const baseName = tgUser ? (tgUser.first_name || tgUser.username) : 'Guest';
+                
+                if (wallet) {
+                    userWalletAddress = wallet.account.address;
+                    console.log("TON 지갑 연결됨:", userWalletAddress);
+                    
+                    const uName = document.getElementById('user-name');
+                    if (uName) {
+                        uName.innerText = `${baseName} (${shortenAddress(userWalletAddress)})`;
+                    }
+                    saveData();
+                } else {
+                    userWalletAddress = null;
+                    console.log("TON 지갑 연결 해제됨");
+                    
+                    const uName = document.getElementById('user-name');
+                    if (uName) {
+                        uName.innerText = baseName;
+                    }
+                    saveData();
+                }
+            });
+        }
+    } catch (e) {
+        console.error("TON Connect 초기화 실패:", e);
+    }
+}
+
+function shortenAddress(addr) {
+    if (!addr) return '';
+    return addr.slice(0, 4) + '...' + addr.slice(-4);
 }
 
 // ===========================================================
@@ -1551,8 +1605,77 @@ function closeIntroScreen(e) { e?.preventDefault(); SoundManager.resume(); hapti
 
 function initDebugParams() { try { const p=new URLSearchParams(window.location.search); window.debug=p.get('debug')==='true'; window.forceCrit=p.get('forceCrit')==='true'; window.forceLotto=p.get('forceLotto')==='true'; } catch(e){} }
 
-initDebugParams(); initTMA(); initLang(); loadData(); applyI18n(); changeRandomBg(); drawStaticBackground();
+initDebugParams(); initTMA(); initTonConnect(); initLang(); loadData(); applyI18n(); changeRandomBg(); drawStaticBackground();
 
 document.addEventListener('visibilitychange', () => {
     if (document.hidden) SoundManager.pauseAll(); else SoundManager.resumeAll();
 });
+
+// ====== Telegram Invitation System Logic ======
+
+// 1. Generate unique referral link with the exact Bot Username
+function getReferralLink() {
+    const botUsername = "XNOT_Stone_Skipper"; 
+    // Retrieve actual Telegram User ID or fallback to localStorage / generated timestamp-based ID
+    let userId = '';
+    try {
+        userId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+    } catch(e) {}
+    
+    if (!userId) {
+        userId = localStorage.getItem('xnot_user_id') || 'user_' + Date.now();
+    }
+    
+    if (!localStorage.getItem('xnot_user_id')) {
+        localStorage.setItem('xnot_user_id', userId);
+    }
+    
+    // Format required for Telegram Mini App deep linking
+    return `https://t.me/${botUsername}?startapp=ref_${userId}`;
+}
+
+// 2. Initialize Invite Button Listeners
+function initInviteSystem() {
+    const tgInviteBtn = document.getElementById('btn-tg-invite');
+    const copyLinkBtn = document.getElementById('btn-copy-link');
+    
+    if (!tgInviteBtn || !copyLinkBtn) return;
+
+    // Telegram Native Share Link Trigger
+    tgInviteBtn.addEventListener('click', () => {
+        const refLink = getReferralLink();
+        const shareText = encodeURIComponent("🪨 [XNOT 물수제비 채굴] 나랑 같이 돌 튕기고 코인 채굴하자! 지금 들어오면 한정판 조약돌 지급! 🚀");
+        
+        // Telegram official share URL schema
+        const tgShareUrl = `https://t.me/share/url?url=${encodeURIComponent(refLink)}&text=${shareText}`;
+        
+        // Open Telegram share window
+        window.open(tgShareUrl, '_blank');
+    });
+
+    // Fallback Clipboard Copy Link
+    copyLinkBtn.addEventListener('click', () => {
+        const refLink = getReferralLink();
+        
+        navigator.clipboard.writeText(refLink).then(() => {
+            alert("초대 링크가 클립보드에 복사되었습니다! 친구에게 공유해보세요.");
+        }).catch(err => {
+            console.error('클립보드 복사 실패:', err);
+            // Fallback for older webviews/browsers
+            const textArea = document.createElement("textarea");
+            textArea.value = refLink;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            alert("초대 링크가 복사되었습니다!");
+        });
+    });
+}
+
+// Call init when document is fully loaded
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initInviteSystem);
+} else {
+    initInviteSystem();
+}
