@@ -337,12 +337,61 @@ window.addEventListener('resize', resizeCanvases);
 resizeCanvases();
 
 // ===========================================================
+// ===========================================================
+//  ☁️ Supabase Production Credentials Setup & Synchronization
+// ===========================================================
+const SUPABASE_URL = "https://tdzheutebifrknrbnysj.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkemhldXRlYmlmcmtucmJueXNqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0Njg1MzMsImV4cCI6MjA5OTA0NDUzM30.I4zNRb2veNPPIxg1qemz05SSCiniR25rlamw_UyQIOk";
+let supabaseClient = null;
+
+function initSupabase() {
+    if (typeof supabase !== 'undefined') {
+        supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        console.log("XNOT Supabase Client: Core Connection Established with tdzheutebifrknrbnysj.");
+    } else {
+        console.warn("Supabase SDK script tag not found in HTML. Falling back to local state.");
+    }
+}
+
+// Automatically fire init on script parse
+initSupabase();
+
+async function syncUserDataWithSupabase(userId, currentScore) {
+    if (!supabaseClient) return;
+    try {
+        const { error } = await supabaseClient
+            .from('leaderboard')
+            .upsert({ 
+                user_id: userId, 
+                score: currentScore,
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'user_id' });
+            
+        if (error) {
+            console.error("Supabase Sync Error:", error.message || error);
+        } else {
+            console.log("Supabase Sync Success for user:", userId, "score:", currentScore);
+        }
+    } catch(e) {
+        console.error("Supabase Sync Failed:", e);
+    }
+}
+
 //  💾 데이터 입출력 (Local & Cloud Storage)
 // ===========================================================
 function saveData() {
     const d = { sp:playerSP, upgrades, walletAddress: userWalletAddress };
     localStorage.setItem('xnot_v4_save', JSON.stringify(d));
     try { window.Telegram?.WebApp?.CloudStorage?.setItem('stone_v4', JSON.stringify(d)); } catch(e){}
+    
+    // Supabase 데이터 동기화 파이프라인 트리거
+    try {
+        const userId = localStorage.getItem('xnot_user_id') || 'user_' + Date.now();
+        if (!localStorage.getItem('xnot_user_id')) {
+            localStorage.setItem('xnot_user_id', userId);
+        }
+        syncUserDataWithSupabase(userId, playerSP);
+    } catch(e) {}
 }
 function loadData() {
     const raw = localStorage.getItem('xnot_v4_save');
