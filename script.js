@@ -360,81 +360,78 @@ initSupabase();
 
 //  💾 데이터 입출력 (Local & Cloud Storage)
 // ===========================================================
-async function saveData() {
-    // 1. Maintain existing local JSON backup pattern with hearts included
-    const currentHearts = typeof playerHearts !== 'undefined' ? playerHearts : (typeof hearts !== 'undefined' ? hearts : 5);
+async function loadData() {
+    // 1. Recover legacy information from LocalStorage first
+    const savedData = localStorage.getItem('xnot_v4_save');
+    let userId = localStorage.getItem('xnot_user_id');
     
-    const localSavePayload = { 
-        sp: playerSP, 
-        upgrades: upgrades,
-        hearts: currentHearts,
-        walletAddress: userWalletAddress,
-        lastSavedTime: Date.now()
-    };
-    localStorage.setItem('xnot_v4_save', JSON.stringify(localSavePayload));
-    try { window.Telegram?.WebApp?.CloudStorage?.setItem('stone_v4', JSON.stringify(localSavePayload)); } catch(e){}
-    
-    let userId = localStorage.getItem('xnot_user_id') || 'user_' + Math.random().toString(36).substring(2, 9);
-    if (!localStorage.getItem('xnot_user_id')) {
+    if (!userId) {
+        userId = 'user_' + Math.random().toString(36).substring(2, 9);
         localStorage.setItem('xnot_user_id', userId);
     }
 
-    console.log(`[Local Sync] Profile: ${userId} | Target SP: ${playerSP} | Hearts: ${currentHearts}`);
-
-    // 2. Fire Async Live cloud update to Supabase including the hearts state
-    if (supabaseClient !== null) {
-        try {
-            console.log("[Supabase Sync] Saving score and hearts to cloud...");
-            
-            // Upsert / Update user metrics in the database
-            await supabaseClient
-                .from('xnot_users')
-                .upsert({ 
-                    user_id: userId, 
-                    high_score: parseInt(playerSP), 
-                    updated_at: new Date().toISOString() 
-                }, { onConflict: 'user_id' });
-                
-            console.log("[Supabase Sync] Cloud save successful.");
-        } catch (cloudErr) {
-            console.error("[Supabase Sync Error] Failed to update hearts/score cluster:", cloudErr);
-        }
-    }
-}
-
-function loadData() {
-    const savedHighScore = localStorage.getItem('xnot_high_score');
-    if (savedHighScore) {
-        highScore = parseInt(savedHighScore) || 0;
-    }
-
-    const savedData = localStorage.getItem('xnot_v4_save');
-    
     if (savedData) {
         try {
             const parsed = JSON.parse(savedData);
-            
-            // Restore SP, upgrades, and walletAddress
             if (parsed.sp !== undefined) playerSP = parsed.sp;
             if (parsed.upgrades !== undefined) upgrades = parsed.upgrades;
             if (parsed.walletAddress !== undefined) userWalletAddress = parsed.walletAddress;
-            
-            // Restore Hearts perfectly instead of hardcoding full resets!
             if (parsed.hearts !== undefined) {
                 if (typeof playerHearts !== 'undefined') playerHearts = parsed.hearts;
                 if (typeof hearts !== 'undefined') hearts = parsed.hearts;
-                console.log(`[Load Data] Successfully restored saved hearts: ${parsed.hearts}`);
             }
+            console.log(`[Local Load] Restored legacy profile. SP: ${playerSP}, Hearts: ${parsed.hearts}`);
         } catch (e) {
-            console.error("[Load Data Error] Failed to parse local storage fallback:", e);
+            console.error("Local restore error:", e);
         }
-    } else {
-        // Safe defaults for brand new players only
-        if (typeof playerHearts !== 'undefined') playerHearts = 5;
-        if (typeof hearts !== 'undefined') hearts = 5;
     }
-    
-    updateAssetUI();
+
+    // Refresh UI with local state immediately so player doesn't see a blank HUD
+    if (typeof updateAssetUI === 'function') updateAssetUI();
+
+    // 2. Cold-Start Check: Look up user in Supabase to migrate or fetch updates
+    if (supabaseClient !== null) {
+        try {
+            console.log(`[Supabase Check] Checking cloud status for User ID: ${userId}...`);
+            let { data: cloudUser, error } = await supabaseClient
+                .from('xnot_users')
+                .select('*')
+                .eq('user_id', userId)
+                .single();
+
+            const currentHearts = typeof playerHearts !== 'undefined' ? playerHearts : (typeof hearts !== 'undefined' ? hearts : 5);
+
+            if (error && error.code === 'PGRST116') {
+                // CASE A: User played locally but IS NOT in Supabase yet. Force-Migrate local history!
+                console.log("[Supabase Migration] Legacy local user detected. Migrating accumulated score to cloud...");
+                await supabaseClient
+                    .from('xnot_users')
+                    .insert([{ 
+                        user_id: userId, 
+                        high_score: parseInt(playerSP), 
+                        hearts: parseInt(currentHearts),
+                        last_saved_time: Date.now()
+                    }]);
+                console.log("[Supabase Migration] Local data successfully cloned to Postgres Cloud!");
+            } else if (cloudUser) {
+                // CASE B: User already exists in cloud. Sync up to whichever value is higher.
+                console.log("[Supabase Sync] User found on cloud. Synchronizing state values...");
+                if (cloudUser.high_score > playerSP) {
+                    playerSP = parseInt(cloudUser.high_score);
+                    console.log(`[Supabase Sync] Cloud score was higher. Restored total SP to: ${playerSP}`);
+                }
+                if (cloudUser.hearts !== undefined) {
+                    if (typeof playerHearts !== 'undefined') playerHearts = cloudUser.hearts;
+                    if (typeof hearts !== 'undefined') hearts = cloudUser.hearts;
+                }
+                if (typeof updateAssetUI === 'function') updateAssetUI();
+            }
+        } catch (err) {
+            console.error("Supabase initial handshake failed:", err);
+        }
+    }
+
+    // 3. Telegram CloudStorage Sync Fallback (기존 로직 보존)
     try {
         window.Telegram?.WebApp?.CloudStorage?.getItem('stone_v4', (err,val)=>{
             if (!err&&val) {
@@ -451,6 +448,41 @@ function loadData() {
             }
         });
     } catch(e){}
+}
+
+// Streamlined Save Data supporting both high_score and hearts columns
+async function saveData() {
+    const currentHearts = typeof playerHearts !== 'undefined' ? playerHearts : (typeof hearts !== 'undefined' ? hearts : 5);
+    
+    const localSavePayload = { 
+        sp: playerSP, 
+        upgrades: upgrades,
+        hearts: currentHearts,
+        walletAddress: userWalletAddress,
+        lastSavedTime: Date.now()
+    };
+    localStorage.setItem('xnot_v4_save', JSON.stringify(localSavePayload));
+    try { window.Telegram?.WebApp?.CloudStorage?.setItem('stone_v4', JSON.stringify(localSavePayload)); } catch(e){}
+    
+    let userId = localStorage.getItem('xnot_user_id');
+    if (!userId || supabaseClient === null) return;
+
+    try {
+        // Upsert to sync both the current accumulated SP and remaining energy/hearts
+        await supabaseClient
+            .from('xnot_users')
+            .upsert({ 
+                user_id: userId, 
+                high_score: parseInt(playerSP), 
+                hearts: parseInt(currentHearts),
+                last_saved_time: Date.now(),
+                updated_at: new Date().toISOString() 
+            }, { onConflict: 'user_id' });
+            
+        console.log(`[Supabase Save] Cloud backup completed for ${userId}. SP: ${playerSP}, Hearts: ${currentHearts}`);
+    } catch (cloudErr) {
+        console.error("Cloud database backup halted:", cloudErr);
+    }
 }
 
 // ===========================================================
@@ -1702,7 +1734,17 @@ function closeIntroScreen(e) { e?.preventDefault(); SoundManager.resume(); hapti
 
 function initDebugParams() { try { const p=new URLSearchParams(window.location.search); window.debug=p.get('debug')==='true'; window.forceCrit=p.get('forceCrit')==='true'; window.forceLotto=p.get('forceLotto')==='true'; } catch(e){} }
 
-initDebugParams(); initTMA(); initTonConnect(); initLang(); loadData(); applyI18n(); changeRandomBg(); drawStaticBackground();
+async function initGame() {
+    initDebugParams();
+    initTMA();
+    initTonConnect();
+    initLang();
+    await loadData();
+    applyI18n();
+    changeRandomBg();
+    drawStaticBackground();
+}
+initGame();
 
 document.addEventListener('visibilitychange', () => {
     if (document.hidden) SoundManager.pauseAll(); else SoundManager.resumeAll();
