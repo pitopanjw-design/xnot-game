@@ -240,6 +240,7 @@ const STONES = [
 // ===========================================================
 let playerHearts = 5;
 let playerSP = 0;
+let highScore = 0;
 let upgrades = { weight:0, elasticity:0, spin:0 };
 let gaugeSpeedMult = 2.0;
 const UPGRADE_BASE_COST = 300, MAX_LV = 10;
@@ -356,44 +357,68 @@ function initSupabase() {
 // Automatically fire init on script parse
 initSupabase();
 
-async function syncUserDataWithSupabase(userId, currentScore) {
-    if (!supabaseClient) return;
-    try {
-        const { error } = await supabaseClient
-            .from('leaderboard')
-            .upsert({ 
-                user_id: userId, 
-                score: currentScore,
-                updated_at: new Date().toISOString()
-            }, { onConflict: 'user_id' });
-            
-        if (error) {
-            console.error("Supabase Sync Error:", error.message || error);
-        } else {
-            console.log("Supabase Sync Success for user:", userId, "score:", currentScore);
-        }
-    } catch(e) {
-        console.error("Supabase Sync Failed:", e);
-    }
-}
 
 //  💾 데이터 입출력 (Local & Cloud Storage)
 // ===========================================================
-function saveData() {
+async function saveData() {
+    // 0. Keep original game save logic intact
     const d = { sp:playerSP, upgrades, walletAddress: userWalletAddress };
     localStorage.setItem('xnot_v4_save', JSON.stringify(d));
     try { window.Telegram?.WebApp?.CloudStorage?.setItem('stone_v4', JSON.stringify(d)); } catch(e){}
+
+    // 1. Keep local storage fallback intact
+    localStorage.setItem('xnot_high_score', highScore);
     
-    // Supabase 데이터 동기화 파이프라인 트리거
-    try {
-        const userId = localStorage.getItem('xnot_user_id') || 'user_' + Date.now();
-        if (!localStorage.getItem('xnot_user_id')) {
-            localStorage.setItem('xnot_user_id', userId);
+    // Generate or retrieve a persistent Telegram/User ID
+    let userId = localStorage.getItem('xnot_user_id');
+    if (!userId) {
+        userId = 'user_' + Math.random().toString(36).substring(2, 9);
+        localStorage.setItem('xnot_user_id', userId);
+    }
+
+    console.log(`[Local Save] Syncing locally. ID: ${userId}, Score: ${highScore}`);
+
+    // 2. Fire Async Live cloud update to 'xnot_users' table
+    if (typeof supabaseClient !== 'undefined' && supabaseClient !== null) {
+        try {
+            console.log("[Supabase Sync] Attempting to update cloud database...");
+            
+            // Query if user already exists
+            let { data: existingUser, error: fetchError } = await supabaseClient
+                .from('xnot_users')
+                .select('*')
+                .eq('user_id', userId)
+                .single();
+
+            if (fetchError && fetchError.code === 'PGRST116') {
+                // User doesn't exist in xnot_skipper_test yet -> Create row
+                await supabaseClient
+                    .from('xnot_users')
+                    .insert([{ user_id: userId, high_score: parseInt(highScore), referred_friends: 0 }]);
+                console.log("[Supabase Sync] Created brand new cloud profile successfully.");
+            } else if (existingUser) {
+                // User exists -> Update score if current game beat their record
+                if (parseInt(highScore) > existingUser.high_score) {
+                    await supabaseClient
+                        .from('xnot_users')
+                        .update({ high_score: parseInt(highScore), updated_at: new Date().toISOString() })
+                        .eq('user_id', userId);
+                    console.log("[Supabase Sync] High score broken! Cloud DB updated.");
+                } else {
+                    console.log("[Supabase Sync] Current score did not beat cloud high score. Skipped update.");
+                }
+            }
+        } catch (cloudErr) {
+            console.error("[Supabase Sync Error] Failed to update PostgreSQL cluster:", cloudErr);
         }
-        syncUserDataWithSupabase(userId, playerSP);
-    } catch(e) {}
+    }
 }
 function loadData() {
+    const savedHighScore = localStorage.getItem('xnot_high_score');
+    if (savedHighScore) {
+        highScore = parseInt(savedHighScore) || 0;
+    }
+
     const raw = localStorage.getItem('xnot_v4_save');
     if (raw) {
         try {
@@ -1566,7 +1591,11 @@ function endGame() {
     document.getElementById('res-bounce-count').innerText = `${bounceCount} ${t('bouncesUnit')}`; document.getElementById('res-perfect-count').innerText = `${perfectCount} ${t('bouncesUnit')}`;
     document.getElementById('res-earned-sp').innerText = `+${earnedSP.toLocaleString()} SP`;
 
-    playerSP += earnedSP; saveData(); updateAssetUI(); haptic('success'); SoundManager.playFanfare();
+    playerSP += earnedSP;
+    if (earnedSP > highScore) {
+        highScore = earnedSP;
+    }
+    saveData(); updateAssetUI(); haptic('success'); SoundManager.playFanfare();
     setAssetBarVisible(false); document.getElementById('result-modal').style.display='flex';
 }
 
