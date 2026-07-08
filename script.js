@@ -1660,44 +1660,70 @@ document.addEventListener('visibilitychange', () => {
     if (document.hidden) SoundManager.pauseAll(); else SoundManager.resumeAll();
 });
 
-// ====== Telegram Invitation System Logic (Dynamic DOM Injection) ======
+// ====== Telegram Invitation System Logic (Sleek FAB & Modal) ======
 
-// Dynamically inject Telegram Invite UI into the container or body with the correct Bot ID
+// Dynamic Injection of Modern Invite Button & Hidden Modal Setup
 function injectInviteUI() {
     // Prevent duplicate injection
-    if (document.getElementById('invite-box')) return;
+    if (document.getElementById('invite-trigger-btn')) return;
 
-    const inviteContainer = document.createElement('div');
-    inviteContainer.id = "invite-box";
-    inviteContainer.style.cssText = "position: relative; z-index: 999; margin: 20px auto; max-width: 400px; padding: 15px; background: rgba(0,0,0,0.75); border: 2px solid #0088cc; border-radius: 10px; text-align: center; color: #fff; font-family: sans-serif;";
-    inviteContainer.innerHTML = `
-        <h3 style="margin-top: 0; color: #0088cc;">✉️ 친구 초대하고 보너스 받기</h3>
-        <p style="font-size: 13px; color: #ccc; margin-bottom: 12px;">친구를 초대하면 XNOT 채굴 동력 버프를 획득합니다!</p>
-        <div style="display: flex; gap: 10px; justify-content: center;">
-            <button id="btn-tg-invite" style="background: #0088cc; color: white; border: none; padding: 10px 14px; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 13px;">텔레그램 친구 초대</button>
-            <button id="btn-copy-link" style="background: #444; color: white; border: none; padding: 10px 14px; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 13px;">링크 복사</button>
+    // 1. Create a compact, stylized floating action button (FAB) or inline button
+    const triggerBtn = document.createElement('button');
+    triggerBtn.id = "invite-trigger-btn";
+    triggerBtn.innerText = "✉️ 친구 초대";
+    triggerBtn.style.cssText = "position: fixed; bottom: 20px; right: 20px; z-index: 1000; background: #0088cc; color: white; border: 2px solid #fff; padding: 12px 18px; border-radius: 30px; font-weight: bold; font-size: 14px; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.3); transition: transform 0.2s;";
+    
+    triggerBtn.addEventListener('mouseenter', () => triggerBtn.style.transform = 'scale(1.05)');
+    triggerBtn.addEventListener('mouseleave', () => triggerBtn.style.transform = 'scale(1)');
+
+    // 2. Create the hidden overlay modal container
+    const modalOverlay = document.createElement('div');
+    modalOverlay.id = "invite-modal-overlay";
+    modalOverlay.style.cssText = "display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 2000; justify-content: center; align-items: center; font-family: sans-serif;";
+
+    // 3. Create the inner content box for the modal
+    modalOverlay.innerHTML = `
+        <div style="background: #222; border: 2px solid #0088cc; border-radius: 15px; padding: 25px; width: 85%; max-width: 360px; text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.5); position: relative; color: white;">
+            <span id="close-invite-modal" style="position: absolute; top: 10px; right: 15px; font-size: 20px; color: #aaa; cursor: pointer;">&times;</span>
+            <h3 style="margin-top: 5px; color: #0088cc; font-size: 18px;">✉️ 친구 초대하고 보너스 받기</h3>
+            <p style="font-size: 13px; color: #ccc; margin-bottom: 20px; line-height: 1.4;">친구를 초대하면 XNOT 채굴 동력 버프를 실시간으로 획득합니다!</p>
+            <div style="display: flex; gap: 10px; justify-content: center;">
+                <button id="btn-tg-invite" style="background: #0088cc; color: white; border: none; padding: 12px 16px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 13px; flex: 1;">텔레그램 초대</button>
+                <button id="btn-copy-link" style="background: #444; color: white; border: none; padding: 12px 16px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 13px; flex: 1;">링크 복사</button>
+            </div>
         </div>
     `;
 
-    // Try to append below asset bar or fallback to body
-    const assetBar = document.getElementById('asset-bar') || document.querySelector('.ui-container');
-    if (assetBar && assetBar.parentNode) {
-        assetBar.parentNode.insertBefore(inviteContainer, assetBar.nextSibling);
-    } else {
-        document.body.appendChild(inviteContainer);
-    }
+    // Append both elements to the document body safely
+    document.body.appendChild(triggerBtn);
+    document.body.appendChild(modalOverlay);
 
-    // Bind Telegram Sharing Events
-    setupInviteEventListeners();
+    // Bind Toggle and Core Sharing Events
+    setupInviteEventListeners(triggerBtn, modalOverlay);
 }
 
-function setupInviteEventListeners() {
+function setupInviteEventListeners(triggerBtn, modalOverlay) {
+    const closeBtn = document.getElementById('close-invite-modal');
     const tgInviteBtn = document.getElementById('btn-tg-invite');
     const copyLinkBtn = document.getElementById('btn-copy-link');
-    // Strict verification of the corrected bot username
     const botUsername = "xnot_skipper_bot";
 
-    if (!tgInviteBtn || !copyLinkBtn) return;
+    if (!closeBtn || !tgInviteBtn || !copyLinkBtn) return;
+
+    // Open Modal
+    triggerBtn.addEventListener('click', () => {
+        modalOverlay.style.display = 'flex';
+    });
+
+    // Close Modal via 'X'
+    closeBtn.addEventListener('click', () => {
+        modalOverlay.style.display = 'none';
+    });
+
+    // Close Modal via clicking outside the card
+    modalOverlay.addEventListener('click', (e) => {
+        if (e.target === modalOverlay) modalOverlay.style.display = 'none';
+    });
 
     function getReferralLink() {
         let userId = '';
@@ -1713,12 +1739,14 @@ function setupInviteEventListeners() {
         return `https://t.me/${botUsername}?startapp=ref_${userId}`;
     }
 
+    // Share Trigger
     tgInviteBtn.addEventListener('click', () => {
         const refLink = getReferralLink();
         const shareText = encodeURIComponent("🪨 [XNOT 물수제비 채굴] 나랑 같이 돌 튕기고 코인 채굴하자! 지금 들어오면 한정판 조약돌 지급! 🚀");
         window.open(`https://t.me/share/url?url=${encodeURIComponent(refLink)}&text=${shareText}`, '_blank');
     });
 
+    // Copy Trigger
     copyLinkBtn.addEventListener('click', () => {
         const refLink = getReferralLink();
         navigator.clipboard.writeText(refLink).then(() => {
@@ -1732,7 +1760,7 @@ function setupInviteEventListeners() {
     });
 }
 
-// Run injection safely after setup
+// Ensure execution on window load
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', injectInviteUI);
 } else {
