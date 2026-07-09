@@ -1667,6 +1667,15 @@ async function endGame() {
     document.getElementById('res-perfect-count').innerText = `${perfectCount} ${t('bouncesUnit')}`;
     document.getElementById('res-earned-sp').innerText = `+${earnedSP.toLocaleString()} SP`;
 
+    // --- TROPHY IMAGE INJECTION FIX ---
+    const trophyImg = document.getElementById('res-trophy-img')
+                   || document.getElementById('res-emblem-img')
+                   || document.querySelector('#result-modal img');
+    if (trophyImg) {
+        trophyImg.src = 'images/intro_emblem.png';
+    }
+    // -----------------------------------
+
     // Accumulate score into playerSP state variable
     playerSP += earnedSP;
 
