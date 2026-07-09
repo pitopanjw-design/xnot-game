@@ -858,7 +858,7 @@ function startAngleGauge() {
     angleVal=0.5; angleDir=1;
     const tick = () => {
         if (currentStatus!=='READY_TO_LAUNCH') return;
-        angleVal += angleDir*0.010*gaugeSpeedMult;
+        angleVal += angleDir*0.007*gaugeSpeedMult; // [Balance] 30% speed reduction (0.010 → 0.007)
         if (angleVal>=1) { angleVal=1; angleDir=-1; }
         else if (angleVal<=0) { 
             angleVal=0; 
