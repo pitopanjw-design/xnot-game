@@ -409,13 +409,21 @@ async function loadData() {
 
             const currentHearts = typeof playerHearts !== 'undefined' ? playerHearts : (typeof hearts !== 'undefined' ? hearts : 5);
 
+            // Resolve Telegram username for new user registration
+            let tgUsername = 'Guest';
+            try {
+                const u = window.Telegram?.WebApp?.initDataUnsafe?.user;
+                if (u) tgUsername = u.username || u.first_name || 'Guest';
+            } catch(e) {}
+
             if (error && error.code === 'PGRST116') {
                 // CASE A: User played locally but IS NOT in Supabase yet. Force-Migrate local history!
                 console.log("[Supabase Migration] Legacy local user detected. Migrating accumulated score to cloud...");
                 await supabaseClient
                     .from('xnot_users')
                     .insert([{ 
-                        user_id: userId, 
+                        user_id: userId,
+                        username: String(tgUsername),
                         high_score: parseInt(playerSP), 
                         hearts: parseInt(currentHearts),
                         last_saved_time: Date.now()
@@ -484,14 +492,22 @@ async function saveData() {
         return false;
     }
 
+    // Resolve Telegram username for cloud sync
+    let tgUsername = 'Guest';
     try {
-        console.log(`[Supabase Pipeline] Sending exact state — user: ${userId} | SP: ${playerSP} | Hearts: ${currentHearts}`);
+        const u = window.Telegram?.WebApp?.initDataUnsafe?.user;
+        if (u) tgUsername = u.username || u.first_name || 'Guest';
+    } catch(e) {}
+
+    try {
+        console.log(`[Supabase Pipeline] Sending exact state — user: ${userId} | username: ${tgUsername} | SP: ${playerSP} | Hearts: ${currentHearts}`);
 
         // Blocking HTTP network request — awaits Postgres gateway response
         const { data, error } = await supabaseClient
             .from('xnot_users')
             .upsert({
                 user_id: String(userId),
+                username: String(tgUsername),
                 high_score: parseInt(playerSP || 0),
                 hearts: parseInt(currentHearts),
                 last_saved_time: parseInt(rightNow),
