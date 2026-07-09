@@ -1099,11 +1099,15 @@ function updatePhysics() {
         }
     }
 
-    if (stone.vz < 0 && stone.z <= 0 && !isDead) {
+    // --- [PATCH] 고정밀 수면 충돌 시스템 및 이중 바운스 판정 충돌 우회 ---
+    if (stone.vz < 0 && stone.z <= 0.8 && !isDead) {
         if (hasTappedBounce) {
-            triggerWaterMiss();
+            // 유저가 이미 수동 탭을 처리한 경우 — 자동 세이프 루프 생략, 좌표만 클램핑 대기
+            stone.z = 0;
         } else {
+            // 순수 낙하 충돌 시에만 자동 세이프 바운스 파이프라인 가동
             if (stone.vy > 0.8) {
+                stone.z = 0;
                 processBounce('GOOD', true);
             } else {
                 triggerWaterSink();
@@ -1112,11 +1116,14 @@ function updatePhysics() {
     }
 
     if (stone.vz < 0 && stone.z < -6 && !isDead) {
-        triggerWaterMiss();
+        // 수동 탭·자동 세이프 모두 빗나갔을 때만 데드존 트리거
+        if (!hasTappedBounce) {
+            triggerWaterMiss();
+        }
     }
 
-    if (stone.vy<0.8 && !isDead) { triggerWaterSink(); }
-    if (currentStatus==='FLYING' && !isDead) { createTrailParticle(STONE_FIXED_X, STONE_FIXED_Y); }
+    if (stone.vy < 0.8 && !isDead) { triggerWaterSink(); }
+    if (currentStatus === 'FLYING' && !isDead) { createTrailParticle(STONE_FIXED_X, STONE_FIXED_Y); }
 
     applyStonePos();
 }
@@ -1161,14 +1168,14 @@ function registerBounceTap(e) {
         return;
     }
 
-    // Immediately close the window to prevent multi-tap exploits
-    isWindowActive = false; 
+    // [LOCK MECHANISM] 인터럽트 및 이중 프레임 연타 완전 차단 — 동기식 3중 잠금
+    isWindowActive = false;
+    hasTappedBounce = true;
+    stone.z = 0; // 수동 판정 즉시 수면 좌표 클램핑
 
     if (markerProgress < 1.0) {
-        hasTappedBounce = true;
         processBounce('PERFECT', false);
     } else {
-        hasTappedBounce = true;
         processBounce('BAD', false);
     }
 }
@@ -1683,14 +1690,11 @@ async function endGame() {
     document.getElementById('res-perfect-count').innerText = `${perfectCount} ${t('bouncesUnit')}`;
     document.getElementById('res-earned-sp').innerText = `+${earnedSP.toLocaleString()} SP`;
 
-    // --- TROPHY IMAGE INJECTION FIX ---
-    const trophyImg = document.getElementById('res-trophy-img')
-                   || document.getElementById('res-emblem-img')
-                   || document.querySelector('#result-modal img');
+    // --- [PATCH] 트로피 이미지 엘리먼트 렌더링 파이프 고정 ---
+    const trophyImg = document.querySelector('#result-modal img');
     if (trophyImg) {
         trophyImg.src = 'images/intro_emblem.png';
     }
-    // -----------------------------------
 
     // Accumulate score into playerSP state variable
     playerSP += earnedSP;
