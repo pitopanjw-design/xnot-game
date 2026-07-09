@@ -341,8 +341,8 @@ resizeCanvases();
 // ===========================================================
 //  ☁️ Supabase Production Credentials Setup & Synchronization
 // ===========================================================
-const SUPABASE_URL = "https://tdzheuteifrknrbnysj.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkemhldXRlYmlmcmtucmJueXNqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0Njg1MzMsImV4cCI6MjA5OTA0NDUzM30.I4zNRb2veNPPIxg1qemz05SSCiniR25rlamw_UyQIOk";
+const SUPABASE_URL = "https://tdzheutebifrknrbnysj.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_tPmSK_w6sPZKr64YObj38A_RYbLOZ4q";
 let supabaseClient = null;
 
 // Dynamic script injection to guarantee Supabase SDK existence
@@ -458,53 +458,57 @@ async function loadData() {
     } catch(e){}
 }
 
+// Complete High-Reliability Synchronous Save Pipeline
 async function saveData() {
+    const userId = localStorage.getItem('xnot_user_id') || (() => {
+        const id = 'user_' + Math.random().toString(36).substring(2, 9);
+        localStorage.setItem('xnot_user_id', id);
+        return id;
+    })();
     const currentHearts = typeof playerHearts !== 'undefined' ? playerHearts : (typeof hearts !== 'undefined' ? hearts : 5);
-    
-    // Local backup
-    const localSavePayload = { 
-        sp: playerSP, 
-        upgrades: upgrades, 
-        hearts: currentHearts, 
+    const rightNow = Date.now();
+
+    // 1. Local storage insurance policy
+    const localSavePayload = {
+        sp: playerSP,
+        upgrades: upgrades,
+        hearts: currentHearts,
         walletAddress: userWalletAddress,
-        lastSavedTime: Date.now() 
+        lastSavedTime: rightNow
     };
     localStorage.setItem('xnot_v4_save', JSON.stringify(localSavePayload));
     try { window.Telegram?.WebApp?.CloudStorage?.setItem('stone_v4', JSON.stringify(localSavePayload)); } catch(e){}
-    
-    let userId = localStorage.getItem('xnot_user_id');
-    if (!userId) {
-        userId = 'user_' + Math.random().toString(36).substring(2, 9);
-        localStorage.setItem('xnot_user_id', userId);
-    }
 
-    if (supabaseClient === null) {
-        console.error("[Supabase Defect] Cannot save data. Client is null. Verify your URL/Anon Key.");
-        return;
+    if (typeof supabaseClient === 'undefined' || supabaseClient === null) {
+        console.error("[Supabase Null] Connection object missing. Verify URL and ANON KEY.");
+        return false;
     }
 
     try {
-        console.log(`[Supabase Outbound] Dispatching payload for ID [${userId}] -> SP: ${playerSP}, Hearts: ${currentHearts}`);
-        
-        // Use UPSERT with explicit error interception
+        console.log(`[Supabase Pipeline] Sending exact state — user: ${userId} | SP: ${playerSP} | Hearts: ${currentHearts}`);
+
+        // Blocking HTTP network request — awaits Postgres gateway response
         const { data, error } = await supabaseClient
             .from('xnot_users')
-            .upsert({ 
-                user_id: userId, 
-                high_score: parseInt(playerSP), 
+            .upsert({
+                user_id: String(userId),
+                high_score: parseInt(playerSP || 0),
                 hearts: parseInt(currentHearts),
-                last_saved_time: Date.now(),
-                updated_at: new Date().toISOString() 
+                last_saved_time: parseInt(rightNow),
+                updated_at: new Date().toISOString()
             }, { onConflict: 'user_id' });
 
         if (error) {
-            console.error("❌ [Supabase Database Rejected Our Data!]", error.message, "Code:", error.code, "Details:", error.details);
-            console.warn("💡 TIP: If the code is '42501', it means RLS is turned ON in your Supabase dashboard. Go turn off RLS for 'xnot_users' table!");
+            console.error("❌ [Postgres Sync Rejected]", error.message, "Code:", error.code);
+            console.warn("💡 TIP: Code '42501' = RLS is ON. Disable RLS for 'xnot_users' in Supabase dashboard.");
+            return false;
         } else {
-            console.log("✅ [Supabase Success] Row successfully integrated into PostgreSQL cluster!");
+            console.log("✅ [Postgres Sync Success] Live cluster locked down data.");
+            return true;
         }
     } catch (criticalNetError) {
         console.error("💥 [Supabase Critical Network Failure]", criticalNetError);
+        return false;
     }
 }
 
@@ -1643,10 +1647,11 @@ function spawnBounceMarker(x,y,count) {
 // ===========================================================
 //  🏁 채굴 결과 정산 및 게임 루프 종료
 // ===========================================================
-function endGame() {
+// Critical Overhaul: Async Blocker — waits for cloud write before showing result modal
+async function endGame() {
     isPlaying = false;
     cancelAnimationFrame(animFrameId);
-    
+
     fxCtx.clearRect(0, 0, W, H);
     particles = [];
     wakes = [];
@@ -1656,20 +1661,29 @@ function endGame() {
     document.getElementById('ingame-stone').style.display = 'none';
 
     const earnedSP = Math.round(((bounceCount * 100) + (perfectCount * 150)) * selectedStone.mult);
-    document.getElementById('res-stone-name').innerText = t(selectedStone.nameKey); 
+    document.getElementById('res-stone-name').innerText = t(selectedStone.nameKey);
     document.getElementById('res-stone-name').style.color = selectedStone.color;
-    document.getElementById('res-bounce-count').innerText = `${bounceCount} ${t('bouncesUnit')}`; 
+    document.getElementById('res-bounce-count').innerText = `${bounceCount} ${t('bouncesUnit')}`;
     document.getElementById('res-perfect-count').innerText = `${perfectCount} ${t('bouncesUnit')}`;
     document.getElementById('res-earned-sp').innerText = `+${earnedSP.toLocaleString()} SP`;
 
-    // Realignment: Add the calculated earned score to total playerSP, then trigger the updated cloud sync
-    playerSP += earnedSP; 
-    saveData(); // Call updated function mapped to playerSP
-    
-    updateAssetUI(); 
-    haptic('success'); 
+    // Accumulate score into playerSP state variable
+    playerSP += earnedSP;
+
+    // CRITICAL: Block exit thread until Supabase confirms write resolution
+    console.log("[EndGame Sequence] Halting exit threads until cloud database replication completes...");
+    const saved = await saveData();
+    if (saved) {
+        console.log("[EndGame Sequence] Cloud write confirmed. Proceeding to result modal.");
+    } else {
+        console.warn("[EndGame Sequence] Cloud write failed or skipped. Local save retained.");
+    }
+
+    // Proceed to open UI only after network is fully cleared
+    updateAssetUI();
+    haptic('success');
     SoundManager.playFanfare();
-    setAssetBarVisible(false); 
+    setAssetBarVisible(false);
     document.getElementById('result-modal').style.display = 'flex';
 }
 
