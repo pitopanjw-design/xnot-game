@@ -604,6 +604,26 @@ function updateAssetUI() {
     if (hc) hc.innerText = playerHearts;
     if (sc) sc.innerText = playerSP.toLocaleString();
     
+    // --- [PATCH] Telegram 시스템 가두리 영역 침범 방지 안전지대(Safe Area) 재구성 ---
+    const assetBar = document.getElementById('asset-bar');
+    const userCard = document.getElementById('user-card');
+    
+    if (assetBar) {
+        assetBar.style.position = 'absolute';
+        assetBar.style.top = '55px'; // 텔레그램 상단 내비게이션 영역 완벽 회피 단차 확보
+        assetBar.style.left = '0';
+        assetBar.style.right = '0';
+        assetBar.style.zIndex = '99';
+    }
+    
+    if (userCard) {
+        userCard.style.position = 'absolute';
+        userCard.style.top = '105px'; // 에셋 바 밑으로 오버랩되지 않게 순차 하향 레이어링
+        userCard.style.left = '16px';
+        userCard.style.zIndex = '99';
+    }
+    // ------------------------------------------------------------------
+    
     const rt = document.getElementById('roulette-title');
     const mb = document.getElementById('main-btn');
     
@@ -1265,7 +1285,16 @@ function processBounce(rating, isAuto = false) {
     const spEl = document.getElementById('sp-count'); spEl.style.transform='scale(1.3)'; spEl.style.color='var(--neon-gold)';
     setTimeout(()=>{ spEl.style.transform=''; spEl.style.color=''; }, 220);
 
-    const bdec = Math.pow(sp.vzDecay || 0.83, bounceCount - 1);
+    // --- [PATCH] 깡통이던 Spin 능력치 정상 융합 - 회전력 비례 고도 패널티 감쇠 방어선 구축 ---
+    const spinLv = upgrades.spin || 0;
+    const spinBonusFactor = 1 + (spinLv * 0.015); // 레벨당 1.5%씩 감쇠 저항값 증폭
+    const initialDecay = sp.vzDecay || 0.83;
+    
+    // 역전 버그 방지를 위해 감쇠 보정 최대 상한선을 0.96으로 제어 가드 처리
+    const effectiveVzDecay = Math.min(0.96, initialDecay * spinBonusFactor);
+    const bdec = Math.pow(effectiveVzDecay, bounceCount - 1);
+    // ----------------------------------------------------------------------------------
+
     const sbns = 1 + (swipeSpeed / 30);
     
     // 돌이 즉시 수면 위로 튕겨 올라가도록 초기 z축 위치 확보
@@ -1273,7 +1302,7 @@ function processBounce(rating, isAuto = false) {
 
     if (rating === 'PERFECT') {
         if (selectedStone.id === 2) {
-            const basaltBdec = Math.pow(0.88, bounceCount - 1);
+            const basaltBdec = Math.pow(Math.min(0.98, 0.88 * spinBonusFactor), bounceCount - 1);
             stone.vz = baseVz * em * sbns * basaltBdec * 2.4;
         } else {
             stone.vz = baseVz * em * sbns * bdec;
