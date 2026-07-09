@@ -1099,13 +1099,13 @@ function updatePhysics() {
         }
     }
 
-    // --- [PATCH] 고정밀 수면 충돌 시스템 및 이중 바운스 판정 충돌 우회 ---
+    // --- [PATCH] 수면 충돌 시스템 고정밀 정밀화 및 무한 연산 가두리 해제 ---
     if (stone.vz < 0 && stone.z <= 0.8 && !isDead) {
         if (hasTappedBounce) {
-            // 유저가 이미 수동 탭을 처리한 경우 — 자동 세이프 루프 생략, 좌표만 클램핑 대기
-            stone.z = 0;
+            // 수동 탭이 이미 처리되어 튕겨 나가는 중이므로, 중복 충돌 진입을 차단하고 락을 해제
+            hasTappedBounce = false; 
         } else {
-            // 순수 낙하 충돌 시에만 자동 세이프 바운스 파이프라인 가동
+            // 순수 자동 낙하 상황일 때만 세이프 자동 바운스 발동
             if (stone.vy > 0.8) {
                 stone.z = 0;
                 processBounce('GOOD', true);
@@ -1209,16 +1209,17 @@ function processBounce(rating, isAuto = false) {
     let pCount = rarity==='Mythic'?13 : rarity==='Legendary'?60 : rarity==='Rare'?35 : 22;
     let baseVz=0, multEff=1;
 
-    // 💡 2번 수정: PERFECT 및 GOOD 판정 시 가속 메커니즘을 순정 정통 공식으로 원상복구
     const baseVzFactor = sp.baseVz || 1.5;
 
+    // --- [PATCH] PERFECT 고도 중복 곱셈 제거 및 속도 임계치 제어 메커니즘 ---
     if (rating==='PERFECT') {
         perfectCount++; 
-        baseVz = baseVzFactor * selectedStone.mult * 1.35; 
+        baseVz = baseVzFactor * selectedStone.mult; // ⚠️ 중복 1.35배 제거하여 우주 비행 차단
         multEff = 1.06;
         
         if (!isAuto) {
-            stone.vy = stone.vy * 1.35 + (upgrades.weight * 1.5); // 강력한 전진 가속 복구!
+            // 전진 속도 가속 반영 및 폭주 방지 임계치 가드 설정
+            stone.vy = Math.min(stone.vy * 1.35 + (upgrades.weight * 1.5), 45); 
             const earned = Math.round(100*selectedStone.mult*2.5);
             document.getElementById('message').innerText = `${t('perfectTiming')} (+${earned} SP)`;
             playerSP += earned;
@@ -1235,12 +1236,12 @@ function processBounce(rating, isAuto = false) {
         multEff = 0.98;
         
         if (!isAuto) {
-            stone.vy = stone.vy * 1.15 + (upgrades.weight * 0.5); // 쾌적한 속도 유지
+            stone.vy = Math.min(stone.vy * 1.15 + (upgrades.weight * 0.5), 45); 
             const earned = Math.round(100*selectedStone.mult*1.2);
             document.getElementById('message').innerText = `${t('goodTiming')} (+${earned} SP)`;
             playerSP += earned;
         } else {
-            stone.vy = stone.vy * (sp.vyDecay || 0.95); // 자동 바운스 시 가속 배제하고 고유 감쇄 적용
+            stone.vy = stone.vy * (sp.vyDecay || 0.95); 
             const earned = Math.round(100*selectedStone.mult*0.8);
             playerSP += earned;
         }
@@ -1251,7 +1252,7 @@ function processBounce(rating, isAuto = false) {
     } else {
         baseVz = baseVzFactor * selectedStone.mult * 0.4; 
         multEff = 0.40;
-        stone.vy *= 0.40; // BAD 판정은 속도 디버프 처리
+        stone.vy *= 0.40; 
         const earned = Math.round(100*selectedStone.mult*0.4);
         if (!isAuto) {
             document.getElementById('message').innerText = t('badTiming');
@@ -1266,9 +1267,10 @@ function processBounce(rating, isAuto = false) {
 
     const bdec = Math.pow(sp.vzDecay || 0.83, bounceCount - 1);
     const sbns = 1 + (swipeSpeed / 30);
-    stone.z = 0.1;
+    
+    // 돌이 즉시 수면 위로 튕겨 올라가도록 초기 z축 위치 확보
+    stone.z = 0.9; 
 
-    // 💡 1번 수정 연속: PERFECT 고도 반토막(* 0.5) 연산 제거 및 고밀도 현무암 특수 기믹 보존
     if (rating === 'PERFECT') {
         if (selectedStone.id === 2) {
             const basaltBdec = Math.pow(0.88, bounceCount - 1);
@@ -1281,8 +1283,9 @@ function processBounce(rating, isAuto = false) {
     }
     stone.vx *= 0.9;
 
+    // 플래그 및 마커 상태 동기식 정돈
     isWindowActive = false;
-    hasTappedBounce = false;
+    hasTappedBounce = false; 
     tapsInCurrentCycle = 0;
     markerProgress = 0; 
     document.getElementById('score-display').innerText = `BOUNCE: ${bounceCount}`;
