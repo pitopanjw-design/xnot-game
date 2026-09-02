@@ -51,20 +51,35 @@ body, html {
     z-index: 20;
 }
 
-/* ============================
-   상단 자산 바 위치 조정
-============================ */
+/* ===================================================
+   [PATCH] 상단 자산 바 & 유저 카드 안전 골든존 재배치
+   (텔레그램 상단 닫기/메뉴 바 겹침 현상 원천 해소)
+=================================================== */
 #asset-bar {
     position: absolute;
-    top: 30px; /* 💡 기존 60px에서 (60 + 0) / 2 = 30px 좌표로 정확히 상향 조정 */
-    left: 0; right: 0;
-    display: flex;
+    /* 텔레그램 헤더 바(50px) 아래의 골든존(65px)으로 하향 조정 */
+    top: calc(env(safe-area-inset-top, 0px) + 65px);
+    left: 0; 
+    right: 0;
+    display: none; /* 스크립트 토글 제어 */
     justify-content: center;
     align-items: center;
     flex-wrap: wrap;
     gap: 6px;
     z-index: 200;
     pointer-events: none;
+}
+
+#user-card {
+    position: absolute;
+    /* asset-bar 하단에 여유 있게 배치 */
+    top: calc(env(safe-area-inset-top, 0px) + 105px);
+    left: 50%;
+    transform: translateX(-50%);
+    display: none; /* 스크립트 토글 제어 */
+    align-items: center;
+    gap: 8px;
+    z-index: 200;
 }
 .asset-box {
     background: rgba(5,5,20,0.82);
