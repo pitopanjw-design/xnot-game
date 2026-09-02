@@ -604,25 +604,31 @@ function updateAssetUI() {
     if (hc) hc.innerText = playerHearts;
     if (sc) sc.innerText = playerSP.toLocaleString();
     
-    // --- [PATCH] Telegram 시스템 가두리 영역 침범 방지 안전지대(Safe Area) 재구성 ---
     const assetBar = document.getElementById('asset-bar');
     const userCard = document.getElementById('user-card');
     
-    if (assetBar) {
-        assetBar.style.position = 'absolute';
-        assetBar.style.top = '55px'; // 텔레그램 상단 내비게이션 영역 완벽 회피 단차 확보
-        assetBar.style.left = '0';
-        assetBar.style.right = '0';
-        assetBar.style.zIndex = '99';
+    if (!assetBar || !userCard) return;
+
+    // --- 인게임 비행/플레이 중 HUD 노출 원천 차단 가드 ---
+    if (currentStatus === 'FLYING' || isPlaying === true) {
+        assetBar.style.display = 'none';
+        userCard.style.display = 'none';
+        return;
     }
     
-    if (userCard) {
-        userCard.style.position = 'absolute';
-        userCard.style.top = '105px'; // 에셋 바 밑으로 오버랩되지 않게 순차 하향 레이어링
-        userCard.style.left = '16px';
-        userCard.style.zIndex = '99';
-    }
-    // ------------------------------------------------------------------
+    // --- 룰렛 로비 화면(PRE_SPIN / SPIN_DONE) 전용 레이아웃 배치 ---
+    assetBar.style.display = 'flex';
+    assetBar.style.position = 'absolute';
+    assetBar.style.top = '55px';
+    assetBar.style.left = '0';
+    assetBar.style.right = '0';
+    assetBar.style.zIndex = '99';
+    
+    userCard.style.display = 'flex';
+    userCard.style.position = 'absolute';
+    userCard.style.top = '105px';
+    userCard.style.left = '16px';
+    userCard.style.zIndex = '99';
     
     const rt = document.getElementById('roulette-title');
     const mb = document.getElementById('main-btn');
@@ -794,6 +800,12 @@ function playSeamlessTransition() {
 function startGameplay() {
     gaugeSpeedMult = 2.0;
     setStoneStyle();
+    
+    // 인게임 진입 즉시 상단 로비 HUD 완벽 은닉
+    setAssetBarVisible(false);
+    const uCard = document.getElementById('user-card');
+    if (uCard) uCard.style.display = 'none';
+
     const stoneEl = document.getElementById('ingame-stone');
     stoneEl.style.display = 'block'; stoneEl.style.left = `${CX}px`;
     stoneEl.style.bottom = '80px'; stoneEl.style.top = 'auto';
@@ -1750,27 +1762,28 @@ async function endGame() {
 
 function closeResultModal() {
     document.querySelectorAll('.troll-box').forEach(el => el.remove());
-    document.getElementById('result-modal').style.display='none'; 
+    document.getElementById('result-modal').style.display = 'none'; 
     
-    currentStatus='PRE_SPIN'; 
+    currentStatus = 'PRE_SPIN'; 
+    isPlaying = false;
     
-    const rs=document.getElementById('roulette-screen'); 
+    const rs = document.getElementById('roulette-screen'); 
     if (rs) {
-        rs.style.display='flex'; 
-        rs.style.opacity='1';
+        rs.style.display = 'flex'; 
+        rs.style.opacity = '1';
     }
     
     const rt = document.getElementById('roulette-title');
-    if (rt) rt.innerText=t('lobbyTitle'); 
+    if (rt) rt.innerText = t('lobbyTitle'); 
     
     const wc = document.getElementById('wheel-cap-text');
     if (wc) {
-        wc.innerText=t('wheelTouch'); 
-        wc.style.color='#fff';
+        wc.innerText = t('wheelTouch'); 
+        wc.style.color = '#fff';
     }
     
     const sd = document.getElementById('stone-desc-text');
-    if (sd) sd.innerText='';
+    if (sd) sd.innerText = '';
 
     const mb = document.getElementById('main-btn');
     if (mb) {
@@ -1780,6 +1793,9 @@ function closeResultModal() {
     }
     
     setAssetBarVisible(true); 
+    const uCard = document.getElementById('user-card');
+    if (uCard) uCard.style.display = 'flex';
+
     gaugeSpeedMult = 2.0;
     updateAssetUI(); 
     changeRandomBg(); 
@@ -1853,7 +1869,20 @@ function buyUpgrade(type) {
 // ===========================================================
 function openInfoModal(e) { e?.preventDefault(); SoundManager.resume(); haptic('light'); document.getElementById('intro-info-modal').style.display='flex'; }
 function closeInfoModal(e) { e?.preventDefault(); haptic('light'); document.getElementById('intro-info-modal').style.display='none'; }
-function closeIntroScreen(e) { e?.preventDefault(); SoundManager.resume(); haptic('success'); const el=document.getElementById('intro-screen'); el.style.opacity='0'; setTimeout(()=>{ el.style.display='none'; setAssetBarVisible(true); },500); }
+function closeIntroScreen(e) { 
+    e?.preventDefault(); 
+    SoundManager.resume(); 
+    haptic('success'); 
+    const el = document.getElementById('intro-screen'); 
+    el.style.opacity = '0'; 
+    setTimeout(() => { 
+        el.style.display = 'none'; 
+        setAssetBarVisible(true);
+        const uCard = document.getElementById('user-card');
+        if (uCard) uCard.style.display = 'flex';
+        updateAssetUI();
+    }, 500); 
+}
 
 function initDebugParams() { try { const p=new URLSearchParams(window.location.search); window.debug=p.get('debug')==='true'; window.forceCrit=p.get('forceCrit')==='true'; window.forceLotto=p.get('forceLotto')==='true'; } catch(e){} }
 
@@ -1866,6 +1895,7 @@ async function initGame() {
     applyI18n();
     changeRandomBg();
     drawStaticBackground();
+    updateAssetUI();
 }
 initGame();
 
