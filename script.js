@@ -598,37 +598,18 @@ function shortenAddress(addr) {
 // ===========================================================
 //  🎨 인터페이스 헬퍼 메소드
 // ===========================================================
+function setAssetBarVisible(v) {
+    const ab = document.getElementById('asset-bar');
+    const uc = document.getElementById('user-card');
+    if (ab) ab.style.display = v ? 'flex' : 'none';
+    if (uc) uc.style.display = v ? 'flex' : 'none';
+}
+
 function updateAssetUI() {
     const hc = document.getElementById('hearts-count');
     const sc = document.getElementById('sp-count');
     if (hc) hc.innerText = playerHearts;
     if (sc) sc.innerText = playerSP.toLocaleString();
-    
-    const assetBar = document.getElementById('asset-bar');
-    const userCard = document.getElementById('user-card');
-    
-    if (!assetBar || !userCard) return;
-
-    // --- 인게임 비행/플레이 중 HUD 노출 원천 차단 가드 ---
-    if (currentStatus === 'FLYING' || isPlaying === true) {
-        assetBar.style.display = 'none';
-        userCard.style.display = 'none';
-        return;
-    }
-    
-    // --- 룰렛 로비 화면(PRE_SPIN / SPIN_DONE) 전용 레이아웃 배치 ---
-    assetBar.style.display = 'flex';
-    assetBar.style.position = 'absolute';
-    assetBar.style.top = '55px';
-    assetBar.style.left = '0';
-    assetBar.style.right = '0';
-    assetBar.style.zIndex = '99';
-    
-    userCard.style.display = 'flex';
-    userCard.style.position = 'absolute';
-    userCard.style.top = '105px';
-    userCard.style.left = '16px';
-    userCard.style.zIndex = '99';
     
     const rt = document.getElementById('roulette-title');
     const mb = document.getElementById('main-btn');
@@ -649,7 +630,6 @@ function updateAssetUI() {
         }
     }
 }
-function setAssetBarVisible(v) { document.getElementById('asset-bar').style.display = v?'flex':'none'; }
 
 function triggerShake(strength='medium') {
     const el = document.getElementById('game-container');
@@ -801,10 +781,8 @@ function startGameplay() {
     gaugeSpeedMult = 2.0;
     setStoneStyle();
     
-    // 인게임 진입 즉시 상단 로비 HUD 완벽 은닉
+    // 인게임 진입 즉시 상단 HUD 숨김
     setAssetBarVisible(false);
-    const uCard = document.getElementById('user-card');
-    if (uCard) uCard.style.display = 'none';
 
     const stoneEl = document.getElementById('ingame-stone');
     stoneEl.style.display = 'block'; stoneEl.style.left = `${CX}px`;
@@ -1765,7 +1743,6 @@ function closeResultModal() {
     document.getElementById('result-modal').style.display = 'none'; 
     
     currentStatus = 'PRE_SPIN'; 
-    isPlaying = false;
     
     const rs = document.getElementById('roulette-screen'); 
     if (rs) {
@@ -1792,10 +1769,8 @@ function closeResultModal() {
         mb.style.color = 'var(--ink)';
     }
     
+    // 로비 복귀 시 상단 HUD 전체 노출
     setAssetBarVisible(true); 
-    const uCard = document.getElementById('user-card');
-    if (uCard) uCard.style.display = 'flex';
-
     gaugeSpeedMult = 2.0;
     updateAssetUI(); 
     changeRandomBg(); 
@@ -1877,9 +1852,7 @@ function closeIntroScreen(e) {
     el.style.opacity = '0'; 
     setTimeout(() => { 
         el.style.display = 'none'; 
-        setAssetBarVisible(true);
-        const uCard = document.getElementById('user-card');
-        if (uCard) uCard.style.display = 'flex';
+        setAssetBarVisible(true); // asset-bar와 user-card 모두 flex로 노출
         updateAssetUI();
     }, 500); 
 }
