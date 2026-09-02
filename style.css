@@ -71,18 +71,19 @@ body, html {
 }
 
 /* ===================================================
-   [PATCH] 유저명 카드: 점수 에셋 위 + 화면 정중앙 정렬
+   [PATCH] 유저명 카드: 음수 오프셋으로 자산 바 바로 위 정중앙 배치
 =================================================== */
 #user-card {
     position: absolute;
-    /* 자산 바(65px) 바로 위 중앙 빈 공간에 배치 */
-    top: calc(env(safe-area-inset-top, 0px) + 26px);
+    /* 부모(#asset-bar) 기준 상단으로 38px 밀어올려 자산 바 바로 위에 정렬 */
+    top: -38px;
     left: 50%;
     transform: translateX(-50%);
     display: none; /* 스크립트 토글 연동 유지 */
     align-items: center;
     gap: 8px;
     z-index: 200;
+    pointer-events: auto;
 }
 .asset-box {
     background: rgba(5,5,20,0.82);
