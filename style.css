@@ -70,13 +70,16 @@ body, html {
     pointer-events: none;
 }
 
+/* ===================================================
+   [PATCH] 유저명 카드: 점수 에셋 위 + 화면 정중앙 정렬
+=================================================== */
 #user-card {
     position: absolute;
-    /* asset-bar 하단에 여유 있게 배치 */
-    top: calc(env(safe-area-inset-top, 0px) + 105px);
+    /* 자산 바(65px) 바로 위 중앙 빈 공간에 배치 */
+    top: calc(env(safe-area-inset-top, 0px) + 26px);
     left: 50%;
     transform: translateX(-50%);
-    display: none; /* 스크립트 토글 제어 */
+    display: none; /* 스크립트 토글 연동 유지 */
     align-items: center;
     gap: 8px;
     z-index: 200;
