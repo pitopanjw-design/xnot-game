@@ -85,24 +85,44 @@ body, html {
     z-index: 200;
     pointer-events: auto;
 }
+/* ===================================================
+   [PATCH] 자산 바 텍스트 수직 기준선(Baseline) 정렬 보정
+=================================================== */
 .asset-box {
     background: rgba(5,5,20,0.82);
     border: 1.5px solid rgba(201,162,39,0.45);
-    padding: 5px 12px;
+    padding: 6px 12px;
     border-radius: 20px;
     font-size: 12px;
     font-weight: 700;
-    display: flex;
+    display: inline-flex;
     align-items: center;
     gap: 5px;
+    line-height: 1; /* 텍스트 높이 편차 제거 */
     backdrop-filter: blur(8px);
     pointer-events: auto;
     white-space: nowrap;
     box-shadow: 0 0 10px rgba(201,162,39,0.15), 0 4px 14px rgba(0,0,0,0.5);
 }
 .asset-box:active { transform: scale(0.95); }
-#hearts-count { color: #ff4d6d; font-weight: 900; }
-#sp-count { color: var(--neon-lime); font-weight: 900; }
+
+.asset-box span,
+#hearts-count,
+#sp-count {
+    display: inline-flex;
+    align-items: center;
+    line-height: 1;
+}
+
+#hearts-count { 
+    color: #ff4d6d; 
+    font-weight: 900; 
+}
+
+#sp-count { 
+    color: var(--neon-lime); 
+    font-weight: 900; 
+}
 
 /* ============================
    점수 & 메시지 UI (HUD)
