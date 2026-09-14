@@ -390,17 +390,19 @@ async function loadData() {
         try {
             const parsed = JSON.parse(savedData);
             if (parsed.sp !== undefined) playerSP = parsed.sp;
-            if (isNaN(playerSP)) playerSP = 0; // NaN 오염 자동 복구
+            if (isNaN(playerSP)) playerSP = 0;
 
             if (parsed.upgrades !== undefined) { 
                 upgrades = Object.assign({ weight: 0, elasticity: 0, spin: 0, perfectZone: 0 }, parsed.upgrades); 
             }
             if (parsed.walletAddress !== undefined) userWalletAddress = parsed.walletAddress;
-            if (parsed.hearts !== undefined) {
-                if (typeof playerHearts !== 'undefined') playerHearts = parsed.hearts;
-                if (typeof hearts !== 'undefined') hearts = parsed.hearts;
-            }
-            console.log(`[Local Load] Restored legacy profile. SP: ${playerSP}, Hearts: ${parsed.hearts}`);
+            
+            // 음수 하트 오염 자동 치유 (5개로 리셋)
+            let restoredHearts = (parsed.hearts !== undefined) ? parsed.hearts : 5;
+            if (typeof restoredHearts !== 'number' || restoredHearts <= 0) restoredHearts = 5;
+            playerHearts = restoredHearts;
+
+            console.log(`[Local Load] Restored legacy profile. SP: ${playerSP}, Hearts: ${playerHearts}`);
         } catch (e) {
             console.error("Local restore error:", e);
         }
@@ -741,12 +743,23 @@ function triggerWheel(e) {
 function handleMainBtn(e) {
     e?.preventDefault();
     SoundManager.resume();
-    if (playerHearts <= 0 && currentStatus === 'PRE_SPIN') { openYoutubeCharge(); return; }
-    if (currentStatus === 'PRE_SPIN') { triggerWheel(); return; }
+
+    // 하트가 0 이하이면 어떤 상태이든 즉시 충전 모달 호출
+    if (playerHearts <= 0) { 
+        openYoutubeCharge(); 
+        return; 
+    }
+
+    if (currentStatus === 'PRE_SPIN') { 
+        triggerWheel(); 
+        return; 
+    }
+
     if (currentStatus === 'SPIN_DONE') {
-        playerHearts--;
+        currentStatus = 'TRANSITIONING'; // 연타 방지: 즉시 상태 잠금
+        playerHearts = Math.max(0, playerHearts - 1); // 음수 방지
         updateAssetUI();
-        saveData(); // 하트 상태 즉각 저장 트리거
+        saveData();
         playSeamlessTransition();
     }
 }
@@ -795,13 +808,17 @@ function startGameplay() {
     gaugeSpeedMult = 2.0;
     setStoneStyle();
 
-    // 인게임 진입 즉시 상단 HUD 숨김
     setAssetBarVisible(false);
 
     const stoneEl = document.getElementById('ingame-stone');
-    stoneEl.style.display = 'block'; stoneEl.style.left = `${CX}px`;
-    stoneEl.style.bottom = '80px'; stoneEl.style.top = 'auto';
-    stoneEl.style.transform = 'translateX(-50%) scale(1)'; stoneEl.style.opacity = '1';
+    if (stoneEl) {
+        stoneEl.style.display = 'block'; 
+        stoneEl.style.left = `${CX}px`;
+        stoneEl.style.bottom = '80px'; 
+        stoneEl.style.top = 'auto';
+        stoneEl.style.transform = 'translateX(-50%) scale(1)'; 
+        stoneEl.style.opacity = '1';
+    }
 
     document.getElementById('score-display').innerText = t('ready');
     document.getElementById('message').innerText = t('prepareMsg');
@@ -809,7 +826,13 @@ function startGameplay() {
     document.getElementById('angle-gauge-wrap').style.display = 'block';
 
     currentStatus = 'READY_TO_LAUNCH';
-    updateGaugePerfectZone();
+
+    try {
+        updateGaugePerfectZone();
+    } catch (err) {
+        console.error("[Gauge Error Bypassed]", err);
+    }
+
     startAngleGauge();
     bindLaunchEvents();
     drawStaticBackground();
