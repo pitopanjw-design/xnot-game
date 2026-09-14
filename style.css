@@ -507,7 +507,15 @@ body, html {
     box-shadow: 0 0 30px rgba(201,162,39,0.25), 0 20px 50px rgba(0,0,0,0.6);
     animation: modal-pop 0.4s cubic-bezier(0.19,1,0.22,1) forwards;
 }
-.shop-box { max-width: 440px; padding: 28px; background: rgba(10,10,28,0.95); animation: modal-pop 0.4s cubic-bezier(0.175,0.885,0.32,1.275) forwards; }
+.shop-box { 
+    max-width: 440px; 
+    max-height: 85vh; /* 화면 밖으로 튀어나가지 않도록 제한 */
+    display: flex;
+    flex-direction: column;
+    padding: 24px; 
+    background: rgba(10,10,28,0.95); 
+    animation: modal-pop 0.4s cubic-bezier(0.175,0.885,0.32,1.275) forwards; 
+}
 
 @keyframes modal-pop {
     from { transform: scale(0.75) translateY(25px); opacity: 0; }
@@ -546,20 +554,30 @@ body, html {
 .shop-title { font-size: 22px; font-weight: 900; font-family: Impact, "Arial Black", sans-serif; color: var(--neon-gold); margin-bottom: 6px; text-shadow: 0 0 6px rgba(255,215,0,0.4); }
 .shop-balance { font-size: 16px; color: #e2e8f0; margin-bottom: 22px; }
 .shop-balance span { color: var(--neon-lime); font-weight: 900; }
-.upgrade-list { display: flex; flex-direction: column; gap: 14px; text-align: left; }
-.upgrade-card { background: rgba(255,255,255,0.04); border: 1px solid rgba(201,162,39,0.2); border-radius: 16px; padding: 14px; display: flex; justify-content: space-between; align-items: center; transition: border-color 0.2s; }
-.upgrade-card:hover { border-color: rgba(217,255,0,0.35); }
-.upgrade-info { flex: 1; padding-right: 14px; }
-.upgrade-name { font-size: 15px; font-weight: 900; color: #fff; margin-bottom: 3px; }
+.upgrade-list { 
+    display: flex; 
+    flex-direction: column; 
+    gap: 12px; 
+    text-align: left; 
+    max-height: 52vh; /* 3개 초과 시 스크롤 생성 */
+    overflow-y: auto; /* 세로 스크롤 허용 */
+    padding-right: 6px;
+    -webkit-overflow-scrolling: touch;
+}
+.upgrade-card, .shop-item-card { background: rgba(255,255,255,0.04); border: 1px solid rgba(201,162,39,0.2); border-radius: 16px; padding: 14px; display: flex; justify-content: space-between; align-items: center; transition: border-color 0.2s; }
+.upgrade-card:hover, .shop-item-card:hover { border-color: rgba(217,255,0,0.35); }
+.upgrade-info, .shop-item-info { flex: 1; padding-right: 14px; }
+.upgrade-name, .shop-item-title { font-size: 15px; font-weight: 900; color: #fff; margin-bottom: 3px; }
 .upgrade-desc { font-size: 11px; color: #64748b; margin-bottom: 6px; line-height: 1.4; }
+.shop-item-desc { font-size: 12px; font-weight: 700; color: var(--neon-cyan); margin-bottom: 0; line-height: 1.4; }
 .upgrade-stats { font-size: 12px; font-weight: 700; color: var(--neon-cyan); }
 
-.upgrade-btn {
+.upgrade-btn, .shop-buy-btn {
     background: var(--neon-lime); color: var(--ink); border: none; padding: 10px 16px; font-size: 13px; font-weight: 900; border-radius: 12px; cursor: pointer; min-width: 90px; text-align: center;
     box-shadow: -2px -2px 0 rgba(0,0,0,0.5), 2px 2px 0 rgba(0,0,0,0.5); transition: transform 0.1s, opacity 0.2s;
 }
-.upgrade-btn:active { transform: scale(0.93); }
-.upgrade-btn:disabled { background: #334155; color: #64748b; cursor: not-allowed; box-shadow: none; }
+.upgrade-btn:active, .shop-buy-btn:active { transform: scale(0.93); }
+.upgrade-btn:disabled, .shop-buy-btn:disabled { background: #334155; color: #64748b; cursor: not-allowed; box-shadow: none; }
 
 .close-shop-btn, .action-confirm-btn {
     width: 100%; padding: 14px; background: linear-gradient(135deg, var(--neon-lime), #a8ff00); color: var(--ink); border: none;

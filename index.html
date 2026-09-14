@@ -154,6 +154,16 @@
                     </div>
                     <button class="upgrade-btn" id="btn-spin" onclick="buyUpgrade('spin')"><span id="cost-spin">300</span> SP</button>
                 </div>
+                <div class="upgrade-card">
+                    <div class="upgrade-info">
+                        <div class="upgrade-name" data-i18n="shopPerfectZone">🎯 퍼펙트 존 확장</div>
+                        <div class="upgrade-desc">각도 판정 게이지의 퍼펙트 성공 범위를 넓힙니다.</div>
+                        <div class="upgrade-stats">Lv.<span id="lv-perfectZone">0</span> → <span id="next-lv-perfectZone">1</span> (<span data-i18n="currentVal">현재</span>: <span id="val-perfectZone">10.0</span>%)</div>
+                    </div>
+                    <button class="upgrade-btn" id="btn-perfectZone" onclick="buyUpgrade('perfectZone')">
+                        <span id="cost-perfectZone">300</span> SP
+                    </button>
+                </div>
             </div>
 
             <button class="close-shop-btn" onclick="closeShop()">상점 닫기</button>
