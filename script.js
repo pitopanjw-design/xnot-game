@@ -390,11 +390,10 @@ async function loadData() {
         try {
             const parsed = JSON.parse(savedData);
             if (parsed.sp !== undefined) playerSP = parsed.sp;
+            if (isNaN(playerSP)) playerSP = 0; // NaN 오염 자동 복구
+
             if (parsed.upgrades !== undefined) { 
                 upgrades = Object.assign({ weight: 0, elasticity: 0, spin: 0, perfectZone: 0 }, parsed.upgrades); 
-            }
-            if (isNaN(playerSP)) {
-                playerSP = 0; // 이미 NaN이 된 점수 자동 정상화
             }
             if (parsed.walletAddress !== undefined) userWalletAddress = parsed.walletAddress;
             if (parsed.hearts !== undefined) {
@@ -422,7 +421,6 @@ async function loadData() {
 
             const currentHearts = typeof playerHearts !== 'undefined' ? playerHearts : (typeof hearts !== 'undefined' ? hearts : 5);
 
-            // Resolve Telegram username for new user registration
             let tgUsername = 'Guest';
             try {
                 const u = window.Telegram?.WebApp?.initDataUnsafe?.user;
@@ -430,7 +428,6 @@ async function loadData() {
             } catch (e) { }
 
             if (error && error.code === 'PGRST116') {
-                // CASE A: User played locally but IS NOT in Supabase yet. Force-Migrate local history!
                 console.log("[Supabase Migration] Legacy local user detected. Migrating accumulated score to cloud...");
                 await supabaseClient
                     .from('xnot_users')
@@ -443,7 +440,6 @@ async function loadData() {
                     }]);
                 console.log("[Supabase Migration] Local data successfully cloned to Postgres Cloud!");
             } else if (cloudUser) {
-                // CASE B: User already exists in cloud. Sync up to whichever value is higher.
                 console.log("[Supabase Sync] User found on cloud. Synchronizing state values...");
                 if (cloudUser.high_score > playerSP) {
                     playerSP = parseInt(cloudUser.high_score) || 0;
@@ -460,25 +456,25 @@ async function loadData() {
         }
     }
 
-    // 3. Telegram CloudStorage Sync Fallback (기존 로직 보존)
+    // 3. Telegram CloudStorage Sync Fallback (스코프 안전 병합)
     try {
         window.Telegram?.WebApp?.CloudStorage?.getItem('stone_v4', (err, val) => {
             if (!err && val) {
-                const parsed = JSON.parse(val);
-                if ((parsed.sp || 0) > playerSP) { playerSP = parsed.sp; }
-                if (parsed.upgrades !== undefined) { 
-                    upgrades = Object.assign({ weight: 0, elasticity: 0, spin: 0, perfectZone: 0 }, parsed.upgrades); 
-                }
-                if (isNaN(playerSP)) {
-                    playerSP = 0;
-                }
-                if (parsed.walletAddress && !userWalletAddress) { userWalletAddress = parsed.walletAddress; }
-                if (parsed.hearts !== undefined) {
-                    if (typeof playerHearts !== 'undefined') playerHearts = parsed.hearts;
-                    if (typeof hearts !== 'undefined') hearts = parsed.hearts;
-                }
-                updateAssetUI();
-                saveData();
+                try {
+                    const parsed = JSON.parse(val);
+                    if ((parsed.sp || 0) > playerSP) { playerSP = parsed.sp; }
+                    if (isNaN(playerSP)) playerSP = 0;
+                    if (parsed.upgrades !== undefined) { 
+                        upgrades = Object.assign({ weight: 0, elasticity: 0, spin: 0, perfectZone: 0 }, parsed.upgrades); 
+                    }
+                    if (parsed.walletAddress && !userWalletAddress) { userWalletAddress = parsed.walletAddress; }
+                    if (parsed.hearts !== undefined) {
+                        if (typeof playerHearts !== 'undefined') playerHearts = parsed.hearts;
+                        if (typeof hearts !== 'undefined') hearts = parsed.hearts;
+                    }
+                    updateAssetUI();
+                    saveData();
+                } catch(e) { }
             }
         });
     } catch (e) { }
