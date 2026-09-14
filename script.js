@@ -744,20 +744,22 @@ function handleMainBtn(e) {
     e?.preventDefault();
     SoundManager.resume();
 
-    // 하트가 0 이하이면 어떤 상태이든 즉시 충전 모달 호출
+    // 1. 하트 부족 시 충전 팝업 오픈
     if (playerHearts <= 0) { 
         openYoutubeCharge(); 
         return; 
     }
 
+    // 2. 룰렛 돌리기
     if (currentStatus === 'PRE_SPIN') { 
         triggerWheel(); 
         return; 
     }
 
+    // 3. 돌 선택 완료 후 돌 던지기 시작
     if (currentStatus === 'SPIN_DONE') {
-        currentStatus = 'TRANSITIONING'; // 연타 방지: 즉시 상태 잠금
-        playerHearts = Math.max(0, playerHearts - 1); // 음수 방지
+        currentStatus = 'TRANSITIONING';
+        playerHearts = Math.max(0, playerHearts - 1);
         updateAssetUI();
         saveData();
         playSeamlessTransition();
@@ -765,14 +767,13 @@ function handleMainBtn(e) {
 }
 
 // ===========================================================
-//  🎬 심리스 프레임 스케일 트랜지션 (에러 프리 안전 모드)
+//  🎬 심리스 프레임 스케일 트랜지션
 // ===========================================================
 function playSeamlessTransition() {
     const overlay = document.getElementById('transition-overlay');
     const img = document.getElementById('transition-stone-img');
     const roulette = document.getElementById('roulette-screen');
 
-    // 만약 selectedStone이 비어있다면 기본 돌로 비상 복구
     if (!selectedStone) {
         selectedStone = STONES[0];
     }
@@ -789,17 +790,15 @@ function playSeamlessTransition() {
         img.style.opacity = '1';
         img.style.transition = 'none';
 
-        // 프레임 애니메이션 시작
         requestAnimationFrame(() => {
-            img.style.transition = 'transform 0.45s ease-in, opacity 0.45s ease';
-            img.style.transform = 'scale(6)';
+            img.style.transition = 'transform 0.4s ease-in, opacity 0.4s ease';
+            img.style.transform = 'scale(5)';
             img.style.opacity = '0';
-            overlay.style.transition = 'background 0.3s ease 0.15s';
+            overlay.style.transition = 'background 0.3s ease 0.1s';
             overlay.style.background = 'rgba(5,5,20,0.95)';
         });
     }
 
-    // 0.45초 후 반드시 인게임 시작 (예외가 생겨도 무조건 닫힘)
     setTimeout(() => {
         if (roulette) roulette.style.display = 'none';
         if (overlay) {
@@ -808,50 +807,7 @@ function playSeamlessTransition() {
             overlay.style.opacity = '';
         }
         startGameplay();
-    }, 450);
-}
-
-// ===================================================================
-// [FIX 3] startGameplay(): 실행 파이프라인 무결점 순서 재배치
-// ===================================================================
-function startGameplay() {
-    gaugeSpeedMult = 2.0;
-
-    // 1. 인게임 진입 즉시 상단 자산 HUD 숨김
-    setAssetBarVisible(false);
-
-    // 2. 인게임 돌 엘리먼트 배치 및 스타일링
-    setStoneStyle();
-    const stoneEl = document.getElementById('ingame-stone');
-    if (stoneEl) {
-        stoneEl.style.display = 'block';
-        stoneEl.style.left = `${CX}px`;
-        stoneEl.style.bottom = '80px';
-        stoneEl.style.top = 'auto';
-        stoneEl.style.transform = 'translateX(-50%) scale(1)';
-        stoneEl.style.opacity = '1';
-    }
-
-    // 3. UI 가이드 활성화
-    const scoreDisp = document.getElementById('score-display');
-    if (scoreDisp) scoreDisp.innerText = t('ready');
-    const msg = document.getElementById('message');
-    if (msg) msg.innerText = t('prepareMsg');
-
-    const swipeGuide = document.getElementById('swipe-guide');
-    if (swipeGuide) swipeGuide.style.display = 'block';
-
-    const gaugeWrap = document.getElementById('angle-gauge-wrap');
-    if (gaugeWrap) gaugeWrap.style.display = 'block';
-
-    // 4. 게임 상태 전환 및 핵심 루프 즉시 바인딩
-    currentStatus = 'READY_TO_LAUNCH';
-    bindLaunchEvents();
-    drawStaticBackground();
-
-    // 5. 게이지 계산 및 애니메이션 시작
-    updateGaugePerfectZone();
-    startAngleGauge();
+    }, 420);
 }
 
 function setStoneStyle() {
@@ -891,35 +847,12 @@ function getAngleZone(angleVal) {
     return 'YELLOW';
 }
 
-// ===================================================================
-// [FIX 1] updateGaugePerfectZone(): DOM null 참조 에러 원천 차단
-// ===================================================================
+// ===========================================================
+//  📐 게이지 영역 세팅 (index.html 정적 태그와 1:1 매핑)
+// ===========================================================
 function updateGaugePerfectZone() {
     const pzLv = (upgrades && typeof upgrades.perfectZone === 'number') ? upgrades.perfectZone : 0;
     const perfSize = Math.min(0.15, 0.10 + (pzLv * 0.005)); // 기본 10% ~ 최대 15%
-    const bg = document.getElementById('angle-gauge-bg');
-    if (!bg) return;
-
-    let easterBot = document.getElementById('gz-easter-bot');
-    if (!easterBot) {
-        easterBot = document.createElement('div');
-        easterBot.className = 'gauge-zone';
-        easterBot.id = 'gz-easter-bot';
-        easterBot.style.background = 'rgba(255, 215, 0, 0.7)';
-        easterBot.style.borderTop = '1px dashed var(--neon-gold)';
-        easterBot.style.borderBottom = '1px dashed var(--neon-gold)';
-        bg.appendChild(easterBot);
-    }
-    let easterTop = document.getElementById('gz-easter-top');
-    if (!easterTop) {
-        easterTop = document.createElement('div');
-        easterTop.className = 'gauge-zone';
-        easterTop.id = 'gz-easter-top';
-        easterTop.style.background = 'rgba(255, 215, 0, 0.7)';
-        easterTop.style.borderTop = '1px dashed var(--neon-gold)';
-        easterTop.style.borderBottom = '1px dashed var(--neon-gold)';
-        bg.appendChild(easterTop);
-    }
 
     const set = (id, bot, h) => {
         const el = document.getElementById(id);
@@ -936,6 +869,48 @@ function updateGaugePerfectZone() {
     set('gz-safe-top', (0.5 + perfSize / 2) * 100, 15);
     set('gz-red-top', 94, 5);
     set('gz-easter-top', 99, 1);
+}
+
+// ===========================================================
+//  🕹️ 인게임 시작 루프
+// ===========================================================
+function startGameplay() {
+    gaugeSpeedMult = 2.0;
+
+    // 1. 상단 HUD 정리 및 돌 엘리먼트 가시화
+    setAssetBarVisible(false);
+    setStoneStyle();
+
+    const stoneEl = document.getElementById('ingame-stone');
+    if (stoneEl) {
+        stoneEl.style.display = 'block';
+        stoneEl.style.left = `${CX}px`;
+        stoneEl.style.bottom = '80px';
+        stoneEl.style.top = 'auto';
+        stoneEl.style.transform = 'translateX(-50%) scale(1)';
+        stoneEl.style.opacity = '1';
+    }
+
+    // 2. 인게임 안내 UI 노출
+    const scoreDisp = document.getElementById('score-display');
+    if (scoreDisp) scoreDisp.innerText = t('ready');
+    const msg = document.getElementById('message');
+    if (msg) msg.innerText = t('prepareMsg');
+
+    const guide = document.getElementById('swipe-guide');
+    if (guide) guide.style.display = 'block';
+
+    const gaugeWrap = document.getElementById('angle-gauge-wrap');
+    if (gaugeWrap) gaugeWrap.style.display = 'block';
+
+    // 3. 상태값 확정 및 인터랙션 바인딩
+    currentStatus = 'READY_TO_LAUNCH';
+    bindLaunchEvents();
+    drawStaticBackground();
+
+    // 4. 게이지 수치 계산 및 애니메이션 가동
+    updateGaugePerfectZone();
+    startAngleGauge();
 }
 
 function startAngleGauge() {
