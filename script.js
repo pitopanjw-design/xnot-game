@@ -767,47 +767,16 @@ function handleMainBtn(e) {
 }
 
 // ===========================================================
-//  🎬 심리스 프레임 스케일 트랜지션
+//  🎬 화면 전환 (오류를 유발하던 중첩 타이머와 오버레이 블로킹 제거)
 // ===========================================================
 function playSeamlessTransition() {
-    const overlay = document.getElementById('transition-overlay');
-    const img = document.getElementById('transition-stone-img');
     const roulette = document.getElementById('roulette-screen');
-
-    if (!selectedStone) {
-        selectedStone = STONES[0];
-    }
-
-    if (overlay && img) {
-        overlay.style.display = 'flex';
-        overlay.style.opacity = '1';
-        overlay.style.background = 'rgba(5,5,20,0)';
-
-        img.style.backgroundImage = `url('${selectedStone.img}')`;
-        img.style.width = `${selectedStone.w || 90}px`;
-        img.style.height = `${selectedStone.h || 60}px`;
-        img.style.transform = 'scale(1)';
-        img.style.opacity = '1';
-        img.style.transition = 'none';
-
-        requestAnimationFrame(() => {
-            img.style.transition = 'transform 0.4s ease-in, opacity 0.4s ease';
-            img.style.transform = 'scale(5)';
-            img.style.opacity = '0';
-            overlay.style.transition = 'background 0.3s ease 0.1s';
-            overlay.style.background = 'rgba(5,5,20,0.95)';
-        });
-    }
-
-    setTimeout(() => {
-        if (roulette) roulette.style.display = 'none';
-        if (overlay) {
-            overlay.style.display = 'none';
-            overlay.style.background = '';
-            overlay.style.opacity = '';
-        }
-        startGameplay();
-    }, 420);
+    const overlay = document.getElementById('transition-overlay');
+    
+    if (overlay) overlay.style.display = 'none';
+    if (roulette) roulette.style.display = 'none';
+    
+    startGameplay();
 }
 
 function setStoneStyle() {
@@ -823,12 +792,11 @@ function setStoneStyle() {
         : 'drop-shadow(0 6px 12px rgba(0,0,0,0.55))';
 }
 
-// ===================================================================
-// [FIX 2] getAngleZone(): 퍼펙트 존 연산 공식 일치 (기본 10% ~ 15%)
-// ===================================================================
+// ===========================================================
+//  📐 게이지 판정 및 높이 계산 (원래의 단순한 안전 코드로 원복)
+// ===========================================================
 function getAngleZone(angleVal) {
-    const pzLv = (upgrades && typeof upgrades.perfectZone === 'number') ? upgrades.perfectZone : 0;
-    const perfSize = Math.min(0.15, 0.10 + (pzLv * 0.005));
+    const perfSize = 0.08; // 소수점 에러가 없는 안전한 고정값
     const pMin = 0.5 - (perfSize / 2);
     const pMax = 0.5 + (perfSize / 2);
 
@@ -847,28 +815,21 @@ function getAngleZone(angleVal) {
     return 'YELLOW';
 }
 
-// ===========================================================
-//  📐 게이지 영역 세팅 (index.html 정적 태그와 1:1 매핑)
-// ===========================================================
 function updateGaugePerfectZone() {
-    const pzLv = (upgrades && typeof upgrades.perfectZone === 'number') ? upgrades.perfectZone : 0;
-    const perfSize = Math.min(0.15, 0.10 + (pzLv * 0.005)); // 기본 10% ~ 최대 15%
-
     const set = (id, bot, h) => {
         const el = document.getElementById(id);
-        if (el && el.style) {
-            el.style.bottom = `${Math.max(0, bot)}%`;
-            el.style.height = `${Math.max(0, h)}%`;
+        if (el) {
+            el.style.bottom = bot + '%';
+            el.style.height = h + '%';
         }
     };
 
-    set('gz-easter-bot', 0, 1);
+    // 정적 고정 퍼센트로 단순화 (어떤 변수도 참조하지 않으므로 에러 발생 불가)
     set('gz-red-bot', 1, 5);
-    set('gz-safe-bot', (0.5 - perfSize / 2 - 0.15) * 100, 15);
-    set('gz-perfect', (0.5 - perfSize / 2) * 100, perfSize * 100);
-    set('gz-safe-top', (0.5 + perfSize / 2) * 100, 15);
+    set('gz-safe-bot', 31, 15);
+    set('gz-perfect', 46, 8);
+    set('gz-safe-top', 54, 15);
     set('gz-red-top', 94, 5);
-    set('gz-easter-top', 99, 1);
 }
 
 // ===========================================================
