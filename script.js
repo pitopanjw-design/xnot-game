@@ -708,12 +708,17 @@ function triggerWheel(e) {
     };
     requestAnimationFrame(tick);
 
-    wEl.addEventListener('transitionend', () => {
+    let isTransitionFinished = false;
+    const onSpinEnd = () => {
+        if (isTransitionFinished) return;
+        isTransitionFinished = true;
+
         wEl.style.transition = 'none';
         wEl.style.transform = `rotate(${offset}deg)`;
 
         selectedStone = stone_def;
-        document.getElementById('stone-desc-text').innerText = t(selectedStone.nameKey + 'Desc');
+        const descEl = document.getElementById('stone-desc-text');
+        if (descEl) descEl.innerText = t(selectedStone.nameKey + 'Desc');
 
         const rt = document.getElementById('roulette-title');
         if (rt) rt.innerText = t('stoneReady');
@@ -734,7 +739,10 @@ function triggerWheel(e) {
         currentStatus = 'SPIN_DONE';
         isSpinning = false;
         haptic('success');
-    }, { once: true });
+    };
+
+    wEl.addEventListener('transitionend', onSpinEnd, { once: true });
+    setTimeout(onSpinEnd, 4000); // 3.8s 회전 후 이벤트 누락 방지 안전 타이머
 }
 
 // ===========================================================
@@ -767,9 +775,12 @@ function handleMainBtn(e) {
 }
 
 // ===========================================================
-//  🎬 화면 전환 (오류를 유발하던 중첩 타이머와 오버레이 블로킹 제거)
+//  🎬 화면 전환
 // ===========================================================
 function playSeamlessTransition() {
+    if (!selectedStone) {
+        selectedStone = STONES[0];
+    }
     const roulette = document.getElementById('roulette-screen');
     const overlay = document.getElementById('transition-overlay');
     
@@ -781,11 +792,20 @@ function playSeamlessTransition() {
 
 function setStoneStyle() {
     const el = document.getElementById('ingame-stone');
+    if (!el) return;
+    if (!selectedStone) {
+        selectedStone = STONES[0];
+    }
     const s = selectedStone;
-    el.style.width = `${s.w}px`; el.style.height = `${s.h}px`;
-    el.style.backgroundImage = `url('${s.img}')`;
-    el.style.backgroundSize = 'contain'; el.style.backgroundRepeat = 'no-repeat'; el.style.backgroundPosition = 'center';
-    el.style.backgroundColor = 'transparent'; el.style.border = 'none'; el.style.boxShadow = 'none';
+    if (s.w) el.style.width = `${s.w}px`; 
+    if (s.h) el.style.height = `${s.h}px`;
+    if (s.img) el.style.backgroundImage = `url('${s.img}')`;
+    el.style.backgroundSize = 'contain'; 
+    el.style.backgroundRepeat = 'no-repeat'; 
+    el.style.backgroundPosition = 'center';
+    el.style.backgroundColor = 'transparent'; 
+    el.style.border = 'none'; 
+    el.style.boxShadow = 'none';
 
     el.style.filter = s.rarity === 'Mythic'
         ? 'drop-shadow(0 0 22px rgba(255,215,0,0.85)) drop-shadow(0 8px 14px rgba(0,0,0,0.5))'
