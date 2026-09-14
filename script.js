@@ -811,20 +811,17 @@ function playSeamlessTransition() {
     }, 450);
 }
 
-// ===========================================================
-//  🕹️ 인게임 진입 및 조작 인터페이스 활성화 (런타임 가드)
-// ===========================================================
+// ===================================================================
+// [FIX 3] startGameplay(): 실행 파이프라인 무결점 순서 재배치
+// ===================================================================
 function startGameplay() {
     gaugeSpeedMult = 2.0;
 
-    try {
-        setStoneStyle();
-    } catch(e) {
-        console.warn("[StoneStyle Warning]", e);
-    }
-
+    // 1. 인게임 진입 즉시 상단 자산 HUD 숨김
     setAssetBarVisible(false);
 
+    // 2. 인게임 돌 엘리먼트 배치 및 스타일링
+    setStoneStyle();
     const stoneEl = document.getElementById('ingame-stone');
     if (stoneEl) {
         stoneEl.style.display = 'block';
@@ -835,32 +832,26 @@ function startGameplay() {
         stoneEl.style.opacity = '1';
     }
 
+    // 3. UI 가이드 활성화
     const scoreDisp = document.getElementById('score-display');
     if (scoreDisp) scoreDisp.innerText = t('ready');
     const msg = document.getElementById('message');
     if (msg) msg.innerText = t('prepareMsg');
 
-    const guide = document.getElementById('swipe-guide');
-    if (guide) guide.style.display = 'block';
+    const swipeGuide = document.getElementById('swipe-guide');
+    if (swipeGuide) swipeGuide.style.display = 'block';
+
     const gaugeWrap = document.getElementById('angle-gauge-wrap');
     if (gaugeWrap) gaugeWrap.style.display = 'block';
 
+    // 4. 게임 상태 전환 및 핵심 루프 즉시 바인딩
     currentStatus = 'READY_TO_LAUNCH';
+    bindLaunchEvents();
+    drawStaticBackground();
 
-    // 게이지 및 배경 렌더링 에러가 발생해도 게임 진행을 막지 않도록 격리
-    try {
-        updateGaugePerfectZone();
-    } catch (err) {
-        console.error("[Gauge Error]", err);
-    }
-
-    try {
-        startAngleGauge();
-        bindLaunchEvents();
-        drawStaticBackground();
-    } catch (err) {
-        console.error("[Launch Init Error]", err);
-    }
+    // 5. 게이지 계산 및 애니메이션 시작
+    updateGaugePerfectZone();
+    startAngleGauge();
 }
 
 function setStoneStyle() {
@@ -876,11 +867,12 @@ function setStoneStyle() {
         : 'drop-shadow(0 6px 12px rgba(0,0,0,0.55))';
 }
 
-// ===========================================================
-//  📐 삼각함수 보정 각도 피치 게이지
-// ===========================================================
+// ===================================================================
+// [FIX 2] getAngleZone(): 퍼펙트 존 연산 공식 일치 (기본 10% ~ 15%)
+// ===================================================================
 function getAngleZone(angleVal) {
-    const perfSize = Math.min(0.10, 0.05 + ((upgrades.perfectZone || 0) * 0.005));
+    const pzLv = (upgrades && typeof upgrades.perfectZone === 'number') ? upgrades.perfectZone : 0;
+    const perfSize = Math.min(0.15, 0.10 + (pzLv * 0.005));
     const pMin = 0.5 - (perfSize / 2);
     const pMax = 0.5 + (perfSize / 2);
 
@@ -899,8 +891,12 @@ function getAngleZone(angleVal) {
     return 'YELLOW';
 }
 
+// ===================================================================
+// [FIX 1] updateGaugePerfectZone(): DOM null 참조 에러 원천 차단
+// ===================================================================
 function updateGaugePerfectZone() {
-    const perfSize = Math.min(0.10, 0.05 + ((upgrades.perfectZone || 0) * 0.005));
+    const pzLv = (upgrades && typeof upgrades.perfectZone === 'number') ? upgrades.perfectZone : 0;
+    const perfSize = Math.min(0.15, 0.10 + (pzLv * 0.005)); // 기본 10% ~ 최대 15%
     const bg = document.getElementById('angle-gauge-bg');
     if (!bg) return;
 
@@ -927,9 +923,9 @@ function updateGaugePerfectZone() {
 
     const set = (id, bot, h) => {
         const el = document.getElementById(id);
-        if (el) {
-            el.style.bottom = `${bot}%`;
-            el.style.height = `${h}%`;
+        if (el && el.style) {
+            el.style.bottom = `${Math.max(0, bot)}%`;
+            el.style.height = `${Math.max(0, h)}%`;
         }
     };
 
