@@ -390,7 +390,12 @@ async function loadData() {
         try {
             const parsed = JSON.parse(savedData);
             if (parsed.sp !== undefined) playerSP = parsed.sp;
-            if (parsed.upgrades !== undefined) upgrades = parsed.upgrades;
+            if (parsed.upgrades !== undefined) { 
+                upgrades = Object.assign({ weight: 0, elasticity: 0, spin: 0, perfectZone: 0 }, parsed.upgrades); 
+            }
+            if (isNaN(playerSP)) {
+                playerSP = 0; // 이미 NaN이 된 점수 자동 정상화
+            }
             if (parsed.walletAddress !== undefined) userWalletAddress = parsed.walletAddress;
             if (parsed.hearts !== undefined) {
                 if (typeof playerHearts !== 'undefined') playerHearts = parsed.hearts;
@@ -432,8 +437,8 @@ async function loadData() {
                     .insert([{
                         user_id: userId,
                         username: String(tgUsername),
-                        high_score: parseInt(playerSP),
-                        hearts: parseInt(currentHearts),
+                        high_score: parseInt(playerSP) || 0,
+                        hearts: parseInt(currentHearts) || 5,
                         last_saved_time: Date.now()
                     }]);
                 console.log("[Supabase Migration] Local data successfully cloned to Postgres Cloud!");
@@ -441,7 +446,7 @@ async function loadData() {
                 // CASE B: User already exists in cloud. Sync up to whichever value is higher.
                 console.log("[Supabase Sync] User found on cloud. Synchronizing state values...");
                 if (cloudUser.high_score > playerSP) {
-                    playerSP = parseInt(cloudUser.high_score);
+                    playerSP = parseInt(cloudUser.high_score) || 0;
                     console.log(`[Supabase Sync] Cloud score was higher. Restored total SP to: ${playerSP}`);
                 }
                 if (cloudUser.hearts !== undefined) {
@@ -461,7 +466,12 @@ async function loadData() {
             if (!err && val) {
                 const parsed = JSON.parse(val);
                 if ((parsed.sp || 0) > playerSP) { playerSP = parsed.sp; }
-                if (parsed.upgrades !== undefined) { upgrades = parsed.upgrades; }
+                if (parsed.upgrades !== undefined) { 
+                    upgrades = Object.assign({ weight: 0, elasticity: 0, spin: 0, perfectZone: 0 }, parsed.upgrades); 
+                }
+                if (isNaN(playerSP)) {
+                    playerSP = 0;
+                }
                 if (parsed.walletAddress && !userWalletAddress) { userWalletAddress = parsed.walletAddress; }
                 if (parsed.hearts !== undefined) {
                     if (typeof playerHearts !== 'undefined') playerHearts = parsed.hearts;
@@ -1810,7 +1820,10 @@ function openYoutubeCharge() {
 // ===========================================================
 //  🛒 돌 스펙 강화 상점 코어 비즈니스 로직
 // ===========================================================
-function getUpgradeCost(t) { return Math.floor(UPGRADE_BASE_COST * Math.pow(1.65, upgrades[t])); }
+function getUpgradeCost(t) { 
+    const currentLv = (upgrades && typeof upgrades[t] === 'number') ? upgrades[t] : 0;
+    return Math.floor(UPGRADE_BASE_COST * Math.pow(1.65, currentLv)); 
+}
 function openShop() { if (isSpinning || currentStatus !== 'PRE_SPIN') return; SoundManager.resume(); setAssetBarVisible(false); document.getElementById('shop-modal').style.display = 'flex'; updateShopUI(); haptic('light'); }
 function closeShop() { SoundManager.resume(); document.getElementById('shop-modal').style.display = 'none'; setAssetBarVisible(true); haptic('light'); }
 
@@ -1854,11 +1867,15 @@ function updateShopUI() {
 }
 
 function buyUpgrade(type) {
-    if ((upgrades[type] || 0) >= MAX_LV) return; 
+    if (!upgrades) upgrades = { weight: 0, elasticity: 0, spin: 0, perfectZone: 0 };
+    if (upgrades[type] === undefined) upgrades[type] = 0;
+
+    if (upgrades[type] >= MAX_LV) return; 
     const cost = getUpgradeCost(type); 
-    if (playerSP < cost) return;
+    if (isNaN(cost) || isNaN(playerSP) || playerSP < cost) return;
+
     playerSP -= cost; 
-    upgrades[type] = (upgrades[type] || 0) + 1; 
+    upgrades[type]++; 
     saveData(); 
     updateAssetUI(); 
     updateShopUI(); 
