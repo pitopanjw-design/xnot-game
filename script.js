@@ -765,77 +765,102 @@ function handleMainBtn(e) {
 }
 
 // ===========================================================
-//  🎬 심리스 프레임 스케일 트랜지션
+//  🎬 심리스 프레임 스케일 트랜지션 (에러 프리 안전 모드)
 // ===========================================================
 function playSeamlessTransition() {
     const overlay = document.getElementById('transition-overlay');
     const img = document.getElementById('transition-stone-img');
     const roulette = document.getElementById('roulette-screen');
 
-    overlay.style.display = 'flex';
-    overlay.style.background = 'rgba(5,5,20,0)';
+    // 만약 selectedStone이 비어있다면 기본 돌로 비상 복구
+    if (!selectedStone) {
+        selectedStone = STONES[0];
+    }
 
-    img.style.backgroundImage = `url('${selectedStone.img}')`;
-    img.style.width = `${selectedStone.w}px`;
-    img.style.height = `${selectedStone.h}px`;
-    img.style.transform = 'scale(1)';
-    img.style.opacity = '1';
-    img.style.transition = 'none';
+    if (overlay && img) {
+        overlay.style.display = 'flex';
+        overlay.style.opacity = '1';
+        overlay.style.background = 'rgba(5,5,20,0)';
 
-    requestAnimationFrame(() => {
+        img.style.backgroundImage = `url('${selectedStone.img}')`;
+        img.style.width = `${selectedStone.w || 90}px`;
+        img.style.height = `${selectedStone.h || 60}px`;
+        img.style.transform = 'scale(1)';
+        img.style.opacity = '1';
+        img.style.transition = 'none';
+
+        // 프레임 애니메이션 시작
         requestAnimationFrame(() => {
-            img.style.transition = 'transform 0.55s cubic-bezier(0.2,0,0.8,1), opacity 0.55s ease';
-            img.style.transform = 'scale(8)';
+            img.style.transition = 'transform 0.45s ease-in, opacity 0.45s ease';
+            img.style.transform = 'scale(6)';
             img.style.opacity = '0';
-
-            overlay.style.transition = 'background 0.3s ease 0.2s';
+            overlay.style.transition = 'background 0.3s ease 0.15s';
             overlay.style.background = 'rgba(5,5,20,0.95)';
-
-            roulette.style.transition = 'opacity 0.35s ease 0.15s';
-            roulette.style.opacity = '0';
-
-            setTimeout(() => {
-                roulette.style.display = 'none'; roulette.style.opacity = ''; roulette.style.transition = '';
-                overlay.style.display = 'none'; overlay.style.background = ''; overlay.style.transition = '';
-                img.style.transform = 'scale(1)'; img.style.opacity = '1'; img.style.transition = '';
-                startGameplay();
-            }, 580);
         });
-    });
+    }
+
+    // 0.45초 후 반드시 인게임 시작 (예외가 생겨도 무조건 닫힘)
+    setTimeout(() => {
+        if (roulette) roulette.style.display = 'none';
+        if (overlay) {
+            overlay.style.display = 'none';
+            overlay.style.background = '';
+            overlay.style.opacity = '';
+        }
+        startGameplay();
+    }, 450);
 }
 
+// ===========================================================
+//  🕹️ 인게임 진입 및 조작 인터페이스 활성화 (런타임 가드)
+// ===========================================================
 function startGameplay() {
     gaugeSpeedMult = 2.0;
-    setStoneStyle();
+
+    try {
+        setStoneStyle();
+    } catch(e) {
+        console.warn("[StoneStyle Warning]", e);
+    }
 
     setAssetBarVisible(false);
 
     const stoneEl = document.getElementById('ingame-stone');
     if (stoneEl) {
-        stoneEl.style.display = 'block'; 
+        stoneEl.style.display = 'block';
         stoneEl.style.left = `${CX}px`;
-        stoneEl.style.bottom = '80px'; 
+        stoneEl.style.bottom = '80px';
         stoneEl.style.top = 'auto';
-        stoneEl.style.transform = 'translateX(-50%) scale(1)'; 
+        stoneEl.style.transform = 'translateX(-50%) scale(1)';
         stoneEl.style.opacity = '1';
     }
 
-    document.getElementById('score-display').innerText = t('ready');
-    document.getElementById('message').innerText = t('prepareMsg');
-    document.getElementById('swipe-guide').style.display = 'block';
-    document.getElementById('angle-gauge-wrap').style.display = 'block';
+    const scoreDisp = document.getElementById('score-display');
+    if (scoreDisp) scoreDisp.innerText = t('ready');
+    const msg = document.getElementById('message');
+    if (msg) msg.innerText = t('prepareMsg');
+
+    const guide = document.getElementById('swipe-guide');
+    if (guide) guide.style.display = 'block';
+    const gaugeWrap = document.getElementById('angle-gauge-wrap');
+    if (gaugeWrap) gaugeWrap.style.display = 'block';
 
     currentStatus = 'READY_TO_LAUNCH';
 
+    // 게이지 및 배경 렌더링 에러가 발생해도 게임 진행을 막지 않도록 격리
     try {
         updateGaugePerfectZone();
     } catch (err) {
-        console.error("[Gauge Error Bypassed]", err);
+        console.error("[Gauge Error]", err);
     }
 
-    startAngleGauge();
-    bindLaunchEvents();
-    drawStaticBackground();
+    try {
+        startAngleGauge();
+        bindLaunchEvents();
+        drawStaticBackground();
+    } catch (err) {
+        console.error("[Launch Init Error]", err);
+    }
 }
 
 function setStoneStyle() {
