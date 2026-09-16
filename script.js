@@ -121,7 +121,7 @@ const i18n = {
     ko: {
         introTitle: 'XNOT 물수제비 채굴', introDesc: 'XNOT 물수제비 채굴은 차세대 디지털 자산인 XNOT 코인을 강물 위 물수제비의 탄성을 이용해 채굴하는 하이퍼 캐주얼 광산 게임입니다. 돌을 튕겨 최적의 탄성을 얻고 SP를 채굴하세요!',
         introStartBtn: '게임 시작 ⛏️', introInfoBtn: '게임 소개 ℹ️', introInfoTitle: '게임 소개',
-        lobbyTitle: '룰렛을 터치하여 돌을 뽑으세요', spinBtn: '룰렛 돌리기', shopBtn: '⚙️ 돌 능력 강화 상점',
+        lobbyTitle: '룰렛을 터치하여 돌을 뽑으세요', spinBtn: '룰렛 돌리기', spinningBtn: '돌 추첨 중... 🎰', shopBtn: '⚙️ 돌 능력 강화 상점',
         stoneReady: '돌 준비 완료!', launchBtn: '돌 던지기 (하트 1 소모)', wheelTouch: '돌 뽑기 터치!',
         stone0: '납작한 슬레이트', stone0Desc: '안정적인 각도, 평균 튕김 수 최고 (대박: 0.1%)',
         stone1: '거친 강가 조약돌', stone1Desc: '표준 성능의 무난한 기본 조약돌 (대박: 2%)',
@@ -140,7 +140,7 @@ const i18n = {
     en: {
         introTitle: 'XNOT Stone Skipper', introDesc: 'XNOT Stone Skipper is a hyper-casual mining game where you mine XNOT Coin using the elasticity of skipping stones. Bounce stones to mine SP!',
         introStartBtn: 'Start Game ⛏️', introInfoBtn: 'Game Info ℹ️', introInfoTitle: 'Game Info',
-        lobbyTitle: 'Touch the wheel to pick a stone', spinBtn: 'SPIN WHEEL', shopBtn: '⚙️ Upgrade Properties',
+        lobbyTitle: 'Touch the wheel to pick a stone', spinBtn: 'SPIN WHEEL', spinningBtn: 'SPINNING... 🎰', shopBtn: '⚙️ Upgrade Properties',
         stoneReady: 'STONE READY!', launchBtn: 'LAUNCH STONE (Cost 1 ❤️)', wheelTouch: 'Touch to Spin!',
         stone0: 'Flat Slate', stone0Desc: 'Highly stable angle, best average skips (Jackpot: 0.1%)',
         stone1: 'Rough Pebble', stone1Desc: 'Standard performance starter stone (Jackpot: 2%)',
@@ -688,6 +688,15 @@ function triggerWheel(e) {
     if (isSpinning || currentStatus !== 'PRE_SPIN') return;
     isSpinning = true;
 
+    const mb = document.getElementById('main-btn');
+    if (mb) {
+        mb.innerText = t('spinningBtn');
+        mb.disabled = true;
+        mb.classList.remove('pulse');
+        mb.style.background = 'linear-gradient(135deg, #64748b, #475569)';
+        mb.style.color = '#fff';
+    }
+
     const idx = Math.floor(Math.random() * STONES.length);
     const stone_def = STONES[idx];
 
@@ -731,9 +740,11 @@ function triggerWheel(e) {
 
         const mb = document.getElementById('main-btn');
         if (mb) {
+            mb.disabled = false;
             mb.innerText = t('launchBtn');
             mb.style.background = 'linear-gradient(135deg,var(--neon-lime),#a8ff00)';
             mb.style.color = 'var(--ink)';
+            mb.classList.add('pulse');
         }
 
         currentStatus = 'SPIN_DONE';
@@ -767,6 +778,13 @@ function handleMainBtn(e) {
     // 3. 돌 선택 완료 후 돌 던지기 시작
     if (currentStatus === 'SPIN_DONE') {
         currentStatus = 'TRANSITIONING';
+        
+        const mb = document.getElementById('main-btn');
+        if (mb) {
+            mb.classList.remove('pulse');
+            mb.disabled = true;
+        }
+
         playerHearts = Math.max(0, playerHearts - 1);
         updateAssetUI();
         saveData();
@@ -1763,8 +1781,15 @@ function closeResultModal() {
     const sd = document.getElementById('stone-desc-text');
     if (sd) sd.innerText = '';
 
+    const wEl = document.getElementById('roulette-wheel');
+    if (wEl) {
+        wEl.querySelectorAll('.wheel-sector').forEach(s => s.classList.remove('highlight'));
+    }
+
     const mb = document.getElementById('main-btn');
     if (mb) {
+        mb.disabled = false;
+        mb.classList.remove('pulse');
         mb.innerText = t('spinBtn');
         mb.style.background = 'linear-gradient(135deg, var(--neon-lime) 0%, #a8ff00 100%)';
         mb.style.color = 'var(--ink)';
