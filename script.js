@@ -1098,6 +1098,8 @@ function runGameLoop() {
 // ===================================================================
 // [PATCH 2] updatePhysics(): 버짓 단일 권한 침수 판정 & 조기 침수 가드 격리
 // ===================================================================
+// [PATCH] updatePhysics(): 전진 속도(vy) 및 버짓 기반 자연스러운 수면 물리 연산
+// ===================================================================
 function updatePhysics() {
     if (!isDead) {
         stone.z += stone.vz;
@@ -1121,10 +1123,8 @@ function updatePhysics() {
     const wm = 1 + (upgrades.weight * 0.0008); 
     const sfm = 1 + (swipeSpeed * 0.0001);
     const fr = stone.activePhys ? stone.activePhys.friction : 0.978;
-    const baseFr = Math.min(0.9998, fr * wm * sfm);
-    const k = 0.04;
-    const effectiveFriction = 0.985 + (baseFr - 0.985) * Math.exp(-k * stone.vy);
-    stone.vy *= effectiveFriction;
+    const baseFr = Math.min(0.998, fr * wm * sfm);
+    stone.vy *= baseFr;
     stone.vx *= Math.min(0.999, 0.99 * wm);
 
     if (stone.vz < 0 && !isWindowActive && !hasTappedBounce && !isDead) {
@@ -1136,12 +1136,12 @@ function updatePhysics() {
         if (markerProgress >= 1.0) isWindowActive = false;
     }
 
-    // --- 수면 충돌 판정: 오직 버짓 만료 시에만 침수 발동 ---
+    // --- 수면 충돌 판정: 속도 저하 또는 버짓 소진 시 자연 침수 ---
     if (stone.vz < 0 && stone.z <= 0.8 && !isDead) {
         if (hasTappedBounce) {
             hasTappedBounce = false; 
         } else {
-            if (stone.remainingBudget <= 0) {
+            if (stone.vy <= 0.8 || stone.remainingBudget <= 0) {
                 triggerWaterSink();
             } else {
                 stone.z = 0;
@@ -1154,10 +1154,10 @@ function updatePhysics() {
         triggerWaterMiss();
     }
 
-    // ===================================================================
-    // [LEGACY GUARD 주석 처리] 버짓 잔여 중 물리 속도 부족으로 인한 강제 침수 원천 차단
-    // if (stone.vy < 0.8 && !isDead) triggerWaterSink();
-    // ===================================================================
+    // 전진 속도가 멈추면 자연스럽게 수면으로 침수
+    if (stone.vy < 0.6 && !isDead) {
+        triggerWaterSink();
+    }
 
     if (currentStatus === 'FLYING' && !isDead) createTrailParticle(STONE_FIXED_X, STONE_FIXED_Y);
     applyStonePos();
@@ -1216,7 +1216,7 @@ function registerBounceTap(e) {
 }
 
 // ===================================================================
-// [PATCH 3] processBounce(): 최소 체공 고도 보장 및 최저 전진 속도 유지
+// [PATCH] processBounce(): 속도 연동 양력 및 자연 감속 물리 적용
 // ===================================================================
 function processBounce(rating, isAuto = false) {
     bounceCount++; 
@@ -1241,23 +1241,23 @@ function processBounce(rating, isAuto = false) {
 
     let pCount = rarity==='Mythic'?13 : rarity==='Legendary'?60 : rarity==='Rare'?35 : 22;
     const baseVzFactor = sp.baseVz || 1.5;
-    
-    // 현무암 등 낮은 기본 고도로 인한 수면 바닥 비비기 방지 (최소 도약력 1.1 하한선 보장)
-    let baseVz = Math.max(1.1, baseVzFactor * selectedStone.mult);
+    let baseVz = Math.max(0.8, baseVzFactor * selectedStone.mult);
 
     // 버짓 수명 1회 소모
     stone.remainingBudget--;
 
+    let ratingVzMult = 1.0;
     if (rating === 'PERFECT') {
         perfectCount++;
+        ratingVzMult = 1.25;
         if (!isAuto) {
             stone.remainingBudget += 1; // 수동 퍼펙트 탭 성공 시 수명 연장
-            stone.vy = Math.min(stone.vy * 1.25 + (upgrades.weight * 1.5), 45);
+            stone.vy = Math.min(stone.vy * 1.08 + (upgrades.weight * 0.4), 45);
             const earned = Math.round(100 * selectedStone.mult * 2.5);
             document.getElementById('message').innerText = `${t('perfectTiming')} (+${earned} SP)`;
             playerSP += earned;
         } else {
-            stone.vy *= (sp.vyDecay || 0.95);
+            stone.vy *= (sp.vyDecay || 0.94);
         }
         createParticles(ex, ey, true, false, Math.round(pCount*1.5));
         haptic('heavy'); SoundManager.playBounce(true);
@@ -1265,14 +1265,15 @@ function processBounce(rating, isAuto = false) {
         if (rarity === 'Mythic') spawnGodSplash(ex, ey);
 
     } else if (rating === 'GOOD') {
+        ratingVzMult = 1.0;
         if (!isAuto) {
-            stone.vy = Math.min(stone.vy * 1.10 + (upgrades.weight * 0.5), 45);
+            stone.vy = Math.min(stone.vy * 1.02, 45);
             const earned = Math.round(100 * selectedStone.mult * 1.2);
             document.getElementById('message').innerText = `${t('goodTiming')} (+${earned} SP)`;
             playerSP += earned;
         } else {
-            // 버짓 유지 중 조기 멈춤 방지: 0.92 감속 및 최저 속도 1.5 보장
-            stone.vy = Math.max(1.5, stone.vy * 0.92);
+            // 자동 바운스 시 속도 감속
+            stone.vy *= (sp.vyDecay || 0.92);
             const earned = Math.round(100 * selectedStone.mult * 0.4);
             playerSP += earned;
         }
@@ -1281,8 +1282,8 @@ function processBounce(rating, isAuto = false) {
         if (rarity === 'Mythic') spawnGodSplash(ex, ey);
 
     } else {
-        baseVz *= 0.4;
-        stone.vy = Math.max(1.2, stone.vy * 0.6);
+        ratingVzMult = 0.4;
+        stone.vy *= 0.5;
         stone.remainingBudget = Math.max(0, stone.remainingBudget - 1);
         const earned = Math.round(100 * selectedStone.mult * 0.2);
         if (!isAuto) document.getElementById('message').innerText = t('badTiming');
@@ -1296,11 +1297,11 @@ function processBounce(rating, isAuto = false) {
     spEl.style.transform='scale(1.3)'; spEl.style.color='var(--neon-gold)';
     setTimeout(()=>{ spEl.style.transform=''; spEl.style.color=''; }, 220);
 
-    // 잔여 버짓 비율에 기반한 도약 고도 선형 정규화
-    const budgetRatio = Math.max(0.15, stone.remainingBudget / Math.max(1, stone.totalBudget));
-    const sbns = 1 + (swipeSpeed / 30);
-    stone.z = 0.9;
-    stone.vz = baseVz * em * sbns * (0.35 + 0.65 * budgetRatio);
+    // 전진 속도(vy) 및 잔여 버짓에 연동된 도약 양력 계산
+    const speedLift = Math.max(0.25, Math.min(1.2, stone.vy / 12));
+    const budgetRatio = Math.max(0.2, stone.remainingBudget / Math.max(1, stone.totalBudget));
+    stone.z = 0.8;
+    stone.vz = baseVz * em * ratingVzMult * speedLift * budgetRatio;
     stone.vx *= 0.9;
 
     isWindowActive = false;
