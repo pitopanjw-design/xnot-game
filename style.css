@@ -368,7 +368,7 @@ body, html {
 /* 룰렛 가챠 원반 */
 #roulette-wheel {
     width: 290px; height: 290px; border-radius: 50%;
-    background: url('images/roulette_wheel.png') no-repeat center center / contain;
+    background: url('images/roulette_wheel.png?v=4.1.0') no-repeat center center / contain;
     border: 3px solid var(--gold-border);
     box-shadow: 0 0 0 2px rgba(0,0,0,0.8), 0 0 25px rgba(201,162,39,0.4), inset 0 0 20px rgba(0,0,0,0.5);
     cursor: pointer; position: relative; overflow: hidden;
