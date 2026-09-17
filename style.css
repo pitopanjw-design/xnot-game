@@ -333,9 +333,7 @@ button, .action-confirm-btn, #main-btn, #shop-btn, #intro-start-btn, #intro-info
 /* ============================
    🎰 룰렛 레이어 인터페이스
 ============================ */
-/* ===================================================
-   [FIX] 룰렛 스크린: 상단 여백 균형 조정으로 원반 중앙 배치
-=================================================== */
+/* 룰렛 화면 레이아웃 (위로 잘리지 않고 화면 정중앙 배치) */
 #roulette-screen {
     position: absolute; 
     inset: 0; 
@@ -343,11 +341,11 @@ button, .action-confirm-btn, #main-btn, #shop-btn, #intro-start-btn, #intro-info
     display: flex; 
     flex-direction: column;
     align-items: center; 
-    justify-content: center; /* space-evenly 대신 center로 원반 중심 고정 */
-    padding-top: calc(env(safe-area-inset-top, 0px) + 80px);
-    padding-bottom: 20px;
-    padding-left: 10px;
-    padding-right: 10px;
+    justify-content: center;
+    padding-top: calc(env(safe-area-inset-top, 0px) + 55px); /* 상단 에셋바 높이만큼만 딱 여백 부여 */
+    padding-bottom: 25px;
+    padding-left: 15px;
+    padding-right: 15px;
     box-sizing: border-box;
 }
 #roulette-screen::before {
@@ -357,20 +355,25 @@ button, .action-confirm-btn, #main-btn, #shop-btn, #intro-start-btn, #intro-info
 }
 
 #roulette-title {
-    font-size: 18px; font-weight: 900; font-family: 'Black Han Sans', sans-serif;
-    color: var(--neon-gold); text-align: center; margin-bottom: 18px; letter-spacing: 2px;
+    font-size: 16px; 
+    font-weight: 900; 
+    font-family: 'Black Han Sans', sans-serif;
+    color: var(--neon-gold); 
+    text-align: center; 
+    margin-top: 5px;
+    margin-bottom: 8px; 
+    letter-spacing: 1px;
     text-transform: uppercase;
-    text-shadow: -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 0 0 20px rgba(255,215,0,0.7);
+    text-shadow: -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 0 0 15px rgba(255,215,0,0.7);
     flex-shrink: 0;
 }
 
 .wheel-wrap { 
     position: relative; 
-    margin-top: 10px;
-    margin-bottom: 16px; 
+    margin: 8px auto; 
     flex-shrink: 0;
-    width: 270px;
-    height: 270px;
+    width: 250px;  /* 텔레그램 세로 화면에 맞춰 250px로 밸런스 조정 */
+    height: 250px;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -381,12 +384,11 @@ button, .action-confirm-btn, #main-btn, #shop-btn, #intro-start-btn, #intro-info
 ============================ */
 .wheel-pointer {
     position: absolute;
-    top: -20px;
+    top: -18px;
     left: 50%;
-    /* 💡 transform에 rotate(180deg)를 추가하여 화살표가 아래를 보게 뒤집었습니다. */
     transform: translateX(-50%) rotate(180deg); 
     z-index: 160;
-    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.6)) drop-shadow(0 0 10px rgba(239,68,68,0.8));
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.6));
     animation: pointer-wobble 0.55s ease-in-out infinite alternate;
 }
 .wheel-pointer svg { display: block; }
@@ -399,11 +401,15 @@ button, .action-confirm-btn, #main-btn, #shop-btn, #intro-start-btn, #intro-info
 
 /* 룰렛 가챠 원반 */
 #roulette-wheel {
-    width: 270px; height: 270px; border-radius: 50%;
-    background: url('images/roulette_wheel.png?v=4.2.0') no-repeat center center / contain;
+    width: 250px; 
+    height: 250px; 
+    border-radius: 50%;
+    background: url('images/roulette_wheel.png?v=4.3.0') no-repeat center center / contain;
     border: 3px solid var(--gold-border);
-    box-shadow: 0 0 0 2px rgba(0,0,0,0.8), 0 0 20px rgba(201,162,39,0.4), inset 0 0 20px rgba(0,0,0,0.5);
-    cursor: pointer; position: relative; overflow: hidden;
+    box-shadow: 0 0 0 2px rgba(0,0,0,0.8), 0 0 20px rgba(201,162,39,0.4), inset 0 0 15px rgba(0,0,0,0.5);
+    cursor: pointer; 
+    position: relative; 
+    overflow: hidden;
     flex-shrink: 0;
     box-sizing: border-box;
 }
@@ -475,7 +481,15 @@ button, .action-confirm-btn, #main-btn, #shop-btn, #intro-start-btn, #intro-info
 }
 #wheel-cap-text { font-size: 13px; font-weight: 900; color: #fff; line-height: 1.2; word-break: keep-all; }
 
-#stone-desc-text { color: #94a3b8; font-size: 14px; text-align: center; margin-top: -12px; margin-bottom: 18px; min-height: 38px; padding: 0 20px; }
+#stone-desc-text { 
+    color: #94a3b8; 
+    font-size: 13px; 
+    text-align: center; 
+    margin-top: 4px; 
+    margin-bottom: 12px; 
+    min-height: 32px; 
+    padding: 0 15px; 
+}
 
 /* 메인 네온 대형 액션 버튼 */
 #main-btn {
