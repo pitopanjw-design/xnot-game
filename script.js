@@ -569,8 +569,8 @@ function initTonConnect() {
     try {
         const TCUI = window.TONConnectUI;
         if (TCUI) {
-            // manifestUrl을 도메인에 관계없이 정상 서빙하도록 origin 주소와 결합
-            const manifestUrl = window.location.origin + '/tonconnect-manifest.json';
+            // manifestUrl을 도메인 및 GitHub Pages 서브경로에 관계없이 정상 서빙하도록 결합
+            const manifestUrl = new URL('tonconnect-manifest.json', window.location.href).href;
             tonConnectUI = new TCUI.TonConnectUI({
                 manifestUrl: manifestUrl,
                 buttonRootId: 'ton-connect-button'
@@ -682,7 +682,6 @@ function getCurrentRotation(el) {
 }
 
 function triggerWheel(e) {
-    e?.preventDefault();
     SoundManager.resume();
     if (playerHearts <= 0) { openYoutubeCharge(); return; }
     if (isSpinning || currentStatus !== 'PRE_SPIN') return;
@@ -760,7 +759,6 @@ function triggerWheel(e) {
 //  🕹️ 인게임 진입 및 조작 인터페이스 활성화
 // ===========================================================
 function handleMainBtn(e) {
-    e?.preventDefault();
     SoundManager.resume();
 
     // 1. 하트 부족 시 충전 팝업 오픈
