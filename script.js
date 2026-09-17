@@ -376,20 +376,31 @@ initSupabase();
 
 //  💾 데이터 입출력 (Local & Cloud Storage)
 // ===========================================================
+let isInitialDataLoaded = false;
+
 async function loadData() {
+    if (isInitialDataLoaded) return;
+    isInitialDataLoaded = true;
+
     // 1. Recover legacy information from LocalStorage first
     const savedData = localStorage.getItem('xnot_v4_save');
     let userId = localStorage.getItem('xnot_user_id');
 
     if (!userId) {
-        userId = 'user_' + Math.random().toString(36).substring(2, 9);
+        try {
+            userId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id ? `tg_${window.Telegram.WebApp.initDataUnsafe.user.id}` : null;
+        } catch(e) { }
+        if (!userId) {
+            userId = 'user_' + Math.random().toString(36).substring(2, 9);
+        }
         localStorage.setItem('xnot_user_id', userId);
     }
 
     if (savedData) {
         try {
             const parsed = JSON.parse(savedData);
-            if (parsed.sp !== undefined) playerSP = parsed.sp;
+            if (typeof parsed.sp === 'number' && !isNaN(parsed.sp)) playerSP = parsed.sp;
+            else if (typeof parsed.sp === 'string') playerSP = parseInt(parsed.sp) || 0;
             if (isNaN(playerSP)) playerSP = 0;
 
             if (parsed.upgrades !== undefined) { 
@@ -402,13 +413,13 @@ async function loadData() {
             if (typeof restoredHearts !== 'number' || restoredHearts <= 0) restoredHearts = 5;
             playerHearts = restoredHearts;
 
-            console.log(`[Local Load] Restored legacy profile. SP: ${playerSP}, Hearts: ${playerHearts}`);
+            console.log(`[Local Load] Restored profile. SP: ${playerSP}, Hearts: ${playerHearts}`);
         } catch (e) {
             console.error("Local restore error:", e);
         }
     }
 
-    // Refresh UI with local state immediately so player doesn't see a blank HUD
+    // Refresh UI with local state immediately
     if (typeof updateAssetUI === 'function') updateAssetUI();
 
     // 2. Cold-Start Check: Look up user in Supabase to migrate or fetch updates
@@ -421,7 +432,7 @@ async function loadData() {
                 .eq('user_id', userId)
                 .single();
 
-            const currentHearts = typeof playerHearts !== 'undefined' ? playerHearts : (typeof hearts !== 'undefined' ? hearts : 5);
+            const currentHearts = typeof playerHearts !== 'undefined' ? playerHearts : 5;
 
             let tgUsername = 'Guest';
             try {
@@ -430,31 +441,32 @@ async function loadData() {
             } catch (e) { }
 
             if (error && error.code === 'PGRST116') {
-                console.log("[Supabase Migration] Legacy local user detected. Migrating accumulated score to cloud...");
+                console.log("[Supabase Migration] Legacy user detected. Initializing cloud record...");
                 await supabaseClient
                     .from('xnot_users')
                     .insert([{
-                        user_id: userId,
+                        user_id: String(userId),
                         username: String(tgUsername),
                         high_score: parseInt(playerSP) || 0,
                         hearts: parseInt(currentHearts) || 5,
                         last_saved_time: Date.now()
                     }]);
-                console.log("[Supabase Migration] Local data successfully cloned to Postgres Cloud!");
             } else if (cloudUser) {
-                console.log("[Supabase Sync] User found on cloud. Synchronizing state values...");
-                if (cloudUser.high_score > playerSP) {
-                    playerSP = parseInt(cloudUser.high_score) || 0;
-                    console.log(`[Supabase Sync] Cloud score was higher. Restored total SP to: ${playerSP}`);
+                console.log("[Supabase Sync] User record loaded from cloud.");
+                const cloudScore = parseInt(cloudUser.high_score);
+                if (!isNaN(cloudScore) && cloudScore > playerSP) {
+                    playerSP = cloudScore;
+                    console.log(`[Supabase Sync] Restored total SP to: ${playerSP}`);
                 }
-                if (cloudUser.hearts !== undefined) {
-                    if (typeof playerHearts !== 'undefined') playerHearts = cloudUser.hearts;
-                    if (typeof hearts !== 'undefined') hearts = cloudUser.hearts;
+                if (typeof cloudUser.hearts === 'number' && cloudUser.hearts > 0 && currentStatus === 'PRE_SPIN') {
+                    playerHearts = cloudUser.hearts;
                 }
-                if (typeof updateAssetUI === 'function') updateAssetUI();
+                if (currentStatus === 'PRE_SPIN' && typeof updateAssetUI === 'function') {
+                    updateAssetUI();
+                }
             }
         } catch (err) {
-            console.error("Supabase initial handshake failed:", err);
+            console.error("Supabase handshake notice:", err);
         }
     }
 
@@ -464,18 +476,19 @@ async function loadData() {
             if (!err && val) {
                 try {
                     const parsed = JSON.parse(val);
-                    if ((parsed.sp || 0) > playerSP) { playerSP = parsed.sp; }
-                    if (isNaN(playerSP)) playerSP = 0;
+                    if (typeof parsed.sp === 'number' && !isNaN(parsed.sp) && parsed.sp > playerSP) { 
+                        playerSP = parsed.sp; 
+                    }
                     if (parsed.upgrades !== undefined) { 
                         upgrades = Object.assign({ weight: 0, elasticity: 0, spin: 0, perfectZone: 0 }, parsed.upgrades); 
                     }
                     if (parsed.walletAddress && !userWalletAddress) { userWalletAddress = parsed.walletAddress; }
-                    if (parsed.hearts !== undefined) {
-                        if (typeof playerHearts !== 'undefined') playerHearts = parsed.hearts;
-                        if (typeof hearts !== 'undefined') hearts = parsed.hearts;
+                    if (typeof parsed.hearts === 'number' && parsed.hearts > 0 && currentStatus === 'PRE_SPIN') {
+                        playerHearts = parsed.hearts;
                     }
-                    updateAssetUI();
-                    saveData();
+                    if (currentStatus === 'PRE_SPIN' && typeof updateAssetUI === 'function') {
+                        updateAssetUI();
+                    }
                 } catch(e) { }
             }
         });
@@ -767,6 +780,10 @@ function triggerWheel(e) {
 //  🕹️ 인게임 진입 및 조작 인터페이스 활성화
 // ===========================================================
 function handleMainBtn(e) {
+    if (e) {
+        e.preventDefault && e.preventDefault();
+        e.stopPropagation && e.stopPropagation();
+    }
     SoundManager.resume();
 
     // 1. 하트 부족 시 충전 팝업 오픈
@@ -781,8 +798,8 @@ function handleMainBtn(e) {
         return; 
     }
 
-    // 3. 돌 선택 완료 후 돌 던지기 시작
-    if (currentStatus === 'SPIN_DONE') {
+    // 3. 돌 선택 완료 후 돌 던지기 시작 (SPIN_DONE 또는 이미 돌이 선택된 상태라면 100% 진입)
+    if (currentStatus === 'SPIN_DONE' || (selectedStone && !isSpinning)) {
         currentStatus = 'TRANSITIONING';
         
         const mb = document.getElementById('main-btn');
@@ -810,6 +827,9 @@ function playSeamlessTransition() {
     
     if (overlay) overlay.style.display = 'none';
     if (roulette) roulette.style.display = 'none';
+    
+    // 텔레그램 뷰포트 변경에 대비해 캔버스 및 좌표 즉각 갱신
+    resizeCanvases();
     
     startGameplay();
 }
@@ -881,6 +901,7 @@ function updateGaugePerfectZone() {
 // ===========================================================
 function startGameplay() {
     gaugeSpeedMult = 2.0;
+    resizeCanvases();
 
     // 1. 상단 HUD 정리 및 돌 엘리먼트 가시화
     setAssetBarVisible(false);
@@ -894,6 +915,7 @@ function startGameplay() {
         stoneEl.style.top = 'auto';
         stoneEl.style.transform = 'translateX(-50%) scale(1)';
         stoneEl.style.opacity = '1';
+        stoneEl.style.zIndex = '35';
     }
 
     // 2. 인게임 안내 UI 노출

@@ -64,33 +64,38 @@ button, .action-confirm-btn, #main-btn, #shop-btn, #intro-start-btn, #intro-info
 =================================================== */
 #asset-bar {
     position: absolute;
-    /* 텔레그램 헤더 바(50px) 아래의 골든존(65px)으로 하향 조정 */
-    top: calc(env(safe-area-inset-top, 0px) + 65px);
-    left: 0; 
-    right: 0;
+    /* 텔레그램 헤더 바(50px) 아래의 골든존으로 배치 */
+    top: calc(env(safe-area-inset-top, 0px) + 50px);
+    left: 8px; 
+    right: 8px;
     display: none; /* 스크립트 토글 제어 */
     justify-content: center;
     align-items: center;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
     gap: 6px;
     z-index: 200;
-    pointer-events: none;
+    pointer-events: auto;
+    padding: 4px 0;
 }
+#asset-bar::-webkit-scrollbar { display: none; }
 
 /* ===================================================
-   [PATCH] 유저명 카드: 음수 오프셋으로 자산 바 바로 위 정중앙 배치
+   [PATCH] 유저명 카드: 자산 바 내부 1줄 인라인 정렬
 =================================================== */
 #user-card {
-    position: absolute;
-    /* 부모(#asset-bar) 기준 상단으로 38px 밀어올려 자산 바 바로 위에 정렬 */
-    top: -38px;
-    left: 50%;
-    transform: translateX(-50%);
+    position: relative;
+    top: 0;
+    left: 0;
+    transform: none;
     display: none; /* 스크립트 토글 연동 유지 */
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     z-index: 200;
     pointer-events: auto;
+    flex-shrink: 0;
 }
 /* ===================================================
    [PATCH] 자산 바 텍스트 수직 기준선(Baseline) 정렬 보정
@@ -334,7 +339,11 @@ button, .action-confirm-btn, #main-btn, #shop-btn, #intro-start-btn, #intro-info
 #roulette-screen {
     position: absolute; inset: 0; z-index: 150;
     display: flex; flex-direction: column;
-    align-items: center; justify-content: center; padding: 10px;
+    align-items: center; justify-content: space-evenly;
+    padding-top: calc(env(safe-area-inset-top, 0px) + 95px);
+    padding-bottom: 20px;
+    padding-left: 10px;
+    padding-right: 10px;
     box-sizing: border-box;
 }
 #roulette-screen::before {
