@@ -59,62 +59,59 @@ button, .action-confirm-btn, #main-btn, #shop-btn, #intro-start-btn, #intro-info
 }
 
 /* ===================================================
-   [PATCH] 상단 자산 바 & 유저 카드 안전 골든존 재배치
-   (텔레그램 상단 닫기/메뉴 바 겹침 현상 원천 해소)
+   [FIX] 상단 자산 바 & 유저 카드 2단 골든존 완벽 분리
+   (텔레그램 상단 X버튼 / 3점 메뉴 겹침 완벽 차단)
 =================================================== */
 #asset-bar {
     position: absolute;
-    /* 텔레그램 헤더 바(50px) 아래의 골든존으로 배치 */
-    top: calc(env(safe-area-inset-top, 0px) + 50px);
-    left: 8px; 
-    right: 8px;
-    display: none; /* 스크립트 토글 제어 */
+    /* 텔레그램 시스템 바(50px) 아래의 골든존(62px)에 배치 */
+    top: calc(env(safe-area-inset-top, 0px) + 62px);
+    left: 0; 
+    right: 0;
+    display: none; /* 스크립트 flex 토글 유지 */
     justify-content: center;
     align-items: center;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
+    flex-wrap: wrap;
     gap: 6px;
     z-index: 200;
-    pointer-events: auto;
-    padding: 4px 0;
+    pointer-events: none;
+    padding: 0 10px;
 }
-#asset-bar::-webkit-scrollbar { display: none; }
 
-/* ===================================================
-   [PATCH] 유저명 카드: 자산 바 내부 1줄 인라인 정렬
-=================================================== */
+/* 유저명 카드: 자산 바 바로 위 정중앙 단독 1단 배치 */
 #user-card {
-    position: relative;
-    top: 0;
-    left: 0;
-    transform: none;
-    display: none; /* 스크립트 토글 연동 유지 */
+    position: absolute;
+    top: -34px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: none; /* 스크립트 flex 토글 유지 */
     align-items: center;
     gap: 6px;
-    z-index: 200;
+    z-index: 201;
     pointer-events: auto;
-    flex-shrink: 0;
+    font-size: 11px;
+    padding: 4px 12px;
+    background: rgba(15,15,35,0.92);
+    border: 1px solid rgba(201,162,39,0.5);
+    border-radius: 16px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.6);
 }
-/* ===================================================
-   [PATCH] 자산 바 텍스트 수직 기준선(Baseline) 정렬 보정
-=================================================== */
+
 .asset-box {
-    background: rgba(5,5,20,0.82);
+    background: rgba(5,5,20,0.85);
     border: 1.5px solid rgba(201,162,39,0.45);
-    padding: 6px 12px;
-    border-radius: 20px;
+    padding: 5px 10px;
+    border-radius: 18px;
     font-size: 12px;
     font-weight: 700;
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    line-height: 1; /* 텍스트 높이 편차 제거 */
+    gap: 4px;
+    line-height: 1;
     backdrop-filter: blur(8px);
     pointer-events: auto;
     white-space: nowrap;
-    box-shadow: 0 0 10px rgba(201,162,39,0.15), 0 4px 14px rgba(0,0,0,0.5);
+    box-shadow: 0 0 10px rgba(201,162,39,0.15), 0 4px 12px rgba(0,0,0,0.5);
 }
 .asset-box:active { transform: scale(0.95); }
 
@@ -336,11 +333,18 @@ button, .action-confirm-btn, #main-btn, #shop-btn, #intro-start-btn, #intro-info
 /* ============================
    🎰 룰렛 레이어 인터페이스
 ============================ */
+/* ===================================================
+   [FIX] 룰렛 스크린: 상단 여백 균형 조정으로 원반 중앙 배치
+=================================================== */
 #roulette-screen {
-    position: absolute; inset: 0; z-index: 150;
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: space-evenly;
-    padding-top: calc(env(safe-area-inset-top, 0px) + 95px);
+    position: absolute; 
+    inset: 0; 
+    z-index: 150;
+    display: flex; 
+    flex-direction: column;
+    align-items: center; 
+    justify-content: center; /* space-evenly 대신 center로 원반 중심 고정 */
+    padding-top: calc(env(safe-area-inset-top, 0px) + 80px);
     padding-bottom: 20px;
     padding-left: 10px;
     padding-right: 10px;
@@ -362,7 +366,8 @@ button, .action-confirm-btn, #main-btn, #shop-btn, #intro-start-btn, #intro-info
 
 .wheel-wrap { 
     position: relative; 
-    margin-bottom: 12px; 
+    margin-top: 10px;
+    margin-bottom: 16px; 
     flex-shrink: 0;
     width: 270px;
     height: 270px;
