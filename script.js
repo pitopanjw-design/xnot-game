@@ -374,6 +374,62 @@ function initSupabase() {
 initSupabase();
 
 
+// ===========================================================
+//  🤝 추천인(Referral) Supabase 기록 파이프라인
+// ===========================================================
+async function checkAndRegisterReferral(currentUserId) {
+    if (!supabaseClient || !currentUserId) return;
+
+    // 이미 추천 등록 처리를 완료했는지 로컬 캐시 확인 (중복 등록 방지)
+    if (localStorage.getItem('xnot_ref_registered')) return;
+
+    let referrerId = null;
+
+    // 1. 텔레그램 WebApp SDK에서 start_param 추출
+    try {
+        const startParam = window.Telegram?.WebApp?.initDataUnsafe?.start_param;
+        if (startParam && startParam.startsWith('ref_')) {
+            referrerId = startParam.replace('ref_', '');
+        }
+    } catch (e) { }
+
+    // 2. URL Query String 대체 확인 (브라우저/직접 접속 대응)
+    if (!referrerId) {
+        try {
+            const urlParams = new URLSearchParams(window.location.search);
+            const tgStart = urlParams.get('tgWebAppStartParam') || urlParams.get('startapp');
+            if (tgStart && tgStart.startsWith('ref_')) {
+                referrerId = tgStart.replace('ref_', '');
+            }
+        } catch (e) { }
+    }
+
+    // 추천 파라미터가 없거나 자기 자신을 추천한 경우 무시
+    if (!referrerId || referrerId === currentUserId) return;
+
+    try {
+        console.log(`[Referral System] New user: ${currentUserId} referred by: ${referrerId}`);
+
+        // Supabase xnot_referrals 테이블에 기록 (new_user_id가 기본키이므로 중복 자동 무시)
+        const { error } = await supabaseClient
+            .from('xnot_referrals')
+            .upsert([{
+                new_user_id: String(currentUserId),
+                referrer_id: String(referrerId),
+                created_at: new Date().toISOString()
+            }], { onConflict: 'new_user_id', ignoreDuplicates: true });
+
+        if (!error) {
+            console.log("✅ [Referral System] Successfully recorded to xnot_referrals!");
+            localStorage.setItem('xnot_ref_registered', 'true');
+        } else {
+            console.warn("❌ [Referral System Notice]", error.message);
+        }
+    } catch (err) {
+        console.error("💥 [Referral Exception]", err);
+    }
+}
+
 //  💾 데이터 입출력 (Local & Cloud Storage)
 // ===========================================================
 let isInitialDataLoaded = false;
@@ -395,6 +451,9 @@ async function loadData() {
         }
         localStorage.setItem('xnot_user_id', userId);
     }
+
+    // 추천인 등록 확인 및 기록 실행
+    checkAndRegisterReferral(userId);
 
     if (savedData) {
         try {
