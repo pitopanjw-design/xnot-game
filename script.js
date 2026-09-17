@@ -550,7 +550,15 @@ async function saveData() {
 function initTMA() {
     if (!window.Telegram?.WebApp) return;
     const tg = window.Telegram.WebApp;
-    tg.ready(); tg.expand();
+    tg.ready(); 
+    tg.expand();
+    
+    // [필수] 텔레그램 인앱 웹뷰의 제스처 가로채기 및 닫힘 방지
+    try {
+        tg.disableVerticalSwipes && tg.disableVerticalSwipes();
+        tg.isClosingConfirmationEnabled = true;
+    } catch(e) { }
+
     try { tg.setHeaderColor('#050510'); tg.setBackgroundColor('#050510'); } catch (e) { }
     const u = tg.initDataUnsafe?.user;
     if (u) {

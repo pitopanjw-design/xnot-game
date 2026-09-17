@@ -23,7 +23,7 @@ body, html {
     color: #fff;
     user-select: none;
     -webkit-user-select: none;
-    touch-action: pan-y;
+    touch-action: none;
 }
 
 /* 모든 상호작용 버튼 요소의 모바일 터치 보장 */
@@ -334,7 +334,7 @@ button, .action-confirm-btn, #main-btn, #shop-btn, #intro-start-btn, #intro-info
 #roulette-screen {
     position: absolute; inset: 0; z-index: 150;
     display: flex; flex-direction: column;
-    align-items: center; justify-content: center; padding: 20px;
+    align-items: center; justify-content: center; padding: 10px;
     box-sizing: border-box;
 }
 #roulette-screen::before {
@@ -353,10 +353,10 @@ button, .action-confirm-btn, #main-btn, #shop-btn, #intro-start-btn, #intro-info
 
 .wheel-wrap { 
     position: relative; 
-    margin-bottom: 20px; 
+    margin-bottom: 12px; 
     flex-shrink: 0;
-    width: 290px;
-    height: 290px;
+    width: 270px;
+    height: 270px;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -385,10 +385,10 @@ button, .action-confirm-btn, #main-btn, #shop-btn, #intro-start-btn, #intro-info
 
 /* 룰렛 가챠 원반 */
 #roulette-wheel {
-    width: 290px; height: 290px; border-radius: 50%;
+    width: 270px; height: 270px; border-radius: 50%;
     background: url('images/roulette_wheel.png?v=4.2.0') no-repeat center center / contain;
     border: 3px solid var(--gold-border);
-    box-shadow: 0 0 0 2px rgba(0,0,0,0.8), 0 0 25px rgba(201,162,39,0.4), inset 0 0 20px rgba(0,0,0,0.5);
+    box-shadow: 0 0 0 2px rgba(0,0,0,0.8), 0 0 20px rgba(201,162,39,0.4), inset 0 0 20px rgba(0,0,0,0.5);
     cursor: pointer; position: relative; overflow: hidden;
     flex-shrink: 0;
     box-sizing: border-box;
@@ -466,9 +466,10 @@ button, .action-confirm-btn, #main-btn, #shop-btn, #intro-start-btn, #intro-info
 /* 메인 네온 대형 액션 버튼 */
 #main-btn {
     background: linear-gradient(135deg, var(--neon-lime) 0%, #a8ff00 100%); color: var(--ink); border: none;
-    padding: 17px 55px; font-size: 20px; font-weight: 900; font-family: Impact, "Arial Black", sans-serif; border-radius: 40px; cursor: pointer;
+    padding: 14px 45px; font-size: 18px; font-weight: 900; font-family: Impact, "Arial Black", sans-serif; border-radius: 40px; cursor: pointer;
     box-shadow: -3px -3px 0 rgba(0,0,0,0.8), 3px 3px 0 rgba(0,0,0,0.8), 0 0 8px rgba(217,255,0,0.5), 0 8px 20px rgba(0,0,0,0.4);
     letter-spacing: 1px; text-shadow: -1px -1px 0 rgba(0,0,0,0.3), 1px 1px 0 rgba(0,0,0,0.2);
+    touch-action: manipulation;
     transition: transform 0.15s, box-shadow 0.15s, opacity 0.2s, background 0.3s;
 }
 #main-btn:active:not(:disabled) { transform: scale(0.95) translateY(2px); box-shadow: -2px -2px 0 rgba(0,0,0,0.8), 2px 2px 0 rgba(0,0,0,0.8), 0 4px 10px rgba(0,0,0,0.4); }
