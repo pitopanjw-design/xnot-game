@@ -376,29 +376,42 @@ button, .action-confirm-btn, #main-btn, #shop-btn, #intro-start-btn, #intro-info
     flex-shrink: 0;
 }
 
-/* 룰렛 원반 래퍼 (순정 270px 규격) */
-.wheel-wrap {
-    position: relative;
-    margin: 6px auto;
+/* ===================================================
+   [FIX] 룰렛 원반 테두리 & 정원 이미지 완전 일치
+=================================================== */
+
+/* 1. 외곽 고정 금색 프레임 (코드로 그린 완벽한 정원 테두리) */
+.wheel-wrap { 
+    position: relative; 
+    margin: 10px auto 16px auto; 
     flex-shrink: 0;
     width: 270px;
     height: 270px;
+    border-radius: 50%;
+    /* 외곽 금색 테두리와 발광 효과를 외곽 프레임에 고정 */
+    border: 3.5px solid var(--gold-border);
+    box-shadow: 0 0 0 2px rgba(0,0,0,0.85), 
+                0 0 25px rgba(201,162,39,0.45), 
+                inset 0 0 15px rgba(0,0,0,0.6);
     display: flex;
     justify-content: center;
     align-items: center;
+    box-sizing: border-box;
 }
 
 /* ============================
    바늘 (Pointer) - 아래를 보도록 수정
 ============================ */
+/* 3. 룰렛 바늘 (테두리 바로 위에 정확히 정렬) */
 .wheel-pointer {
     position: absolute;
     top: -18px;
     left: 50%;
-    transform: translateX(-50%) rotate(180deg);
-    z-index: 160;
-    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.6));
+    transform: translateX(-50%) rotate(180deg); 
+    z-index: 170;
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.7));
     animation: pointer-wobble 0.55s ease-in-out infinite alternate;
+    pointer-events: none;
 }
 .wheel-pointer svg { display: block; }
 
@@ -408,29 +421,26 @@ button, .action-confirm-btn, #main-btn, #shop-btn, #intro-start-btn, #intro-info
     to   { transform: translateX(-50%) translateY(4px) rotate(180deg); }
 }
 
-/* ===================================================
-   [FIX] 룰렛 원반 테두리 & 이미지 중심축 정밀 일치
-=================================================== */
+/* 2. 내부 회전 룰렛판 (어떤 오프셋이나 왜곡 없이 100% 정원 렌더링) */
 #roulette-wheel {
-    width: 270px;
-    height: 270px;
+    width: 100%;
+    height: 100%;
     border-radius: 50%;
-    /* 테두리 안쪽에 딱 맞게 98.5% 크기로 확장하고 정중앙(center center)으로 정렬 */
-    background: url('images/roulette_wheel.png?v=4.3.0') no-repeat center center / 98.5%;
-    border: 3.5px solid var(--gold-border);
-    box-shadow: 0 0 0 2px rgba(0,0,0,0.8), 0 0 22px rgba(201,162,39,0.45), inset 0 0 16px rgba(0,0,0,0.55);
-    cursor: pointer;
-    position: relative;
+    background: url('images/roulette_wheel.png?v=4.3.0') no-repeat center center / contain;
+    border: none; /* 자체 테두리를 없애 픽셀 오차 원천 차단 */
+    box-shadow: none;
+    cursor: pointer; 
+    position: relative; 
     overflow: hidden;
     flex-shrink: 0;
-    box-sizing: border-box;
 }
 
+/* 입체 광택 오버레이 */
 #roulette-wheel::after {
     content: ''; 
     position: absolute; 
     inset: 0;
-    background: linear-gradient(135deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.04) 40%, transparent 50%, rgba(0,0,0,0.3) 100%);
+    background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.03) 40%, transparent 50%, rgba(0,0,0,0.25) 100%);
     border-radius: 50%; 
     pointer-events: none;
 }
@@ -458,7 +468,7 @@ button, .action-confirm-btn, #main-btn, #shop-btn, #intro-start-btn, #intro-info
 .wheel-sector.pos-bottom { transform: rotate(225deg); }
 .wheel-sector.pos-left   { transform: rotate(315deg); }
 
-/* 돌 아이콘 배치 궤도 중심 복원 */
+/* 4. 4방향 미니 돌 아이콘 배치 궤도 고정 */
 .mini-stone {
     position: absolute;
     top: 25%;
