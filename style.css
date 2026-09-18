@@ -408,24 +408,35 @@ button, .action-confirm-btn, #main-btn, #shop-btn, #intro-start-btn, #intro-info
     to   { transform: translateX(-50%) translateY(4px) rotate(180deg); }
 }
 
-/* 룰렛 가챠 원반 */
+/* ===================================================
+   [FIX] 룰렛 원반 테두리와 내부 이미지 중심축 1:1 영구 동기화
+=================================================== */
 #roulette-wheel {
     width: 270px;
     height: 270px;
     border-radius: 50%;
-    background: url('images/roulette_wheel.png?v=4.3.0') no-repeat center center / contain;
-    border: 3px solid var(--gold-border);
-    box-shadow: 0 0 0 2px rgba(0,0,0,0.8), 0 0 20px rgba(201,162,39,0.4), inset 0 0 15px rgba(0,0,0,0.5);
+    /* 
+       [핵심 수정] 
+       기존: center center (상단 장식 때문에 위로 쏠림)
+       수정: center calc(50% + 5px) -> 시각적 중심을 아래로 5px 내려 테두리 정중앙에 정확히 일치 
+    */
+    background: url('images/roulette_wheel.png?v=4.3.0') no-repeat center calc(50% + 5px) / 96%;
+    border: 3.5px solid var(--gold-border);
+    box-shadow: 0 0 0 2px rgba(0,0,0,0.8), 0 0 25px rgba(201,162,39,0.5), inset 0 0 20px rgba(0,0,0,0.6);
     cursor: pointer;
     position: relative;
     overflow: hidden;
     flex-shrink: 0;
     box-sizing: border-box;
 }
+
 #roulette-wheel::after {
-    content: ''; position: absolute; inset: 0;
-    background: linear-gradient(135deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.05) 40%, transparent 50%, rgba(0,0,0,0.35) 100%);
-    border-radius: 50%; pointer-events: none;
+    content: ''; 
+    position: absolute; 
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.04) 40%, transparent 50%, rgba(0,0,0,0.3) 100%);
+    border-radius: 50%; 
+    pointer-events: none;
 }
 
 /* ===================================================
@@ -451,17 +462,18 @@ button, .action-confirm-btn, #main-btn, #shop-btn, #intro-start-btn, #intro-info
 .wheel-sector.pos-bottom { transform: rotate(225deg); }
 .wheel-sector.pos-left   { transform: rotate(315deg); }
 
+/* 돌 아이콘 중심축 동기화 */
 .mini-stone {
     position: absolute;
-    top: 25%; /* 가장자리와 중심의 딱 정가운데 유지 */
-    width: 55px;
-    height: 55px;
+    top: 26%; /* 배경 휠의 시각적 궤도 중심에 맞춤 */
+    left: 50%;
+    width: 50px;
+    height: 50px;
     background-size: contain;
     background-repeat: no-repeat;
     background-position: center;
     filter: drop-shadow(0 4px 6px rgba(0,0,0,0.6));
     transform: translate(-50%, -50%);
-    left: 50%;
 }
 
 /* 💡 돌 이미지가 대각선 축을 따라 기울지 않고, 유저 눈에 똑바로 보이도록 상쇄 각도 보정 */
