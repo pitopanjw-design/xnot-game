@@ -409,20 +409,16 @@ button, .action-confirm-btn, #main-btn, #shop-btn, #intro-start-btn, #intro-info
 }
 
 /* ===================================================
-   [FIX] 룰렛 원반 테두리와 내부 이미지 중심축 1:1 영구 동기화
+   [FIX] 룰렛 원반 테두리 & 이미지 중심축 정밀 일치
 =================================================== */
 #roulette-wheel {
     width: 270px;
     height: 270px;
     border-radius: 50%;
-    /* 
-       [핵심 수정] 
-       기존: center center (상단 장식 때문에 위로 쏠림)
-       수정: center calc(50% + 5px) -> 시각적 중심을 아래로 5px 내려 테두리 정중앙에 정확히 일치 
-    */
-    background: url('images/roulette_wheel.png?v=4.3.0') no-repeat center calc(50% + 5px) / 96%;
+    /* 테두리 안쪽에 딱 맞게 98.5% 크기로 확장하고 정중앙(center center)으로 정렬 */
+    background: url('images/roulette_wheel.png?v=4.3.0') no-repeat center center / 98.5%;
     border: 3.5px solid var(--gold-border);
-    box-shadow: 0 0 0 2px rgba(0,0,0,0.8), 0 0 25px rgba(201,162,39,0.5), inset 0 0 20px rgba(0,0,0,0.6);
+    box-shadow: 0 0 0 2px rgba(0,0,0,0.8), 0 0 22px rgba(201,162,39,0.45), inset 0 0 16px rgba(0,0,0,0.55);
     cursor: pointer;
     position: relative;
     overflow: hidden;
@@ -462,13 +458,13 @@ button, .action-confirm-btn, #main-btn, #shop-btn, #intro-start-btn, #intro-info
 .wheel-sector.pos-bottom { transform: rotate(225deg); }
 .wheel-sector.pos-left   { transform: rotate(315deg); }
 
-/* 돌 아이콘 중심축 동기화 */
+/* 돌 아이콘 배치 궤도 중심 복원 */
 .mini-stone {
     position: absolute;
-    top: 26%; /* 배경 휠의 시각적 궤도 중심에 맞춤 */
+    top: 25%;
     left: 50%;
-    width: 50px;
-    height: 50px;
+    width: 52px;
+    height: 52px;
     background-size: contain;
     background-repeat: no-repeat;
     background-position: center;
