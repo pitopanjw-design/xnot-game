@@ -377,32 +377,25 @@ button, .action-confirm-btn, #main-btn, #shop-btn, #intro-start-btn, #intro-info
 }
 
 /* ===================================================
-   [FIX] 룰렛 원반 테두리 & 정원 이미지 완전 일치
+/* ===================================================
+   [완전 일치] 룰렛 래퍼 테두리와 회전판 이미지 절대 결속
 =================================================== */
-
-/* 1. 외곽 고정 금색 프레임 (코드로 그린 완벽한 정원 테두리) */
 .wheel-wrap { 
     position: relative; 
-    margin: 10px auto 16px auto; 
-    flex-shrink: 0;
+    margin: 12px auto 14px auto; 
     width: 270px;
     height: 270px;
     border-radius: 50%;
-    /* 외곽 금색 테두리와 발광 효과를 외곽 프레임에 고정 */
+    /* 코드로 그린 완벽한 외곽 금색 테두리 */
     border: 3.5px solid var(--gold-border);
     box-shadow: 0 0 0 2px rgba(0,0,0,0.85), 
-                0 0 25px rgba(201,162,39,0.45), 
-                inset 0 0 15px rgba(0,0,0,0.6);
-    display: flex;
-    justify-content: center;
-    align-items: center;
+                0 0 24px rgba(201,162,39,0.5), 
+                inset 0 0 16px rgba(0,0,0,0.6);
     box-sizing: border-box;
+    flex-shrink: 0;
 }
 
-/* ============================
-   바늘 (Pointer) - 아래를 보도록 수정
-============================ */
-/* 3. 룰렛 바늘 (테두리 바로 위에 정확히 정렬) */
+/* 룰렛 바늘: 원형 테두리 상단 꼭지점 정중앙에 고정 */
 .wheel-pointer {
     position: absolute;
     top: -18px;
@@ -421,18 +414,22 @@ button, .action-confirm-btn, #main-btn, #shop-btn, #intro-start-btn, #intro-info
     to   { transform: translateX(-50%) translateY(4px) rotate(180deg); }
 }
 
-/* 2. 내부 회전 룰렛판 (어떤 오프셋이나 왜곡 없이 100% 정원 렌더링) */
+/* 회전 원반: 테두리(wheel-wrap) 내부 영역에 100% 꽉 채워 결속 */
 #roulette-wheel {
+    position: absolute;
+    top: 0;
+    left: 0;
     width: 100%;
     height: 100%;
     border-radius: 50%;
-    background: url('images/roulette_wheel.png?v=4.3.0') no-repeat center center / contain;
-    border: none; /* 자체 테두리를 없애 픽셀 오차 원천 차단 */
+    background-image: url('images/roulette_wheel.png?v=4.3.0');
+    background-repeat: no-repeat;
+    background-position: center center;
+    background-size: 100% 100%; /* 여백이나 잘림 없이 1:1 일치 */
+    border: none;
     box-shadow: none;
     cursor: pointer; 
-    position: relative; 
     overflow: hidden;
-    flex-shrink: 0;
 }
 
 /* 입체 광택 오버레이 */
@@ -440,7 +437,7 @@ button, .action-confirm-btn, #main-btn, #shop-btn, #intro-start-btn, #intro-info
     content: ''; 
     position: absolute; 
     inset: 0;
-    background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.03) 40%, transparent 50%, rgba(0,0,0,0.25) 100%);
+    background: linear-gradient(135deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.02) 40%, transparent 50%, rgba(0,0,0,0.25) 100%);
     border-radius: 50%; 
     pointer-events: none;
 }
@@ -468,7 +465,7 @@ button, .action-confirm-btn, #main-btn, #shop-btn, #intro-start-btn, #intro-info
 .wheel-sector.pos-bottom { transform: rotate(225deg); }
 .wheel-sector.pos-left   { transform: rotate(315deg); }
 
-/* 4. 4방향 미니 돌 아이콘 배치 궤도 고정 */
+/* 4방향 돌 아이콘 중심축 고정 */
 .mini-stone {
     position: absolute;
     top: 25%;
