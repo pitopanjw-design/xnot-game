@@ -206,20 +206,26 @@ function haptic(type) {
 }
 
 // ===========================================================
-//  🪨 돌 고유 데이터 구조 명세
+//  🪨 돌 고유 데이터 구조 명세 (bounceHeightBase 포함)
 // ===========================================================
 const STONES = [
     {
         id: 0, nameKey: 'stone0', name: '납작한 슬레이트', rarity: 'Ordinary', color: '#94a3b8',
         img: 'images/stone_slate.png', w: 150, h: 69, mult: 1.5,
         budgetRange: [12, 16],
-        physics: { vzDecay: 0.87, vyDecay: 0.965, baseVz: 1.0, friction: 0.995, critChance: 0.001, critMult: 1.1 }
+        physics: { 
+            vzDecay: 0.87, vyDecay: 0.965, baseVz: 1.0, friction: 0.995, critChance: 0.001, critMult: 1.1,
+            bounceHeightBase: 1.8 // 낮고 빠른 저공 연타
+        }
     },
     {
         id: 1, nameKey: 'stone1', name: '거친 강가 조약돌', rarity: 'Rare', color: '#38bdf8',
         img: 'images/stone_pebble.png', w: 85, h: 85, mult: 1.0,
         budgetRange: [8, 11],
-        physics: { vzDecay: 0.82, vyDecay: 0.94, baseVz: 1.5, friction: 0.986, critChance: 0.02, critMult: 1.25 }
+        physics: { 
+            vzDecay: 0.82, vyDecay: 0.94, baseVz: 1.5, friction: 0.986, critChance: 0.02, critMult: 1.25,
+            bounceHeightBase: 2.3 // 표준 아케이드 통통 바운스
+        }
     },
     {
         id: 2, nameKey: 'stone2', name: '고밀도 현무암', rarity: 'Legendary', color: '#c084fc',
@@ -228,7 +234,8 @@ const STONES = [
         critBudgetRange: [20, 25],
         physics: {
             vzDecay: 0.70, vyDecay: 0.90, baseVz: 0.8, friction: 0.970, critChance: 0.025,
-            critPhysics: { vzDecay: 0.90, vyDecay: 0.98, baseVz: 1.6, friction: 0.998 }
+            bounceHeightBase: 1.5, // 묵직하게 낮게 뜀
+            critPhysics: { vzDecay: 0.90, vyDecay: 0.98, baseVz: 1.6, friction: 0.998, bounceHeightBase: 2.6 }
         }
     },
     {
@@ -238,7 +245,8 @@ const STONES = [
         lottoBudgetRange: [40, 50],
         physics: {
             lottoChance: 1 / 2036265,
-            lottoPhysics: { vzDecay: 0.99, vyDecay: 0.999, baseVz: 2.5, friction: 0.9999 }
+            bounceHeightBase: 2.5, // 탄력 있는 하이 바운스
+            lottoPhysics: { vzDecay: 0.99, vyDecay: 0.999, baseVz: 2.5, friction: 0.9999, bounceHeightBase: 2.8 }
         }
     }
 ];
@@ -1200,13 +1208,49 @@ function runGameLoop() {
     animFrameId = requestAnimationFrame(runGameLoop);
 }
 
-// ===================================================================
-//  🎮 [아케이드 개편] 부드러운 아케이드 중력 & 바운스 타이밍 루프
-// ===================================================================
+// 2. 화면 이탈 방지 투영 함수 (최대 85px 상한선 고정)
+function applyStonePos() {
+    const el = document.getElementById('ingame-stone');
+    if (!el) return;
+
+    const rawOffset = isDead ? Math.max(-30, stone.z * 1.5) : Math.max(0, stone.z * 2.2);
+    const bounceOff = Math.min(85, rawOffset); 
+
+    const x = STONE_FIXED_X;
+    const y = STONE_FIXED_Y - bounceOff;
+
+    el.style.left = `${x}px`;
+    el.style.top = `${y}px`;
+    el.style.bottom = 'auto';
+
+    const rot = stone.y * 3.0;
+
+    if (isDead) {
+        const op = Math.max(0, 1 + stone.z / 30);
+        el.style.transform = `translate(-50%,-50%) scale(0.85) rotate(${rot}deg)`;
+        el.style.opacity = op;
+    } else {
+        let scaleX = 1.0;
+        let scaleY = 1.0;
+
+        if (stone.z <= 0.8 && stone.vz < 0) {
+            scaleX = 1.15;
+            scaleY = 0.85;
+        } else if (stone.vz > 1.2) {
+            scaleX = 0.92;
+            scaleY = 1.08;
+        }
+
+        el.style.transform = `translate(-50%,-50%) scale(${scaleX}, ${scaleY}) rotate(${rot}deg)`;
+        el.style.opacity = '1';
+    }
+}
+
+// 3. 물리 루프 함수 (경쾌한 아케이드 중력)
 function updatePhysics() {
     if (!isDead) {
         stone.z += stone.vz;
-        stone.vz -= 0.22; // [체감 최적화 중력] 경쾌한 체공 시간을 만드는 아케이드 중력
+        stone.vz -= 0.18;
         stone.x += stone.vx;
         stone.y += stone.vy;
     } else {
@@ -1216,21 +1260,18 @@ function updatePhysics() {
         return;
     }
 
-    // 배경 패럴랙스 추진
-    rippleLayers.forEach(l => { l.z += stone.vy * 0.0009; if (l.z >= 1.0) l.z -= 1.0; });
+    rippleLayers.forEach(l => { l.z += stone.vy * 0.0008; if (l.z >= 1.0) l.z -= 1.0; });
     for (let i = wakes.length - 1; i >= 0; i--) {
         const w = wakes[i]; w.xL += w.vxL; w.xR += w.vxR; w.y += w.vy; w.vy *= 0.94; w.alpha -= 0.022;
         if (w.alpha <= 0) wakes.splice(i, 1);
     }
-    layerProgress += stone.vy * 0.0001;
+    layerProgress += stone.vy * 0.00009;
 
-    // 완만한 자연 감속
-    const wm = 1 + (upgrades.weight * 0.001);
-    stone.vy *= Math.min(0.995, 0.985 * wm);
+    const wm = 1 + (upgrades.weight * 0.0008);
+    stone.vy *= Math.min(0.994, 0.982 * wm);
     stone.vx *= 0.98;
 
-    // 하강 타이밍 탭 윈도우 활성화
-    if (stone.vz < 0 && stone.z <= 6.0 && !isWindowActive && !hasTappedBounce && !isDead) {
+    if (stone.vz < 0 && stone.z <= 5.0 && !isWindowActive && !hasTappedBounce && !isDead) {
         tapWindowStart = Date.now();
         isWindowActive = true;
     }
@@ -1239,13 +1280,11 @@ function updatePhysics() {
         if (markerProgress >= 1.0) isWindowActive = false;
     }
 
-    // 수면 접촉 충돌 판정
-    if (stone.vz < 0 && stone.z <= 0.5 && !isDead) {
+    if (stone.vz < 0 && stone.z <= 0.4 && !isDead) {
         if (hasTappedBounce) {
             hasTappedBounce = false;
         } else {
-            // 버짓 수명이 남아있고 속도가 살아있으면 경쾌하게 자동 바운스
-            if (stone.remainingBudget > 0 && stone.vy > 1.2) {
+            if (stone.remainingBudget > 0 && stone.vy > 1.0) {
                 stone.z = 0;
                 processBounce('GOOD', true);
             } else {
@@ -1254,55 +1293,12 @@ function updatePhysics() {
         }
     }
 
-    // 조기 침수 가드
-    if (stone.vz < 0 && stone.z < -8 && !isDead && !hasTappedBounce) {
+    if (stone.vz < 0 && stone.z < -6 && !isDead && !hasTappedBounce) {
         triggerWaterMiss();
     }
 
     if (currentStatus === 'FLYING' && !isDead) createTrailParticle(STONE_FIXED_X, STONE_FIXED_Y);
     applyStonePos();
-}
-
-// ===================================================================
-//  🎮 [아케이드 개편] 카툰 스쿼시&스트레치 및 통통 도약 화면 투영
-// ===================================================================
-function applyStonePos() {
-    const el = document.getElementById('ingame-stone');
-    if (!el) return;
-
-    // 수직 도약폭을 4.2배로 시원하게 증폭하여 눈에 확 띄는 포물선 연출
-    const bounceOff = isDead ? Math.max(-40, stone.z * 2.5) : Math.max(0, stone.z * 4.2);
-    const x = STONE_FIXED_X;
-    const y = STONE_FIXED_Y - bounceOff;
-
-    el.style.left = `${x}px`;
-    el.style.top = `${y}px`;
-    el.style.bottom = 'auto';
-
-    const rot = stone.y * 3.2;
-
-    if (isDead) {
-        const op = Math.max(0, 1 + stone.z / 30);
-        el.style.transform = `translate(-50%,-50%) scale(0.85) rotate(${rot}deg)`;
-        el.style.opacity = op;
-    } else {
-        // [핵심] 공중에 떴을 때와 수면에 닿을 때 탄성 변형(Squash & Stretch) 부여
-        let scaleX = 1.0;
-        let scaleY = 1.0;
-
-        if (stone.z <= 1.2 && stone.vz < 0) {
-            // 수면 닿기 직전: 납작하게 찌그러짐 (착지 타격감)
-            scaleX = 1.25;
-            scaleY = 0.78;
-        } else if (stone.vz > 1.5) {
-            // 위로 솟구칠 때: 수직으로 길쭉해짐
-            scaleX = 0.88;
-            scaleY = 1.15;
-        }
-
-        el.style.transform = `translate(-50%,-50%) scale(${scaleX}, ${scaleY}) rotate(${rot}deg)`;
-        el.style.opacity = '1';
-    }
 }
 
 // ===========================================================
@@ -1341,9 +1337,7 @@ function registerBounceTap(e) {
     }
 }
 
-// ===================================================================
-//  🎮 [아케이드 개편] 통! 통! 솟구치는 리듬 점프 바운스 엔진
-// ===================================================================
+// 4. 아케이드 통통 바운스 판정 함수
 function processBounce(rating, isAuto = false) {
     bounceCount++;
     const ex = STONE_FIXED_X, ey = STONE_FIXED_Y;
@@ -1351,14 +1345,13 @@ function processBounce(rating, isAuto = false) {
     if (!isAuto) spawnRatingText(ex, ey, rating);
     spawnRipple(ex, ey);
 
-    // 파티클 생성
-    const wakeCount = 20;
+    const wakeCount = 18;
     for (let i = 0; i < wakeCount / 2; i++) {
-        particles.push(new WakeParticle(ex, ey, -Math.random() * 4 - 2, -stone.vy * 0.3));
-        particles.push(new WakeParticle(ex, ey, Math.random() * 4 + 2, -stone.vy * 0.3));
+        particles.push(new WakeParticle(ex, ey, -Math.random() * 3.5 - 1.5, -stone.vy * 0.25));
+        particles.push(new WakeParticle(ex, ey, Math.random() * 3.5 + 1.5, -stone.vy * 0.25));
     }
 
-    const em = Math.pow(1.08, upgrades.elasticity);
+    const em = Math.pow(1.06, upgrades.elasticity);
     const sp = stone.activePhys || selectedStone.physics;
     const rarity = selectedStone.rarity;
 
@@ -1366,41 +1359,41 @@ function processBounce(rating, isAuto = false) {
     else if (rarity === 'Legendary') triggerShake('medium');
     else if (rarity === 'Rare') triggerShake('light');
 
-    let pCount = rarity === 'Mythic' ? 14 : rarity === 'Legendary' ? 45 : rarity === 'Rare' ? 30 : 18;
+    let pCount = rarity === 'Mythic' ? 14 : rarity === 'Legendary' ? 40 : rarity === 'Rare' ? 25 : 16;
 
-    // 수명(버짓) 1회 소모
     stone.remainingBudget--;
 
-    // [핵심] 현실 물리 대신 경쾌한 '통!' 도약 기초 양력 부여
-    let bouncePower = 4.2; 
+    const stoneBaseHeight = sp.bounceHeightBase || 2.0;
+    const swipeFactor = Math.max(0.85, Math.min(1.25, 0.85 + (swipeSpeed / 38) * 0.4));
 
+    let ratingMult = 1.0;
     if (rating === 'PERFECT') {
         perfectCount++;
-        bouncePower = 5.6; // 퍼펙트 시 시원하게 높이 솟구침
+        ratingMult = 1.35;
         if (!isAuto) {
             stone.remainingBudget += 1;
-            stone.vy = Math.min(stone.vy * 1.15 + 1.2, 42); // 속도 추진 보너스
+            stone.vy = Math.min(stone.vy * 1.08 + 0.8, 38);
             const earned = Math.round(100 * selectedStone.mult * 2.5);
             document.getElementById('message').innerText = `${t('perfectTiming')} (+${earned} SP)`;
             playerSP += earned;
         } else {
             stone.vy *= 0.95;
         }
-        createParticles(ex, ey, true, false, Math.round(pCount * 1.4));
+        createParticles(ex, ey, true, false, Math.round(pCount * 1.3));
         haptic('heavy');
         SoundManager.playBounce(true);
         if (perfectCount === 1 && !isAuto) { spawnDramaticText(t('perfect') + ' BOUNCE!', 'neon-lime'); triggerShake('medium'); }
         if (rarity === 'Mythic') spawnGodSplash(ex, ey);
 
     } else if (rating === 'GOOD') {
-        bouncePower = 4.0; // 기분 좋은 표준 통통 도약
+        ratingMult = 1.0;
         if (!isAuto) {
-            stone.vy = Math.min(stone.vy * 1.05 + 0.6, 40);
+            stone.vy = Math.min(stone.vy * 1.03 + 0.4, 36);
             const earned = Math.round(100 * selectedStone.mult * 1.2);
             document.getElementById('message').innerText = `${t('goodTiming')} (+${earned} SP)`;
             playerSP += earned;
         } else {
-            stone.vy *= 0.91; // 자동 바운스 감속
+            stone.vy *= 0.92;
             const earned = Math.round(100 * selectedStone.mult * 0.4);
             playerSP += earned;
         }
@@ -1410,8 +1403,8 @@ function processBounce(rating, isAuto = false) {
         if (rarity === 'Mythic') spawnGodSplash(ex, ey);
 
     } else {
-        bouncePower = 2.0; // 둔탁한 감속
-        stone.vy *= 0.55;
+        ratingMult = 0.55;
+        stone.vy *= 0.6;
         stone.remainingBudget = Math.max(0, stone.remainingBudget - 1);
         const earned = Math.round(100 * selectedStone.mult * 0.2);
         if (!isAuto) document.getElementById('message').innerText = t('badTiming');
@@ -1424,15 +1417,14 @@ function processBounce(rating, isAuto = false) {
     triggerWake(ex, ey, 1.0);
     const spEl = document.getElementById('sp-count');
     if (spEl) {
-        spEl.style.transform = 'scale(1.25)';
+        spEl.style.transform = 'scale(1.2)';
         spEl.style.color = 'var(--neon-gold)';
-        setTimeout(() => { spEl.style.transform = ''; spEl.style.color = ''; }, 200);
+        setTimeout(() => { spEl.style.transform = ''; spEl.style.color = ''; }, 180);
     }
 
-    // [핵심] 버짓 잔여량에 따라 점진적으로만 자연스럽게 착지 유도 (조기 추락 방지)
     const budgetFactor = Math.max(0.65, stone.remainingBudget / Math.max(1, stone.totalBudget));
-    stone.z = 0.5;
-    stone.vz = bouncePower * em * budgetFactor; // 시원한 수직 솟구침 보장
+    stone.z = 0.4;
+    stone.vz = stoneBaseHeight * swipeFactor * ratingMult * em * budgetFactor;
 
     isWindowActive = false;
     hasTappedBounce = false;
