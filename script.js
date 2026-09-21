@@ -1077,52 +1077,54 @@ function dragEnd(e) {
     else { const el = document.getElementById('ingame-stone'); el.style.transition = 'transform 0.3s'; el.style.transform = 'translateX(-50%) scale(1)'; setTimeout(() => el.style.transition = '', 350); }
 }
 
-// ===========================================================
-//  🚀 동적 물리학 탄성 계수 대입 발사
-// ===========================================================
+// ===================================================================
+//  🚀 [복원] 장거리 롱 바운스 & 실력 연동 무한 도약 물리 엔진
+// ===================================================================
+
+// 1. 발사 시 초기 버짓(수명) 및 스와이프 파워 보너스 대폭 상향
 function triggerLaunch(dy, dx) {
     isDragging = false; unbindLaunchEvents(); cancelAnimationFrame(angleTimerId);
     document.getElementById('swipe-guide').style.display = 'none';
     document.getElementById('angle-gauge-wrap').style.display = 'none';
 
-    const dur = Math.max(1, Date.now()-startTime); const effDy = Math.min(dy, 150);
-    swipeSpeed = Math.min((effDy/dur)*15, 38); const distFact = effDy/150;
+    const dur = Math.max(1, Date.now() - startTime); 
+    const effDy = Math.min(dy, 150);
+    swipeSpeed = Math.min((effDy / dur) * 15, 38); 
+    const distFact = effDy / 150;
 
     stone.x = 0; stone.y = 0; stone.z = 15;
-    const rad = launchAngle*Math.PI/180;
-    stone.vy = (swipeSpeed*Math.cos(rad))*distFact;
-    stone.vz = (swipeSpeed*Math.sin(rad)*0.75)*distFact;
-    stone.vx = ((dx/dur)*2)*distFact;
+    const rad = launchAngle * Math.PI / 180;
+    stone.vy = (swipeSpeed * Math.cos(rad)) * distFact;
+    stone.vz = (swipeSpeed * Math.sin(rad) * 0.75) * distFact;
+    stone.vx = ((dx / dur) * 2) * distFact;
 
     let zone = getAngleZone(angleVal);
     if (gaugeSpeedMult >= 3.0 && zone === 'PERFECT') zone = 'EASTEREG';
 
-    let ap=null, isCrit=false, isLotto=false; 
+    let ap = null, isCrit = false, isLotto = false; 
     const ss = selectedStone;
-
-    // 버짓 기본 범위 설정 및 황금 운석 복제 분기
     let bRange = ss.budgetRange;
 
     if (ss.rarity === 'Mythic') {
         if (window.forceLotto || Math.random() < ss.physics.lottoChance) { 
             ap = JSON.parse(JSON.stringify(ss.physics.lottoPhysics)); 
             isLotto = true; 
-            bRange = ss.lottoBudgetRange; // [40, 50]
+            bRange = ss.lottoBudgetRange; 
         } else {
             const ref = Math.random() < 0.5 ? STONES[0] : STONES[2];
             if (ref === STONES[2]) {
                 if (window.forceCrit || Math.random() < ref.physics.critChance) {
                     ap = JSON.parse(JSON.stringify(ref.physics.critPhysics)); 
                     isCrit = true; 
-                    bRange = STONES[2].critBudgetRange; // [20, 25]
+                    bRange = STONES[2].critBudgetRange; 
                 } else {
                     ap = JSON.parse(JSON.stringify(ref.physics)); 
-                    bRange = STONES[2].budgetRange;     // [5, 7]
+                    bRange = STONES[2].budgetRange;     
                 }
             } else {
                 ap = JSON.parse(JSON.stringify(ref.physics)); 
                 if (window.forceCrit || Math.random() < (ap.critChance || 0)) isCrit = true; 
-                bRange = STONES[0].budgetRange;         // [12, 16]
+                bRange = STONES[0].budgetRange;         
             }
         }
     } else if (ss.rarity === 'Legendary') {
@@ -1138,28 +1140,27 @@ function triggerLaunch(dy, dx) {
         if (window.forceCrit || Math.random() < (ap.critChance || 0)) isCrit = true; 
     }
 
-    const sf = swipeSpeed/20; 
-    if (ap) ap.friction = Math.min(0.9994, (ap.friction||0.978) + sf*0.0006);
+    const sf = swipeSpeed / 20; 
+    if (ap) ap.friction = Math.min(0.9994, (ap.friction || 0.978) + sf * 0.0006);
 
     stone.activePhys = ap; stone.isCrit = isCrit; stone.isLotto = isLotto;
     bounceCount = 0; perfectCount = 0; isDead = false; hasTappedBounce = false; tapsInCurrentCycle = 0;
     markerProgress = 0; isWindowActive = false; tapWindowStart = 0;
-    for (let i=0;i<14;i++) rippleLayers[i].z = i/14; layerProgress = 0;
+    for (let i = 0; i < 14; i++) rippleLayers[i].z = i / 14; layerProgress = 0;
 
-    // 1차 판정 퍼센트(%) 곱셈 계수 결정
     let launchPercent = 1.0;
     if (zone === 'EASTEREG') {
-        launchPercent = 2.0;
+        launchPercent = 2.2;
         document.getElementById('message').innerText = gaugeSpeedMult >= 3.0 ? "⚡ MAX SPEED HYPER DRIVE! ⚡" : "⚡ 하이퍼 드라이브 발사! ⚡";
         spawnDramaticText("HYPER DRIVE!", 'neon-gold');
         triggerShake('heavy');
     } else if (zone === 'PERFECT') {
-        launchPercent = 1.5;
+        launchPercent = 1.6;
         document.getElementById('message').innerText = "✨ PERFECT LAUNCH! ✨";
         spawnDramaticText("PERFECT LAUNCH!", 'neon-lime');
         triggerShake('medium');
     } else if (zone === 'GREEN') {
-        launchPercent = 1.2;
+        launchPercent = 1.25;
         document.getElementById('message').innerText = "👍 안정적인 그린 발사";
         haptic('medium');
     } else if (zone === 'RED') {
@@ -1175,21 +1176,20 @@ function triggerLaunch(dy, dx) {
         haptic('medium');
     }
 
-    // 1. 스와이프 파워 보너스 횟수 산출 (3단계)
+    // [개선 1] 스와이프 파워 보너스 수명 대폭 확대
     let swipeBonus = 0;
     if (swipeSpeed >= 30) {
-        swipeBonus = 4; // 초광속 풀파워
+        swipeBonus = 8; // 초광속 투척 시 +8회
     } else if (swipeSpeed >= 18) {
-        swipeBonus = 2; // 쾌속 투척
+        swipeBonus = 4; // 쾌속 투척 시 +4회
     }
 
-    // 2. 기본 난수 산출 + 스와이프 보너스 가산 + 1차 판정 배율 적용
     const rawBase = Math.floor(Math.random() * (bRange[1] - bRange[0] + 1)) + bRange[0];
-    stone.totalBudget = Math.max(1, Math.round((rawBase + swipeBonus) * launchPercent));
+    stone.totalBudget = Math.max(5, Math.round((rawBase + swipeBonus) * launchPercent));
     stone.remainingBudget = stone.totalBudget;
 
-    stone.vy *= Math.max(0.8, launchPercent);
-    stone.vz *= Math.max(0.8, launchPercent);
+    stone.vy *= Math.max(0.9, launchPercent);
+    stone.vz *= Math.max(0.9, launchPercent);
     gaugeSpeedMult = 2.0;
 
     currentStatus = 'FLYING'; isPlaying = true;
@@ -1197,7 +1197,7 @@ function triggerLaunch(dy, dx) {
     SoundManager.playLaunch(swipeSpeed);
 
     document.getElementById('game-container').addEventListener('mousedown', registerBounceTap);
-    document.getElementById('game-container').addEventListener('touchstart', registerBounceTap, {passive:true});
+    document.getElementById('game-container').addEventListener('touchstart', registerBounceTap, { passive: true });
 
     runGameLoop();
 }
@@ -1246,11 +1246,11 @@ function applyStonePos() {
     }
 }
 
-// 3. 물리 루프 함수 (경쾌한 아케이드 중력)
+// 2. 물리 루프: 조기 침수 가드 완화 및 잔여 버짓 완전 보장
 function updatePhysics() {
     if (!isDead) {
         stone.z += stone.vz;
-        stone.vz -= 0.18;
+        stone.vz -= 0.17; // 부드러운 아케이드 체공 중력
         stone.x += stone.vx;
         stone.y += stone.vy;
     } else {
@@ -1267,8 +1267,9 @@ function updatePhysics() {
     }
     layerProgress += stone.vy * 0.00009;
 
+    // 자연스러운 완만 감속 (속도가 급격히 죽는 것 방지)
     const wm = 1 + (upgrades.weight * 0.0008);
-    stone.vy *= Math.min(0.994, 0.982 * wm);
+    stone.vy *= Math.min(0.996, 0.988 * wm);
     stone.vx *= 0.98;
 
     if (stone.vz < 0 && stone.z <= 5.0 && !isWindowActive && !hasTappedBounce && !isDead) {
@@ -1280,17 +1281,23 @@ function updatePhysics() {
         if (markerProgress >= 1.0) isWindowActive = false;
     }
 
+    // [개선 2] 수면 접촉 바운스: 컷오프를 0.3으로 낮춰 버짓이 남아있으면 계속 튀김
     if (stone.vz < 0 && stone.z <= 0.4 && !isDead) {
         if (hasTappedBounce) {
             hasTappedBounce = false;
         } else {
-            if (stone.remainingBudget > 0 && stone.vy > 1.0) {
+            if (stone.remainingBudget > 0 && stone.vy > 0.3) {
                 stone.z = 0;
                 processBounce('GOOD', true);
             } else {
                 triggerWaterSink();
             }
         }
+    }
+
+    // 완전히 멈췄을 때만 자연스럽게 가라앉음
+    if (stone.vy < 0.25 && !isDead && stone.remainingBudget <= 0) {
+        triggerWaterSink();
     }
 
     if (stone.vz < 0 && stone.z < -6 && !isDead && !hasTappedBounce) {
@@ -1337,7 +1344,7 @@ function registerBounceTap(e) {
     }
 }
 
-// 4. 아케이드 통통 바운스 판정 함수
+// 3. 바운스 판정: PERFECT/GOOD 시 수명 보너스 연장 및 속도 재추진
 function processBounce(rating, isAuto = false) {
     bounceCount++;
     const ex = STONE_FIXED_X, ey = STONE_FIXED_Y;
@@ -1361,6 +1368,7 @@ function processBounce(rating, isAuto = false) {
 
     let pCount = rarity === 'Mythic' ? 14 : rarity === 'Legendary' ? 40 : rarity === 'Rare' ? 25 : 16;
 
+    // 기본 수명 1회 소모
     stone.remainingBudget--;
 
     const stoneBaseHeight = sp.bounceHeightBase || 2.0;
@@ -1371,13 +1379,14 @@ function processBounce(rating, isAuto = false) {
         perfectCount++;
         ratingMult = 1.35;
         if (!isAuto) {
-            stone.remainingBudget += 1;
-            stone.vy = Math.min(stone.vy * 1.08 + 0.8, 38);
+            // [개선 3] 수동 퍼펙트 탭 시 수명 +2회 대폭 연장 & 전진 추진력 강력 부스트!
+            stone.remainingBudget += 2; 
+            stone.vy = Math.min(stone.vy * 1.12 + 1.5, 45); 
             const earned = Math.round(100 * selectedStone.mult * 2.5);
             document.getElementById('message').innerText = `${t('perfectTiming')} (+${earned} SP)`;
             playerSP += earned;
         } else {
-            stone.vy *= 0.95;
+            stone.vy *= 0.96;
         }
         createParticles(ex, ey, true, false, Math.round(pCount * 1.3));
         haptic('heavy');
@@ -1388,12 +1397,14 @@ function processBounce(rating, isAuto = false) {
     } else if (rating === 'GOOD') {
         ratingMult = 1.0;
         if (!isAuto) {
-            stone.vy = Math.min(stone.vy * 1.03 + 0.4, 36);
+            // 수동 굿 탭 시 수명 +1회 유지
+            stone.remainingBudget += 1;
+            stone.vy = Math.min(stone.vy * 1.05 + 0.8, 40);
             const earned = Math.round(100 * selectedStone.mult * 1.2);
             document.getElementById('message').innerText = `${t('goodTiming')} (+${earned} SP)`;
             playerSP += earned;
         } else {
-            stone.vy *= 0.92;
+            stone.vy *= 0.94;
             const earned = Math.round(100 * selectedStone.mult * 0.4);
             playerSP += earned;
         }
@@ -1404,7 +1415,7 @@ function processBounce(rating, isAuto = false) {
 
     } else {
         ratingMult = 0.55;
-        stone.vy *= 0.6;
+        stone.vy *= 0.65;
         stone.remainingBudget = Math.max(0, stone.remainingBudget - 1);
         const earned = Math.round(100 * selectedStone.mult * 0.2);
         if (!isAuto) document.getElementById('message').innerText = t('badTiming');
@@ -1422,7 +1433,8 @@ function processBounce(rating, isAuto = false) {
         setTimeout(() => { spEl.style.transform = ''; spEl.style.color = ''; }, 180);
     }
 
-    const budgetFactor = Math.max(0.65, stone.remainingBudget / Math.max(1, stone.totalBudget));
+    // 점프 높이: 버짓이 남아있는 한 일정 수준 이상의 통통한 점프력 유지
+    const budgetFactor = Math.max(0.75, stone.remainingBudget / Math.max(1, stone.totalBudget));
     stone.z = 0.4;
     stone.vz = stoneBaseHeight * swipeFactor * ratingMult * em * budgetFactor;
 
