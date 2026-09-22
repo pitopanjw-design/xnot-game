@@ -1309,7 +1309,7 @@ function updatePhysics() {
 }
 
 // ===========================================================
-//  🎯 실시간 타이밍 탭 판정 레이어
+//  🎯 실시간 타이밍 탭 판정 레이어 (수축 링 동기화)
 // ===========================================================
 function registerBounceTap(e) {
     if (currentStatus !== 'FLYING' || isDead) return;
@@ -1332,13 +1332,16 @@ function registerBounceTap(e) {
         return;
     }
 
-    // [LOCK MECHANISM] 인터럽트 및 이중 프레임 연타 완전 차단 — 동기식 3중 잠금
+    // [LOCK MECHANISM] 중복 판정 차단
     isWindowActive = false;
     hasTappedBounce = true;
-    stone.z = 0; // 수동 판정 즉시 수면 좌표 클램핑
+    stone.z = 0;
 
-    if (markerProgress < 1.0) {
+    // 수축 링이 기준 링과 75% ~ 100% 일치할 때 PERFECT
+    if (markerProgress >= 0.72 && markerProgress <= 1.0) {
         processBounce('PERFECT', false);
+    } else if (markerProgress >= 0.30 && markerProgress < 0.72) {
+        processBounce('GOOD', false);
     } else {
         processBounce('BAD', false);
     }
@@ -1602,108 +1605,102 @@ function draw7LayerBG() {
 }
 
 // ===========================================================
-//  ✨ 카툰 속도선 & 이펙트 파티클 렌더링 엔진
+// ===========================================================
+//  ✨ 카툰 속도선 & 이펙트 파티클 렌더링 엔진 (수면 수축 타겟 링 탑재)
 // ===========================================================
 function drawFxCanvas() {
     fxCtx.clearRect(0, 0, W, H);
 
+    // 1. 비행 중 속도선 연출
     if (currentStatus === 'FLYING' && !isDead) {
         const speed = stone.vy;
         if (speed > 3) {
             const lineCount = Math.min(72, Math.floor((speed - 3) * 3.5));
             const alpha = Math.max(0, Math.min(0.8, (speed - 3) / 20));
-            fxCtx.save(); fxCtx.globalAlpha = alpha;
+            fxCtx.save(); 
+            fxCtx.globalAlpha = alpha;
             for (let i = 0; i < lineCount; i++) {
                 const angle = (i / lineCount) * Math.PI * 2 + (stone.y * 0.05);
-                const startR = W * 0.42 + Math.random() * W * 0.10; const endR = W * 0.55 + Math.random() * W * 0.25;
-                const ex1 = CX + Math.cos(angle) * startR; const ey1 = HORIZON_Y + Math.sin(angle) * startR * 0.45;
-                const ex2 = CX + Math.cos(angle) * endR; const ey2 = HORIZON_Y + Math.sin(angle) * endR * 0.45;
+                const startR = W * 0.42 + Math.random() * W * 0.10; 
+                const endR = W * 0.55 + Math.random() * W * 0.25;
+                const ex1 = CX + Math.cos(angle) * startR; 
+                const ey1 = HORIZON_Y + Math.sin(angle) * startR * 0.45;
+                const ex2 = CX + Math.cos(angle) * endR; 
+                const ey2 = HORIZON_Y + Math.sin(angle) * endR * 0.45;
 
-                const rarity = selectedStone?.rarity || 'Ordinary'; let lc = 'rgba(255,255,255,0.8)';
-                if (rarity === 'Mythic') lc = 'rgba(255,215,0,0.9)'; else if (rarity === 'Legendary') lc = 'rgba(192,132,252,0.85)'; else if (rarity === 'Rare') lc = 'rgba(0,240,255,0.85)';
+                const rarity = selectedStone?.rarity || 'Ordinary'; 
+                let lc = 'rgba(255,255,255,0.8)';
+                if (rarity === 'Mythic') lc = 'rgba(255,215,0,0.9)'; 
+                else if (rarity === 'Legendary') lc = 'rgba(192,132,252,0.85)'; 
+                else if (rarity === 'Rare') lc = 'rgba(0,240,255,0.85)';
 
-                fxCtx.beginPath(); fxCtx.moveTo(ex1, ey1); fxCtx.lineTo(ex2, ey2); fxCtx.strokeStyle = lc;
+                fxCtx.beginPath(); 
+                fxCtx.moveTo(ex1, ey1); 
+                fxCtx.lineTo(ex2, ey2); 
+                fxCtx.strokeStyle = lc;
                 fxCtx.lineWidth = (Math.random() * 2 + 0.5) * Math.max(0.5, Math.min(3.0, (speed - 3) / 10));
-                fxCtx.shadowBlur = 3; fxCtx.shadowColor = '#000'; fxCtx.stroke();
+                fxCtx.shadowBlur = 3; 
+                fxCtx.shadowColor = '#000'; 
+                fxCtx.stroke();
             }
             fxCtx.restore();
         }
     }
 
-    for (let i = particles.length - 1; i >= 0; i--) { const p = particles[i]; p.update(); p.draw(fxCtx); if (p.alpha <= 0) particles.splice(i, 1); }
+    // 2. 등록된 파티클 렌더링
+    for (let i = particles.length - 1; i >= 0; i--) { 
+        const p = particles[i]; 
+        p.update(); 
+        p.draw(fxCtx); 
+        if (p.alpha <= 0) particles.splice(i, 1); 
+    }
 
-    if (currentStatus === 'FLYING' && !isDead) {
-        if (isWindowActive) {
-            const X = STONE_FIXED_X;
-            const stoneY = STONE_FIXED_Y - (isDead ? stone.z * 2 : stone.z * 1.8);
-            const Y = stoneY - 45;
+    // 3. [개선] 수면 파동(Ripple)과 일치하는 와이드 네온 타겟 링
+    if (currentStatus === 'FLYING' && !isDead && isWindowActive) {
+        const X = STONE_FIXED_X;
+        const Y = STONE_FIXED_Y + 10; // 돌 그래픽 바로 밑 수면 기준선
 
-            const ratio = Math.max(0, Math.min(1.0, 1.0 - markerProgress));
+        fxCtx.save();
 
-            fxCtx.save();
-            fxCtx.globalAlpha = 1.0;
-            fxCtx.translate(X, Y);
+        // A. 수면 위 고정 타겟 링 (돌 밑에 가려지지 않는 넉넉한 황금 타겟 타원)
+        // 세로 비율을 0.52로 넓혀 가로 일자선으로 보이는 왜곡 차단
+        const baseRadiusX = 64;
+        const baseRadiusY = 32;
 
-            let scale = 1.0 + ratio * 0.3;
-            if (markerProgress > 0.75) {
-                if (Math.floor(Date.now() / 50) % 2 === 0) {
-                    scale = 0;
-                }
-            }
-            fxCtx.scale(scale, scale);
+        fxCtx.beginPath();
+        fxCtx.ellipse(X, Y, baseRadiusX, baseRadiusY, 0, 0, Math.PI * 2);
+        fxCtx.strokeStyle = 'rgba(255, 215, 0, 0.95)'; // 선명한 골드
+        fxCtx.lineWidth = 3.5;
+        fxCtx.shadowBlur = 12;
+        fxCtx.shadowColor = '#ffd700';
+        fxCtx.stroke();
 
+        // B. 바깥 수면 파동 영역에서 골든 타겟 링으로 좁혀져 들어오는 수축 링
+        // markerProgress (0.0 -> 1.0) 진행에 따라 넓은 파동(140px)에서 타겟(64px)으로 정확히 축소 포개짐
+        const progress = Math.min(1.0, Math.max(0.0, markerProgress));
+        const currentRx = 140 - (progress * (140 - baseRadiusX));
+        const currentRy = currentRx * 0.50; // 파동과 완벽히 동일한 원형 굴곡감 유지
+        const ringAlpha = Math.min(1.0, 0.4 + progress * 0.6);
+
+        fxCtx.beginPath();
+        fxCtx.ellipse(X, Y, currentRx, currentRy, 0, 0, Math.PI * 2);
+        fxCtx.strokeStyle = `rgba(0, 240, 255, ${ringAlpha})`; // 네온 사이언 링
+        fxCtx.lineWidth = 3.0;
+        fxCtx.shadowBlur = 10;
+        fxCtx.shadowColor = '#00f0ff';
+        fxCtx.stroke();
+
+        // C. 타이밍 임박 안내
+        if (progress >= 0.65) {
             fxCtx.font = '900 22px "Impact", "Arial Black", sans-serif';
             fxCtx.textAlign = 'center';
-            fxCtx.textBaseline = 'middle';
-
-            fxCtx.strokeStyle = '#3b0712';
-            fxCtx.lineWidth = 6;
-            fxCtx.strokeText('TAP!', 0, 0);
-
-            fxCtx.strokeStyle = '#f97316';
-            fxCtx.lineWidth = 3;
-            fxCtx.strokeText('TAP!', 0, 0);
-
-            const grad = fxCtx.createLinearGradient(0, -10, 0, 10);
-            grad.addColorStop(0, '#fde047');
-            grad.addColorStop(0.4, '#eab308');
-            grad.addColorStop(1, '#dc2626');
-            fxCtx.fillStyle = grad;
-            fxCtx.fillText('TAP!', 0, 0);
-            fxCtx.restore();
-
-            if (Math.random() < 0.4) {
-                const sparkCount = Math.random() < 0.5 ? 1 : 2;
-                for (let i = 0; i < sparkCount; i++) {
-                    const angle = Math.random() * Math.PI * 2;
-                    const speed = Math.random() * 2 + 1;
-                    const size = Math.random() * 3 + 2;
-                    const colors = ['#fde047', '#eab308', '#f97316', '#dc2626'];
-                    particles.push({
-                        x: X + (Math.random() - 0.5) * 40,
-                        y: Y + (Math.random() - 0.5) * 15,
-                        vx: Math.cos(angle) * speed,
-                        vy: Math.sin(angle) * speed - 1,
-                        size: size,
-                        alpha: 1.0,
-                        decay: Math.random() * 0.04 + 0.03,
-                        color: colors[Math.floor(Math.random() * colors.length)],
-                        update() {
-                            this.x += this.vx;
-                            this.y += this.vy;
-                            this.alpha -= this.decay;
-                        },
-                        draw(ctx) {
-                            ctx.save();
-                            ctx.globalAlpha = Math.max(0, this.alpha);
-                            ctx.fillStyle = this.color;
-                            ctx.fillRect(this.x - this.size / 2, this.y - this.size / 2, this.size, this.size);
-                            ctx.restore();
-                        }
-                    });
-                }
-            }
+            fxCtx.fillStyle = '#d9ff00';
+            fxCtx.shadowBlur = 10;
+            fxCtx.shadowColor = '#000';
+            fxCtx.fillText('TAP!', X, Y - 50);
         }
+
+        fxCtx.restore();
     }
 }
 
@@ -1821,9 +1818,46 @@ function createTrailParticle(x, y) { const cnt = selectedStone?.rarity === 'Myth
 function spawnRipple(x, y) { const r = document.createElement('div'); r.className = 'ripple'; r.style.left = `${x}px`; r.style.top = `${y}px`; document.getElementById('game-container').appendChild(r); setTimeout(() => r.remove(), 850); }
 function spawnRatingText(x, y, rating) { const d = document.createElement('div'); d.className = `effect-text ${rating.toLowerCase()}`; d.style.left = `${x}px`; d.style.top = `${y - 45}px`; const map = { PERFECT: 'PERFECT!', GOOD: 'GOOD!', BAD: 'BAD', MISS: 'MISS' }; d.innerText = map[rating] || rating; document.getElementById('game-container').appendChild(d); setTimeout(() => d.remove(), 920); }
 function spawnBounceMarker(x, y, count) {
-    const d = document.createElement('div'); d.style.cssText = `position:absolute;left:${x}px;top:${y}px;transform:translate(-50%,-50%);background:rgba(0,0,0,0.75);color:#d9ff00;border:1.5px solid #d9ff00;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:900;z-index:18;pointer-events:none;text-shadow:-1px -1px 0 #000;animation:point-fade 1.5s ease-out forwards;`; d.innerText = `${count}◆`; document.getElementById('game-container').appendChild(d);
-    const s = document.createElement('style'); s.textContent = '@keyframes point-fade{0%{opacity:1;transform:translate(-50%,-50%) scale(1)}80%{opacity:0.7}100%{opacity:0;transform:translate(-50%,-60%) scale(0.8)}}'; document.head.appendChild(s);
-    setTimeout(() => { d.remove(); s.remove(); }, 1500);
+    const d = document.createElement('div');
+    // 돌 밑 수면(y) 대신 돌 위쪽(y - 80px) 빈 공간에 팝업
+    d.style.cssText = `
+        position: absolute;
+        left: ${x}px;
+        top: ${y - 80}px;
+        transform: translate(-50%, -50%);
+        background: rgba(5, 5, 20, 0.85);
+        color: #d9ff00;
+        border: 1.5px solid #d9ff00;
+        border-radius: 20px;
+        padding: 4px 12px;
+        font-size: 13px;
+        font-weight: 900;
+        font-family: Impact, "Arial Black", sans-serif;
+        z-index: 60;
+        pointer-events: none;
+        text-shadow: -1px -1px 0 #000, 1px 1px 0 #000;
+        box-shadow: 0 0 12px rgba(217, 255, 0, 0.4);
+        animation: point-float-up 1.2s cubic-bezier(0.15, 0.85, 0.15, 1) forwards;
+    `;
+    d.innerText = `+${count} 튀김!`;
+    document.getElementById('game-container').appendChild(d);
+
+    const s = document.createElement('style');
+    // 위로 살짝 떠오르며 부드럽게 페이드아웃
+    s.textContent = `
+        @keyframes point-float-up {
+            0% { opacity: 0; transform: translate(-50%, -20%) scale(0.7); }
+            20% { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
+            40% { transform: translate(-50%, -60%) scale(1.0); }
+            80% { opacity: 0.9; }
+            100% { opacity: 0; transform: translate(-50%, -100%) scale(0.85); }
+        }
+    `;
+    document.head.appendChild(s);
+    setTimeout(() => {
+        d.remove();
+        s.remove();
+    }, 1200);
 }
 
 // ===========================================================
