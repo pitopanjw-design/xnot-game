@@ -1656,57 +1656,71 @@ function drawFxCanvas() {
     }
 
     // =======================================================
-    // 🎯 [슬라이드 시안 적용] 3단계 색상 전환 수면 타이밍 타원
+    // 🎯 [시안 반영] 면 채우기 기반 고시인성 수면 타이밍 패드
     // =======================================================
     if (currentStatus === 'FLYING' && !isDead && isWindowActive) {
         const X = STONE_FIXED_X;
-        const Y = STONE_FIXED_Y + 12; // 수면 착지 기준점
+        const Y = STONE_FIXED_Y + 14; // 수면 착지 바닥면
 
         fxCtx.save();
 
         const progress = Math.min(1.0, Math.max(0.0, markerProgress));
 
-        // 1. 진행도(progress)에 따른 동적 색상 및 발광 세팅
-        let strokeColor = '#00f0ff'; // 1단계: 사이언 블루 (준비)
-        let glowColor = '#00f0ff';
-        let lineWidth = 3.0;
+        // 1. 단계별 색상 정의 (면 색상, 테두리 색상, 글로우)
+        let fillColor, strokeColor, glowColor;
+        let padScale = 1.0;
 
         if (progress >= 0.75) {
-            // 3단계: 퍼펙트 골드 (최적 타이밍)
-            strokeColor = '#ffd700';
-            glowColor = '#ffea00';
-            lineWidth = 4.5;
-        } else if (progress >= 0.55) {
-            // 2단계: 네온 옐로우 (타이밍 진입)
+            // 3단계: 퍼펙트 순간 (강렬한 네온 라임 골드 패드)
+            fillColor = 'rgba(217, 255, 0, 0.75)';
+            strokeColor = '#ffffff';
+            glowColor = '#d9ff00';
+            padScale = 1.08; // 칠 때 살짝 커지며 팡 터지는 펄스
+        } else if (progress >= 0.50) {
+            // 2단계: 탭 준비 진입 (선명한 옐로우/오렌지 패드)
+            fillColor = 'rgba(255, 170, 0, 0.65)';
             strokeColor = '#fde047';
-            glowColor = '#eab308';
-            lineWidth = 3.8;
+            glowColor = '#ff9900';
+            padScale = 1.0;
+        } else {
+            // 1단계: 하강 감지 (쿨 사이언 블루 패드)
+            fillColor = 'rgba(0, 180, 255, 0.55)';
+            strokeColor = '#00f0ff';
+            glowColor = '#00c8ff';
+            padScale = 0.95;
         }
 
-        // 2. 수면 타원 타겟 렌더링 (돌 밑에 묻히지 않는 넉넉한 와이드 타원)
-        const rx = 68;
-        const ry = 34;
+        const rx = 82 * padScale;
+        const ry = 42 * padScale;
 
+        // 2. 바닥면 타원 패드 채우기 (절대 안 묻히는 솔리드 레이어)
         fxCtx.beginPath();
         fxCtx.ellipse(X, Y, rx, ry, 0, 0, Math.PI * 2);
-        fxCtx.strokeStyle = strokeColor;
-        fxCtx.lineWidth = lineWidth;
-        fxCtx.shadowBlur = 14;
+        fxCtx.fillStyle = fillColor;
+        fxCtx.shadowBlur = 18;
         fxCtx.shadowColor = glowColor;
+        fxCtx.fill();
+
+        // 3. 두툼한 고대비 외곽선 (두께 4.5px)
+        fxCtx.lineWidth = 4.5;
+        fxCtx.strokeStyle = strokeColor;
         fxCtx.stroke();
 
-        // 3. 퍼펙트 구간(3단계) 진입 시 내부 은은한 반투명 채우기 펄스
+        // 4. 퍼펙트 임박 시 내부 코어 링 강조
         if (progress >= 0.75) {
-            fxCtx.fillStyle = 'rgba(255, 215, 0, 0.18)';
-            fxCtx.fill();
+            fxCtx.beginPath();
+            fxCtx.ellipse(X, Y, rx * 0.55, ry * 0.55, 0, 0, Math.PI * 2);
+            fxCtx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+            fxCtx.lineWidth = 3;
+            fxCtx.stroke();
 
-            // 타이밍 텍스트 팝업
-            fxCtx.font = '900 22px "Impact", "Arial Black", sans-serif';
+            // 상단 TAP 안내
+            fxCtx.font = '900 24px "Impact", "Arial Black", sans-serif';
             fxCtx.textAlign = 'center';
-            fxCtx.fillStyle = '#ffd700';
-            fxCtx.shadowBlur = 10;
+            fxCtx.fillStyle = '#ffffff';
+            fxCtx.shadowBlur = 12;
             fxCtx.shadowColor = '#000';
-            fxCtx.fillText('TAP!', X, Y - 48);
+            fxCtx.fillText('TAP!', X, Y - 52);
         }
 
         fxCtx.restore();
