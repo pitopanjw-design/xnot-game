@@ -1655,49 +1655,58 @@ function drawFxCanvas() {
         if (p.alpha <= 0) particles.splice(i, 1); 
     }
 
-    // 3. [개선] 수면 파동(Ripple)과 일치하는 와이드 네온 타겟 링
+    // =======================================================
+    // 🎯 [슬라이드 시안 적용] 3단계 색상 전환 수면 타이밍 타원
+    // =======================================================
     if (currentStatus === 'FLYING' && !isDead && isWindowActive) {
         const X = STONE_FIXED_X;
-        const Y = STONE_FIXED_Y + 10; // 돌 그래픽 바로 밑 수면 기준선
+        const Y = STONE_FIXED_Y + 12; // 수면 착지 기준점
 
         fxCtx.save();
 
-        // A. 수면 위 고정 타겟 링 (돌 밑에 가려지지 않는 넉넉한 황금 타겟 타원)
-        // 세로 비율을 0.52로 넓혀 가로 일자선으로 보이는 왜곡 차단
-        const baseRadiusX = 64;
-        const baseRadiusY = 32;
-
-        fxCtx.beginPath();
-        fxCtx.ellipse(X, Y, baseRadiusX, baseRadiusY, 0, 0, Math.PI * 2);
-        fxCtx.strokeStyle = 'rgba(255, 215, 0, 0.95)'; // 선명한 골드
-        fxCtx.lineWidth = 3.5;
-        fxCtx.shadowBlur = 12;
-        fxCtx.shadowColor = '#ffd700';
-        fxCtx.stroke();
-
-        // B. 바깥 수면 파동 영역에서 골든 타겟 링으로 좁혀져 들어오는 수축 링
-        // markerProgress (0.0 -> 1.0) 진행에 따라 넓은 파동(140px)에서 타겟(64px)으로 정확히 축소 포개짐
         const progress = Math.min(1.0, Math.max(0.0, markerProgress));
-        const currentRx = 140 - (progress * (140 - baseRadiusX));
-        const currentRy = currentRx * 0.50; // 파동과 완벽히 동일한 원형 굴곡감 유지
-        const ringAlpha = Math.min(1.0, 0.4 + progress * 0.6);
+
+        // 1. 진행도(progress)에 따른 동적 색상 및 발광 세팅
+        let strokeColor = '#00f0ff'; // 1단계: 사이언 블루 (준비)
+        let glowColor = '#00f0ff';
+        let lineWidth = 3.0;
+
+        if (progress >= 0.75) {
+            // 3단계: 퍼펙트 골드 (최적 타이밍)
+            strokeColor = '#ffd700';
+            glowColor = '#ffea00';
+            lineWidth = 4.5;
+        } else if (progress >= 0.55) {
+            // 2단계: 네온 옐로우 (타이밍 진입)
+            strokeColor = '#fde047';
+            glowColor = '#eab308';
+            lineWidth = 3.8;
+        }
+
+        // 2. 수면 타원 타겟 렌더링 (돌 밑에 묻히지 않는 넉넉한 와이드 타원)
+        const rx = 68;
+        const ry = 34;
 
         fxCtx.beginPath();
-        fxCtx.ellipse(X, Y, currentRx, currentRy, 0, 0, Math.PI * 2);
-        fxCtx.strokeStyle = `rgba(0, 240, 255, ${ringAlpha})`; // 네온 사이언 링
-        fxCtx.lineWidth = 3.0;
-        fxCtx.shadowBlur = 10;
-        fxCtx.shadowColor = '#00f0ff';
+        fxCtx.ellipse(X, Y, rx, ry, 0, 0, Math.PI * 2);
+        fxCtx.strokeStyle = strokeColor;
+        fxCtx.lineWidth = lineWidth;
+        fxCtx.shadowBlur = 14;
+        fxCtx.shadowColor = glowColor;
         fxCtx.stroke();
 
-        // C. 타이밍 임박 안내
-        if (progress >= 0.65) {
+        // 3. 퍼펙트 구간(3단계) 진입 시 내부 은은한 반투명 채우기 펄스
+        if (progress >= 0.75) {
+            fxCtx.fillStyle = 'rgba(255, 215, 0, 0.18)';
+            fxCtx.fill();
+
+            // 타이밍 텍스트 팝업
             fxCtx.font = '900 22px "Impact", "Arial Black", sans-serif';
             fxCtx.textAlign = 'center';
-            fxCtx.fillStyle = '#d9ff00';
+            fxCtx.fillStyle = '#ffd700';
             fxCtx.shadowBlur = 10;
             fxCtx.shadowColor = '#000';
-            fxCtx.fillText('TAP!', X, Y - 50);
+            fxCtx.fillText('TAP!', X, Y - 48);
         }
 
         fxCtx.restore();
