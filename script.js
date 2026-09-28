@@ -1078,10 +1078,10 @@ function dragEnd(e) {
 }
 
 // ===================================================================
-//  🪨 [고도 기반 색상 연동 & 가속 퍼펙트 존 엔진]
+//  🚥 [stone_bounce01.pdf 반영] 레이싱 신호등 순차 점등 퍼펙트 시스템
 // ===================================================================
 
-// 1. 고도 추적 및 동적 중력 가속 전역 변수
+let lightStep = 0; // 0: 꺼짐, 1: 파랑(준비), 2: 노랑(임박), 3: 빨강(TAP NOW)
 let currentGravity = 0.17; // 초기 체공 중력
 let currentPeakZ = 10.0;    // 현재 바운스 사이클의 최고점 기록
 
@@ -1154,6 +1154,7 @@ function triggerLaunch(dy, dx) {
     currentGravity = 0.17; // 초기 중력값 세팅 (체공 여유)
     currentPeakZ = Math.max(10.0, stone.z);
     isWindowActive = false;
+    lightStep = 0;
 
     for (let i = 0; i < 14; i++) rippleLayers[i].z = i / 14; 
     layerProgress = 0;
@@ -1254,18 +1255,15 @@ function applyStonePos() {
     }
 }
 
-// 4. 물리 루프: 최고점 갱신 및 동적 중력 가속 적용
+// 1. 물리 루프: 돌의 하강 고도에 따라 1단계 -> 2단계 -> 3단계 순차 점등
 function updatePhysics() {
     if (!isDead) {
         stone.z += stone.vz;
-        stone.vz -= currentGravity; // [핵심] 콤보에 따라 가속되는 낙하 중력
+        stone.vz -= currentGravity;
         stone.x += stone.vx;
         stone.y += stone.vy;
 
-        // 현재 도약의 최고점 실시간 기록
-        if (stone.z > currentPeakZ) {
-            currentPeakZ = stone.z;
-        }
+        if (stone.z > currentPeakZ) currentPeakZ = stone.z;
     } else {
         stone.vz -= 0.15;
         stone.z += stone.vz;
@@ -1284,17 +1282,31 @@ function updatePhysics() {
     stone.vy *= Math.min(0.996, 0.988 * wm);
     stone.vx *= 0.98;
 
-    // 하강 시 수면 링 활성화
+    // 🚥 [핵심] 하강 단계별 레이싱 신호등 순차 점등 판정
     if (stone.vz < 0 && !hasTappedBounce && !isDead) {
         isWindowActive = true;
+        const peak = Math.max(3.0, currentPeakZ);
+        const ratio = Math.max(0.0, stone.z / peak);
+
+        if (ratio > 0.60) {
+            // [1번 등] 최고점 통과 -> 파란불 점등! (Ready)
+            if (lightStep !== 1) { lightStep = 1; SoundManager.playTick(); }
+        } else if (ratio > 0.20) {
+            // [2번 등] 중간 하강 진입 -> 노란불 점등! (Set)
+            if (lightStep !== 2) { lightStep = 2; SoundManager.playTick(); }
+        } else {
+            // [3번 등] 수면 직전 돌진 -> 빨간불 점등! (GO / TAP!)
+            if (lightStep !== 3) { lightStep = 3; haptic('light'); }
+        }
+    } else {
+        lightStep = 0;
     }
 
-    // 수면 접촉 충돌 판정
+    // 수면 충돌 바운스
     if (stone.vz < 0 && stone.z <= 0.4 && !isDead) {
         if (hasTappedBounce) {
             hasTappedBounce = false;
         } else {
-            // 미입력 자동 착지: 속도와 버짓이 남아있으면 자동 바운스
             if (stone.remainingBudget > 0 && stone.vy > 0.3) {
                 stone.z = 0;
                 processBounce('GOOD', true);
@@ -1302,15 +1314,11 @@ function updatePhysics() {
                 triggerWaterSink();
             }
         }
+        lightStep = 0;
     }
 
-    if (stone.vy < 0.25 && !isDead && stone.remainingBudget <= 0) {
-        triggerWaterSink();
-    }
-
-    if (stone.vz < 0 && stone.z < -6 && !isDead && !hasTappedBounce) {
-        triggerWaterMiss();
-    }
+    if (stone.vy < 0.25 && !isDead && stone.remainingBudget <= 0) triggerWaterSink();
+    if (stone.vz < 0 && stone.z < -6 && !isDead && !hasTappedBounce) triggerWaterMiss();
 
     if (currentStatus === 'FLYING' && !isDead) createTrailParticle(STONE_FIXED_X, STONE_FIXED_Y);
     applyStonePos();
@@ -1422,27 +1430,18 @@ function processBounce(rating, isAuto = false) {
     isWindowActive = false;
     hasTappedBounce = false;
     tapsInCurrentCycle = 0;
+    lightStep = 0;
     document.getElementById('score-display').innerText = `BOUNCE: ${bounceCount}`;
     updateAssetUI();
     saveData();
     spawnBounceMarker(ex, ey, bounceCount);
 }
 
-// 6. 실시간 탭 입력 판정 (고도 기반 판정)
+// 2. 실시간 탭 입력: 빨간불 점등 순간에 탭하면 PERFECT!
 function registerBounceTap(e) {
     if (currentStatus !== 'FLYING' || isDead) return;
 
-    // 상승 중 연타 페널티
-    if (stone.vz >= 0) {
-        hasTappedBounce = true;
-        stone.vy *= 0.40;
-        stone.vz *= 0.40;
-        spawnDramaticText('연타 패널티! 밸런스 붕괴', 'neon-red');
-        haptic('error');
-        return;
-    }
-
-    if (!isWindowActive || hasTappedBounce) {
+    if (stone.vz >= 0 || !isWindowActive || hasTappedBounce) {
         hasTappedBounce = true;
         stone.vy *= 0.40;
         stone.vz *= 0.40;
@@ -1454,16 +1453,17 @@ function registerBounceTap(e) {
     isWindowActive = false;
     hasTappedBounce = true;
 
-    // [다이어그램 연동 판정] 빨간색 링 구간(수면 1.8 이하 접촉 찰나)에 탭하면 PERFECT!
-    if (stone.z <= 1.8 && stone.z >= 0.0) {
+    // 🚥 빨간불이 켜진 찰나에 탭하면 PERFECT!
+    if (lightStep === 3) {
         processBounce('PERFECT', false);
-    } else if (stone.z > 1.8 && stone.z <= (currentPeakZ * 0.65)) {
-        // 노란색 링 구간에 누르면 GOOD
+    } else if (lightStep === 2) {
+        // 노란불(조금 이른 타이밍)에 누르면 GOOD
         processBounce('GOOD', false);
     } else {
-        // 너무 일찍(파란색 정점 부근) 누르면 BAD
+        // 파란불(너무 일찍) 누르면 BAD
         processBounce('BAD', false);
     }
+    lightStep = 0;
 }
 
 function triggerWaterMiss() {
@@ -1622,6 +1622,7 @@ function draw7LayerBG() {
 // ===========================================================
 //  ✨ 카툰 속도선 & 이펙트 파티클 렌더링 엔진
 // ===========================================================
+// 3. 레이싱 신호등 UI 캔버스 렌더링
 function drawFxCanvas() {
     fxCtx.clearRect(0, 0, W, H);
 
@@ -1631,8 +1632,7 @@ function drawFxCanvas() {
         if (speed > 3) {
             const lineCount = Math.min(72, Math.floor((speed - 3) * 3.5));
             const alpha = Math.max(0, Math.min(0.8, (speed - 3) / 20));
-            fxCtx.save(); 
-            fxCtx.globalAlpha = alpha;
+            fxCtx.save(); fxCtx.globalAlpha = alpha;
             for (let i = 0; i < lineCount; i++) {
                 const angle = (i / lineCount) * Math.PI * 2 + (stone.y * 0.05);
                 const startR = W * 0.42 + Math.random() * W * 0.10; 
@@ -1648,14 +1648,9 @@ function drawFxCanvas() {
                 else if (rarity === 'Legendary') lc = 'rgba(192,132,252,0.85)'; 
                 else if (rarity === 'Rare') lc = 'rgba(0,240,255,0.85)';
 
-                fxCtx.beginPath(); 
-                fxCtx.moveTo(ex1, ey1); 
-                fxCtx.lineTo(ex2, ey2); 
-                fxCtx.strokeStyle = lc;
+                fxCtx.beginPath(); fxCtx.moveTo(ex1, ey1); fxCtx.lineTo(ex2, ey2); fxCtx.strokeStyle = lc;
                 fxCtx.lineWidth = (Math.random() * 2 + 0.5) * Math.max(0.5, Math.min(3.0, (speed - 3) / 10));
-                fxCtx.shadowBlur = 3; 
-                fxCtx.shadowColor = '#000'; 
-                fxCtx.stroke();
+                fxCtx.shadowBlur = 3; fxCtx.shadowColor = '#000'; fxCtx.stroke();
             }
             fxCtx.restore();
         }
@@ -1663,81 +1658,72 @@ function drawFxCanvas() {
 
     // 파티클 렌더링
     for (let i = particles.length - 1; i >= 0; i--) { 
-        const p = particles[i]; 
-        p.update(); 
-        p.draw(fxCtx); 
+        const p = particles[i]; p.update(); p.draw(fxCtx); 
         if (p.alpha <= 0) particles.splice(i, 1); 
     }
 
     // ===================================================================
-    //  🎯 [stone_bounce.pdf 시안 반영] 고도 연동 3단계 색상 링
-    //  - 최고점: 파란색 링 (Blue)
-    //  - 중간 고도: 노란색 링 (Yellow)
-    //  - 물에 닿을 때: 빨간색 링 (Red - 퍼펙트 존!)
+    //  🚥 [신호등 점등 그래픽] 파랑 -> 노랑 -> 빨강(TAP!)
     // ===================================================================
-    if (currentStatus === 'FLYING' && !isDead && isWindowActive) {
+    if (currentStatus === 'FLYING' && !isDead && isWindowActive && lightStep > 0) {
         const X = STONE_FIXED_X;
         const Y = STONE_FIXED_Y + 14;
 
         fxCtx.save();
 
-        // 현재 고도 비율 산출 (0.0: 수면 접촉 ~ 1.0: 체공 최고점)
-        const peak = Math.max(2.5, currentPeakZ);
-        const heightRatio = Math.max(0.0, Math.min(1.0, stone.z / peak));
-
         let strokeColor, glowColor, fillColor;
         let padScale = 1.0;
 
-        if (heightRatio <= 0.22) {
-            // [3단계: 물에 닿을 때 (수면 최저점)] -> 빨간색 (PERFECT 타이밍!)
-            strokeColor = '#ef4444';
-            glowColor = '#ff0033';
-            fillColor = 'rgba(239, 68, 68, 0.45)';
-            padScale = 1.08;
-        } else if (heightRatio <= 0.65) {
-            // [2단계: 중간 튕김 (하강 진입)] -> 노란색 (WARNING / READY)
-            strokeColor = '#fde047';
-            glowColor = '#eab308';
-            fillColor = 'rgba(253, 224, 71, 0.30)';
-            padScale = 1.0;
+        if (lightStep === 3) {
+            // [3번 등 점등] 빨간불 (GO / TAP!)
+            strokeColor = '#ff2222';
+            glowColor = '#ff0000';
+            fillColor = 'rgba(255, 34, 34, 0.65)';
+            padScale = 1.12;
+        } else if (lightStep === 2) {
+            // [2번 등 점등] 노란불 (SET)
+            strokeColor = '#ffcc00';
+            glowColor = '#ffaa00';
+            fillColor = 'rgba(255, 204, 0, 0.45)';
+            padScale = 1.02;
         } else {
-            // [1단계: 최고점 정점] -> 파란색 (SAFE / APEX)
-            strokeColor = '#00f0ff';
-            glowColor = '#00c8ff';
-            fillColor = 'rgba(0, 240, 255, 0.20)';
+            // [1번 등 점등] 파란불 (READY)
+            strokeColor = '#00e5ff';
+            glowColor = '#00a2ff';
+            fillColor = 'rgba(0, 229, 255, 0.35)';
             padScale = 0.95;
         }
 
-        const rx = 76 * padScale;
-        const ry = 38 * padScale;
+        const rx = 78 * padScale;
+        const ry = 40 * padScale;
 
-        // 1. 수면 타원 배경 패드 (면 채우기로 시인성 확보)
+        // 수면 신호등 패드 면 채우기 (진하게 발광)
         fxCtx.beginPath();
         fxCtx.ellipse(X, Y, rx, ry, 0, 0, Math.PI * 2);
         fxCtx.fillStyle = fillColor;
-        fxCtx.shadowBlur = 16;
+        fxCtx.shadowBlur = 20;
         fxCtx.shadowColor = glowColor;
         fxCtx.fill();
 
-        // 2. 고대비 테두리 링
-        fxCtx.lineWidth = 4.0;
+        // 외곽 링
+        fxCtx.lineWidth = 4.5;
         fxCtx.strokeStyle = strokeColor;
         fxCtx.stroke();
 
-        // 3. 빨간색 퍼펙트 구간 진입 시 강렬한 화이트 코어 링 & 안내
-        if (heightRatio <= 0.22) {
+        // 3번 빨간불 점등 시 팡 터지는 TAP 안내
+        if (lightStep === 3) {
             fxCtx.beginPath();
             fxCtx.ellipse(X, Y, rx * 0.6, ry * 0.6, 0, 0, Math.PI * 2);
             fxCtx.strokeStyle = '#ffffff';
-            fxCtx.lineWidth = 2.5;
+            fxCtx.lineWidth = 3;
             fxCtx.stroke();
 
-            fxCtx.font = '900 24px "Impact", "Arial Black", sans-serif';
+            fxCtx.font = '900 26px "Impact", "Arial Black", sans-serif';
             fxCtx.textAlign = 'center';
             fxCtx.fillStyle = '#ffffff';
-            fxCtx.shadowBlur = 12;
+            fxCtx.shadowBlur = 14;
             fxCtx.shadowColor = '#ff0000';
-            fxCtx.fillText('TAP!', X, Y - 50);
+            fxCtx.fillText('TAP!', X, Y - 52);
         }
 
         fxCtx.restore();
