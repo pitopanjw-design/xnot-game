@@ -1078,14 +1078,30 @@ function dragEnd(e) {
 }
 
 // ===================================================================
-//  🎯 [circle.html 기반] 두꺼운 네온 도넛 실시간 수축 & 색상 전환 엔진
+//  🌊 [단일 수면 파동 통합 엔진] 
 // ===================================================================
 
-let lightStep = 0; 
+let lastRippleTime = 0;       // 현재 파동 생성 시각
+let currentRippleDuration = 480; // 파동 지속 시간 (ms)
 let currentGravity = 0.17; // 초기 체공 중력
 let currentPeakZ = 10.0;    // 현재 바운스 사이클의 최고점 기록
-let cycleStartTime = 0;     // 현재 바운스 사이클 시작 시각
-let cycleDuration = 1000;   // 현재 바운스 사이클 예상 소요 시간(ms)
+
+// 1. 단일 수면 파동 생성 (기존 spawnRipple 교체)
+function spawnRipple(x, y) {
+    const r = document.createElement('div');
+    r.className = 'ripple-qte';
+    r.style.left = `${x}px`;
+    r.style.top = `${y + 12}px`;
+    document.getElementById('game-container').appendChild(r);
+
+    lastRippleTime = Date.now();
+    currentRippleDuration = 480;
+
+    // 애니메이션 종료 후 엘리먼트 자동 정리
+    setTimeout(() => {
+        r.remove();
+    }, currentRippleDuration);
+}
 
 // 2. 발사 시 초기 물리 및 중력 리셋
 function triggerLaunch(dy, dx) {
@@ -1156,7 +1172,6 @@ function triggerLaunch(dy, dx) {
     currentGravity = 0.17; // 초기 중력값 세팅 (체공 여유)
     currentPeakZ = Math.max(10.0, stone.z);
     isWindowActive = false;
-    lightStep = 0;
 
     for (let i = 0; i < 14; i++) rippleLayers[i].z = i / 14; 
     layerProgress = 0;
@@ -1201,9 +1216,7 @@ function triggerLaunch(dy, dx) {
     stone.vz *= Math.max(0.9, launchPercent);
     gaugeSpeedMult = 2.0;
 
-    cycleStartTime = Date.now();
-    const estFrames = (stone.vz + Math.sqrt(Math.max(0, stone.vz * stone.vz + 2 * currentGravity * stone.z))) / currentGravity;
-    cycleDuration = Math.max(350, estFrames * 16.66);
+    spawnRipple(STONE_FIXED_X, STONE_FIXED_Y);
 
     currentStatus = 'FLYING'; 
     isPlaying = true;
@@ -1309,31 +1322,32 @@ function updatePhysics() {
     applyStonePos();
 }
 
-// 5. 바운스 판정: 퍼펙트 = 슈퍼 도약 / 일반 = 현상 유지 / 실패 = 침수
+// 3. 바운스 처리: 퍼펙트 탭 시 높이 복원 & 낙하 속도 점진 가속
 function processBounce(rating, isAuto = false) {
     bounceCount++;
     const ex = STONE_FIXED_X, ey = STONE_FIXED_Y;
 
     if (!isAuto) spawnRatingText(ex, ey, rating);
+    
+    // [핵심] 바로 이 단 하나의 수면 파동이 다음 탭의 타겟이 됨!
     spawnRipple(ex, ey);
 
     const em = Math.pow(1.06, upgrades.elasticity);
     const sp = stone.activePhys || selectedStone.physics;
-    const rarity = selectedStone.rarity;
     const stoneBaseHeight = sp.bounceHeightBase || 2.4;
 
     if (rating === 'PERFECT') {
         perfectCount++;
-        
-        // 🚀 [추가 튕김 보장] 버짓 대폭 추가 (+3회) 및 속도 강력 부스트
+
+        // 🚀 버짓 대폭 연장 (+3회) & 전진 속도 부스트
         stone.remainingBudget += 3;
         stone.vy = Math.min(stone.vy * 1.25 + 2.0, 48);
-        
+
         // 시원하게 다시 솟구쳐 오르는 도약력 부여
         stone.z = 0.5;
         stone.vz = stoneBaseHeight * 1.5 * em;
-        
-        // 다음 바운스는 낙하 속도가 더 빨라지도록 중력 가속
+
+        // 다음 바운스는 낙하 속도가 빨라지도록 가속 중력 적용
         currentGravity = Math.min(0.34, 0.17 + (perfectCount * 0.035));
 
         const earned = Math.round(100 * selectedStone.mult * 2.5);
@@ -1347,7 +1361,6 @@ function processBounce(rating, isAuto = false) {
         triggerShake('medium');
 
     } else if (rating === 'GOOD') {
-        // 일반적인 튕김 유지
         stone.remainingBudget--;
         stone.vy *= 0.96;
         stone.z = 0.4;
@@ -1360,12 +1373,12 @@ function processBounce(rating, isAuto = false) {
         SoundManager.playBounce(false);
 
     } else {
-        // BAD가 넘어올 경우 미련 없이 즉시 가라앉힘
+        // 타이밍 실패 시 즉시 침수 처리
         triggerWaterSink();
         return;
     }
 
-    currentPeakZ = stone.vz * 3.0; // 다음 사이클 정점 갱신
+    currentPeakZ = stone.vz * 3.0;
     hasTappedBounce = false;
 
     document.getElementById('score-display').innerText = `BOUNCE: ${bounceCount}`;
@@ -1374,34 +1387,34 @@ function processBounce(rating, isAuto = false) {
     spawnBounceMarker(ex, ey, bounceCount);
 }
 
-// 2. 실시간 탭 입력: 퍼펙트 = 슈퍼 도약 / 실패 = 즉시 침수
+// 2. 탭 판정 로직: 수면 파동이 빨간 과녁으로 수축한 찰나(진행률 80% 이상)에 탭하면 PERFECT
 function registerBounceTap(e) {
     if (currentStatus !== 'FLYING' || isDead) return;
 
-    // 이미 탭했거나, 돌이 아직 솟구쳐 올라가는 중(상승 구간)에 누르면 연타 페널티 후 즉시 침수
+    // 돌이 위로 솟구치는 상승 구간에 누르면 연타 페널티 후 즉시 침수
     if (stone.vz >= 0 || hasTappedBounce) {
         hasTappedBounce = true;
         spawnDramaticText('연타 페널티! 수평 붕괴', 'neon-red');
         haptic('error');
-        triggerWaterMiss(); // 즉시 물에 빠짐
+        triggerWaterMiss();
         return;
     }
 
     hasTappedBounce = true;
 
-    // 돌의 최고점 대비 고도 비율 (0.0: 수면 착지 찰나 ~ 1.0: 최고점)
-    const peak = Math.max(3.0, currentPeakZ);
-    const heightRatio = Math.max(0.0, Math.min(1.0, stone.z / peak));
+    // 파동 진행도 (0.0: 확장 시작 ~ 1.0: 빨간 코어 수축 완료)
+    const elapsed = Date.now() - lastRippleTime;
+    const progress = Math.min(1.0, elapsed / currentRippleDuration);
 
-    // [빨간 도넛 구간: 수면 닿기 직전 heightRatio <= 0.25]
-    if (heightRatio <= 0.25) {
-        // ✨ PERFECT: 확실한 추가 도약 및 전진 부스트
+    // [80% ~ 100% 구간]: 파동이 빨간색 타겟으로 딱 모여든 골든 타임!
+    if (progress >= 0.80 && progress <= 1.0) {
+        // ✨ PERFECT: 버짓 넉넉히 리필(+3회), 속도 부스트 및 시원한 재도약
         processBounce('PERFECT', false);
-    } else if (heightRatio <= 0.55) {
-        // 👍 GOOD: 조금 일찍 침 (현상 유지 및 일반 튕김)
+    } else if (progress >= 0.50 && progress < 0.80) {
+        // 👍 GOOD: 노란 링 구간에 살짝 일찍 침 (일반 튕김)
         processBounce('GOOD', false);
     } else {
-        // ❌ BAD: 너무 일찍 누름 -> 즉시 물에 풍덩 빠지고 종료!
+        // ❌ BAD: 너무 일찍 누름 -> 미련 없이 즉시 수면 아래로 풍덩!
         spawnDramaticText('너무 빨랐다! 풍덩~', 'neon-red');
         haptic('error');
         triggerWaterMiss();
@@ -1603,113 +1616,6 @@ function drawFxCanvas() {
         const p = particles[i]; p.update(); p.draw(fxCtx); 
         if (p.alpha <= 0) particles.splice(i, 1); 
     }
-
-    // ===================================================================
-    //  🎯 [퍼펙트 코어 강조] 중심 빨간 타겟 극대화 수축 엔진
-    // ===================================================================
-    if (currentStatus === 'FLYING' && !isDead && !hasTappedBounce) {
-        const X = STONE_FIXED_X;
-        const Y = STONE_FIXED_Y + 12;
-
-        fxCtx.save();
-
-        const peak = Math.max(3.0, currentPeakZ);
-        const heightRatio = Math.max(0.0, Math.min(1.0, stone.z / peak));
-
-        // -------------------------------------------------------------
-        // 1. [핵심] 수면 중심에 항상 대기 중인 "빨간 과녁 타겟 (Target Base)"
-        //    -> 하강 시 미리 보여주어 시선을 가운데로 집중시킴
-        // -------------------------------------------------------------
-        const targetRx = 54; // 돌 밑에 묻히지 않는 넉넉한 타겟 크기
-        const targetRy = targetRx * 0.46;
-
-        if (stone.vz < 0) {
-            // 하강 중 은은하게 중심을 잡아주는 고정 타겟 가이드
-            fxCtx.beginPath();
-            fxCtx.ellipse(X, Y, targetRx, targetRy, 0, 0, Math.PI * 2);
-            fxCtx.strokeStyle = 'rgba(255, 30, 30, 0.45)';
-            fxCtx.lineWidth = 3;
-            fxCtx.stroke();
-        }
-
-        // -------------------------------------------------------------
-        // 2. 바깥에서 수축/확장하는 동적 네온 도넛 링
-        // -------------------------------------------------------------
-        let rx, ry, r, g, b, glowColor, lineWidth;
-
-        if (stone.vz >= 0) {
-            // [상승 구간] 작은 코어에서 최고점 파란 파동으로 퍼짐
-            rx = targetRx + (heightRatio * (130 - targetRx));
-            ry = rx * 0.46;
-            r = 0; g = Math.round(200 + heightRatio * 55); b = 255;
-            glowColor = 'rgba(0, 217, 255, 0.6)';
-            lineWidth = 8;
-        } else {
-            // [하강 구간] 최고점(130px) -> 타겟 과녁(54px)으로 착 감기며 수축!
-            rx = targetRx + (heightRatio * (130 - targetRx));
-            ry = rx * 0.46;
-
-            if (heightRatio > 0.45) {
-                // 상층부: 파랑 -> 노랑
-                const t = (heightRatio - 0.45) / 0.55;
-                r = Math.round(255 - t * 255);
-                g = Math.round(230 - t * 15);
-                b = Math.round(0 + t * 255);
-                glowColor = 'rgba(255, 230, 0, 0.7)';
-                lineWidth = 10;
-            } else {
-                // 하층부 (퍼펙트 접근 구간): 노랑 -> 핏빛 네온 레드
-                const t = heightRatio / 0.45;
-                r = 255;
-                g = Math.round(30 + t * 200);
-                b = Math.round(30 - t * 30);
-                glowColor = 'rgba(255, 30, 30, 0.95)';
-                lineWidth = 14;
-            }
-        }
-
-        const currentColor = `rgb(${r}, ${g}, ${b})`;
-
-        // -------------------------------------------------------------
-        // 3. 💥 [하이라이트] 빨간 퍼펙트 존 도달 시 (heightRatio <= 0.22)
-        //    중심부가 강렬하게 점등하는 폭발적 코어 연출
-        // -------------------------------------------------------------
-        if (stone.vz < 0 && heightRatio <= 0.22) {
-            // A. 중심부 전체를 때리는 붉은 네온 면 채우기 플래시
-            fxCtx.beginPath();
-            fxCtx.ellipse(X, Y, targetRx + 4, targetRy + 2, 0, 0, Math.PI * 2);
-            fxCtx.fillStyle = 'rgba(255, 20, 20, 0.55)';
-            fxCtx.shadowBlur = 35;
-            fxCtx.shadowColor = '#ff0033';
-            fxCtx.fill();
-
-            // B. 내부 화이트 핫 코어 링 (시선 강탈)
-            fxCtx.beginPath();
-            fxCtx.ellipse(X, Y, targetRx * 0.6, targetRy * 0.6, 0, 0, Math.PI * 2);
-            fxCtx.strokeStyle = '#ffffff';
-            fxCtx.lineWidth = 3.5;
-            fxCtx.stroke();
-
-            // C. 퍼펙트 탭 안내
-            fxCtx.font = '900 26px "Impact", "Arial Black", sans-serif';
-            fxCtx.textAlign = 'center';
-            fxCtx.fillStyle = '#ffffff';
-            fxCtx.shadowBlur = 16;
-            fxCtx.shadowColor = '#ff0000';
-            fxCtx.fillText('PERFECT!', X, Y - 46);
-        }
-
-        // 4. 주 수축 도넛 테두리 렌더링
-        fxCtx.beginPath();
-        fxCtx.ellipse(X, Y, rx, ry, 0, 0, Math.PI * 2);
-        fxCtx.lineWidth = lineWidth;
-        fxCtx.strokeStyle = currentColor;
-        fxCtx.shadowBlur = (stone.vz < 0 && heightRatio <= 0.22) ? 30 : 16;
-        fxCtx.shadowColor = glowColor;
-        fxCtx.stroke();
-
-        fxCtx.restore();
-    }
 }
 
 // ===========================================================
@@ -1823,7 +1729,22 @@ function createTrailParticle(x, y) { const cnt = selectedStone?.rarity === 'Myth
 // ===========================================================
 //  🎯 DOM 애니메이션 오버레이 이펙트
 // ===========================================================
-function spawnRipple(x, y) { const r = document.createElement('div'); r.className = 'ripple'; r.style.left = `${x}px`; r.style.top = `${y}px`; document.getElementById('game-container').appendChild(r); setTimeout(() => r.remove(), 850); }
+// 1. 단일 수면 파동 생성 (기존 spawnRipple 교체)
+function spawnRipple(x, y) {
+    const r = document.createElement('div');
+    r.className = 'ripple-qte';
+    r.style.left = `${x}px`;
+    r.style.top = `${y + 12}px`;
+    document.getElementById('game-container').appendChild(r);
+
+    lastRippleTime = Date.now();
+    currentRippleDuration = 480;
+
+    // 애니메이션 종료 후 엘리먼트 자동 정리
+    setTimeout(() => {
+        r.remove();
+    }, currentRippleDuration);
+}
 function spawnRatingText(x, y, rating) { const d = document.createElement('div'); d.className = `effect-text ${rating.toLowerCase()}`; d.style.left = `${x}px`; d.style.top = `${y - 45}px`; const map = { PERFECT: 'PERFECT!', GOOD: 'GOOD!', BAD: 'BAD', MISS: 'MISS' }; d.innerText = map[rating] || rating; document.getElementById('game-container').appendChild(d); setTimeout(() => d.remove(), 920); }
 function spawnBounceMarker(x, y, count) {
     const d = document.createElement('div'); d.style.cssText = `position:absolute;left:${x}px;top:${y}px;transform:translate(-50%,-50%);background:rgba(0,0,0,0.75);color:#d9ff00;border:1.5px solid #d9ff00;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:900;z-index:18;pointer-events:none;text-shadow:-1px -1px 0 #000;animation:point-fade 1.5s ease-out forwards;`; d.innerText = `${count}◆`; document.getElementById('game-container').appendChild(d);
