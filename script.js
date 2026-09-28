@@ -1078,12 +1078,14 @@ function dragEnd(e) {
 }
 
 // ===================================================================
-//  🚥 [stone_bounce01.pdf 반영] 레이싱 신호등 순차 점등 퍼펙트 시스템
+//  🎯 [circle.html 기반] 두꺼운 네온 도넛 실시간 수축 & 색상 전환 엔진
 // ===================================================================
 
-let lightStep = 0; // 0: 꺼짐, 1: 파랑(준비), 2: 노랑(임박), 3: 빨강(TAP NOW)
+let lightStep = 0; 
 let currentGravity = 0.17; // 초기 체공 중력
 let currentPeakZ = 10.0;    // 현재 바운스 사이클의 최고점 기록
+let cycleStartTime = 0;     // 현재 바운스 사이클 시작 시각
+let cycleDuration = 1000;   // 현재 바운스 사이클 예상 소요 시간(ms)
 
 // 2. 발사 시 초기 물리 및 중력 리셋
 function triggerLaunch(dy, dx) {
@@ -1199,6 +1201,10 @@ function triggerLaunch(dy, dx) {
     stone.vz *= Math.max(0.9, launchPercent);
     gaugeSpeedMult = 2.0;
 
+    cycleStartTime = Date.now();
+    const estFrames = (stone.vz + Math.sqrt(Math.max(0, stone.vz * stone.vz + 2 * currentGravity * stone.z))) / currentGravity;
+    cycleDuration = Math.max(350, estFrames * 16.66);
+
     currentStatus = 'FLYING'; 
     isPlaying = true;
     document.getElementById('score-display').innerText = 'BOUNCE: 0';
@@ -1282,26 +1288,6 @@ function updatePhysics() {
     stone.vy *= Math.min(0.996, 0.988 * wm);
     stone.vx *= 0.98;
 
-    // 🚥 [핵심] 하강 단계별 레이싱 신호등 순차 점등 판정
-    if (stone.vz < 0 && !hasTappedBounce && !isDead) {
-        isWindowActive = true;
-        const peak = Math.max(3.0, currentPeakZ);
-        const ratio = Math.max(0.0, stone.z / peak);
-
-        if (ratio > 0.60) {
-            // [1번 등] 최고점 통과 -> 파란불 점등! (Ready)
-            if (lightStep !== 1) { lightStep = 1; SoundManager.playTick(); }
-        } else if (ratio > 0.20) {
-            // [2번 등] 중간 하강 진입 -> 노란불 점등! (Set)
-            if (lightStep !== 2) { lightStep = 2; SoundManager.playTick(); }
-        } else {
-            // [3번 등] 수면 직전 돌진 -> 빨간불 점등! (GO / TAP!)
-            if (lightStep !== 3) { lightStep = 3; haptic('light'); }
-        }
-    } else {
-        lightStep = 0;
-    }
-
     // 수면 충돌 바운스
     if (stone.vz < 0 && stone.z <= 0.4 && !isDead) {
         if (hasTappedBounce) {
@@ -1314,7 +1300,6 @@ function updatePhysics() {
                 triggerWaterSink();
             }
         }
-        lightStep = 0;
     }
 
     if (stone.vy < 0.25 && !isDead && stone.remainingBudget <= 0) triggerWaterSink();
@@ -1419,6 +1404,10 @@ function processBounce(rating, isAuto = false) {
     // 다음 바운스 정점 측정을 위해 peakZ 초기화
     currentPeakZ = stone.vz * 3.0;
 
+    cycleStartTime = Date.now();
+    const estFrames = (stone.vz * 2) / currentGravity;
+    cycleDuration = Math.max(350, estFrames * 16.66);
+
     triggerWake(ex, ey, 1.0);
     const spEl = document.getElementById('sp-count');
     if (spEl) {
@@ -1430,18 +1419,17 @@ function processBounce(rating, isAuto = false) {
     isWindowActive = false;
     hasTappedBounce = false;
     tapsInCurrentCycle = 0;
-    lightStep = 0;
     document.getElementById('score-display').innerText = `BOUNCE: ${bounceCount}`;
     updateAssetUI();
     saveData();
     spawnBounceMarker(ex, ey, bounceCount);
 }
 
-// 2. 실시간 탭 입력: 빨간불 점등 순간에 탭하면 PERFECT!
+// 2. 실시간 탭 입력: 진행률 기반 골든 타임 판정
 function registerBounceTap(e) {
     if (currentStatus !== 'FLYING' || isDead) return;
 
-    if (stone.vz >= 0 || !isWindowActive || hasTappedBounce) {
+    if (stone.vz >= 0 || hasTappedBounce) {
         hasTappedBounce = true;
         stone.vy *= 0.40;
         stone.vz *= 0.40;
@@ -1450,20 +1438,22 @@ function registerBounceTap(e) {
         return;
     }
 
-    isWindowActive = false;
+    const elapsed = Date.now() - cycleStartTime;
+    const progress = Math.min(1.2, Math.max(0.0, elapsed / cycleDuration));
+
     hasTappedBounce = true;
 
-    // 🚥 빨간불이 켜진 찰나에 탭하면 PERFECT!
-    if (lightStep === 3) {
+    // 🎯 [수축 도넛 타이밍 판정]
+    // 80% 이상 (빨간 도넛 수축 완료 직전) -> PERFECT
+    // 55% ~ 80% (노란 도넛 구간) -> GOOD
+    // 그 외 (파란 도넛 또는 너무 늦음) -> BAD
+    if (progress >= 0.80 && progress <= 1.05) {
         processBounce('PERFECT', false);
-    } else if (lightStep === 2) {
-        // 노란불(조금 이른 타이밍)에 누르면 GOOD
+    } else if (progress >= 0.55 && progress < 0.80) {
         processBounce('GOOD', false);
     } else {
-        // 파란불(너무 일찍) 누르면 BAD
         processBounce('BAD', false);
     }
-    lightStep = 0;
 }
 
 function triggerWaterMiss() {
@@ -1663,70 +1653,73 @@ function drawFxCanvas() {
     }
 
     // ===================================================================
-    //  🎯 [개선] 파랑(대) -> 노랑(중) -> 빨강(소) 단계별 수축 타겟 링
+    //  🎯 [circle.html 기반] 두꺼운 네온 도넛 실시간 수축 & 색상 전환 엔진
     // ===================================================================
-    if (currentStatus === 'FLYING' && !isDead && lightStep > 0) {
-        const X = STONE_FIXED_X;
-        const Y = STONE_FIXED_Y + 12;
+    if (currentStatus === 'FLYING' && !isDead) {
+        const elapsed = Date.now() - cycleStartTime;
+        const progress = Math.min(1.0, Math.max(0.0, elapsed / cycleDuration));
 
-        fxCtx.save();
+        // 돌이 공중에 떠 있고 하강 중이거나 체공 중일 때 렌더링
+        if (progress > 0.05 && progress < 1.0 && !hasTappedBounce) {
+            const X = STONE_FIXED_X;
+            const Y = STONE_FIXED_Y + 12;
 
-        let strokeColor, glowColor, fillColor;
-        let rx, ry;
+            fxCtx.save();
 
-        if (lightStep === 1) {
-            // [1단계: 파란원 - 가장 큰 외곽 원]
-            strokeColor = '#00e5ff';
-            glowColor = '#00a2ff';
-            fillColor = 'rgba(0, 229, 255, 0.20)';
-            rx = 110;
-            ry = 55;
-        } else if (lightStep === 2) {
-            // [2단계: 노란원 - 중간 크기로 수축]
-            strokeColor = '#ffcc00';
-            glowColor = '#ffaa00';
-            fillColor = 'rgba(255, 204, 0, 0.35)';
-            rx = 75;
-            ry = 38;
-        } else {
-            // [3단계: 빨간원 - 가장 작은 타겟 코어 원 (TAP NOW!)]
-            strokeColor = '#ff2222';
-            glowColor = '#ff0000';
-            fillColor = 'rgba(255, 34, 34, 0.65)';
-            rx = 45;
-            ry = 24;
-        }
+            // 1. [circle.html 로직] 진행률(progress)에 따른 실시간 색상 보간 (파랑 -> 노랑 -> 빨강)
+            let r, g, b, glowColor;
+            if (progress < 0.5) {
+                // 파랑(#00d9ff) -> 노랑(#ffea00) 보간
+                const t = progress / 0.5;
+                r = Math.round(0 + t * 255);
+                g = Math.round(217 + t * 17);
+                b = Math.round(255 - t * 255);
+                glowColor = 'rgba(0, 217, 255, 0.8)';
+            } else {
+                // 노랑(#ffea00) -> 빨강(#ff2a2a) 보간
+                const t = (progress - 0.5) / 0.5;
+                r = 255;
+                g = Math.round(234 - t * 192);
+                b = Math.round(0 + t * 42);
+                glowColor = 'rgba(255, 42, 42, 0.9)';
+            }
+            const currentColor = `rgb(${r}, ${g}, ${b})`;
 
-        // 1. 수면 타원 패드 채우기
-        fxCtx.beginPath();
-        fxCtx.ellipse(X, Y, rx, ry, 0, 0, Math.PI * 2);
-        fxCtx.fillStyle = fillColor;
-        fxCtx.shadowBlur = lightStep === 3 ? 20 : 12;
-        fxCtx.shadowColor = glowColor;
-        fxCtx.fill();
-
-        // 2. 외곽 테두리 선
-        fxCtx.lineWidth = lightStep === 3 ? 4.5 : 3.5;
-        fxCtx.strokeStyle = strokeColor;
-        fxCtx.stroke();
-
-        // 3. 마지막 빨간 원일 때 집중 TAP! 안내
-        if (lightStep === 3) {
+            // 2. 중심을 지키는 기준 코어 점 (core)
             fxCtx.beginPath();
-            fxCtx.ellipse(X, Y, rx * 0.5, ry * 0.5, 0, 0, Math.PI * 2);
-            fxCtx.strokeStyle = '#ffffff';
-            fxCtx.lineWidth = 2.5;
+            fxCtx.ellipse(X, Y, 8, 4, 0, 0, Math.PI * 2);
+            fxCtx.fillStyle = currentColor;
+            fxCtx.shadowBlur = 15;
+            fxCtx.shadowColor = currentColor;
+            fxCtx.fill();
+
+            // 3. 바깥에서 중심으로 수축하는 두꺼운 도넛 파동 링 (donut-pulse-ring)
+            // progress: 0 -> 1 에 따라 가로 반경 115px -> 36px로 부드럽게 수축
+            const rx = 115 - (progress * (115 - 36));
+            const ry = rx * 0.46; // 자연스러운 수면 원근 각도
+
+            fxCtx.beginPath();
+            fxCtx.ellipse(X, Y, rx, ry, 0, 0, Math.PI * 2);
+            
+            // 두꺼운 도넛 느낌을 주는 두께와 네온 글로우
+            fxCtx.lineWidth = 14; // 두꺼운 테두리
+            fxCtx.strokeStyle = currentColor;
+            fxCtx.shadowBlur = progress > 0.8 ? 25 : 18;
+            fxCtx.shadowColor = glowColor;
             fxCtx.stroke();
 
-            fxCtx.font = '900 24px "Impact", "Arial Black", sans-serif';
-            fxCtx.textAlign = 'center';
-            fxCtx.fillStyle = '#ffffff';
-            fxCtx.shadowBlur = 12;
-            fxCtx.shadowColor = '#ff0000';
-            fxCtx.fillText('TAP!', X, Y - 45);
-        }
+            // 4. 착지 직전(진행률 85% 이상, 빨간 도넛) 골든 타임 안내
+            if (progress >= 0.82) {
+                fxCtx.font = '900 24px "Impact", "Arial Black", sans-serif';
+                fxCtx.textAlign = 'center';
+                fxCtx.fillStyle = '#ffffff';
+                fxCtx.shadowBlur = 15;
+                fxCtx.shadowColor = '#ff2a2a';
+                fxCtx.fillText('TAP!', X, Y - 48);
+            }
 
-        fxCtx.restore();
+            fxCtx.restore();
+        }
     }
 }
 
