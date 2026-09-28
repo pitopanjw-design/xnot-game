@@ -1663,67 +1663,67 @@ function drawFxCanvas() {
     }
 
     // ===================================================================
-    //  🚥 [신호등 점등 그래픽] 파랑 -> 노랑 -> 빨강(TAP!)
+    //  🎯 [개선] 파랑(대) -> 노랑(중) -> 빨강(소) 단계별 수축 타겟 링
     // ===================================================================
-    if (currentStatus === 'FLYING' && !isDead && isWindowActive && lightStep > 0) {
+    if (currentStatus === 'FLYING' && !isDead && lightStep > 0) {
         const X = STONE_FIXED_X;
-        const Y = STONE_FIXED_Y + 14;
+        const Y = STONE_FIXED_Y + 12;
 
         fxCtx.save();
 
         let strokeColor, glowColor, fillColor;
-        let padScale = 1.0;
+        let rx, ry;
 
-        if (lightStep === 3) {
-            // [3번 등 점등] 빨간불 (GO / TAP!)
+        if (lightStep === 1) {
+            // [1단계: 파란원 - 가장 큰 외곽 원]
+            strokeColor = '#00e5ff';
+            glowColor = '#00a2ff';
+            fillColor = 'rgba(0, 229, 255, 0.20)';
+            rx = 110;
+            ry = 55;
+        } else if (lightStep === 2) {
+            // [2단계: 노란원 - 중간 크기로 수축]
+            strokeColor = '#ffcc00';
+            glowColor = '#ffaa00';
+            fillColor = 'rgba(255, 204, 0, 0.35)';
+            rx = 75;
+            ry = 38;
+        } else {
+            // [3단계: 빨간원 - 가장 작은 타겟 코어 원 (TAP NOW!)]
             strokeColor = '#ff2222';
             glowColor = '#ff0000';
             fillColor = 'rgba(255, 34, 34, 0.65)';
-            padScale = 1.12;
-        } else if (lightStep === 2) {
-            // [2번 등 점등] 노란불 (SET)
-            strokeColor = '#ffcc00';
-            glowColor = '#ffaa00';
-            fillColor = 'rgba(255, 204, 0, 0.45)';
-            padScale = 1.02;
-        } else {
-            // [1번 등 점등] 파란불 (READY)
-            strokeColor = '#00e5ff';
-            glowColor = '#00a2ff';
-            fillColor = 'rgba(0, 229, 255, 0.35)';
-            padScale = 0.95;
+            rx = 45;
+            ry = 24;
         }
 
-        const rx = 78 * padScale;
-        const ry = 40 * padScale;
-
-        // 수면 신호등 패드 면 채우기 (진하게 발광)
+        // 1. 수면 타원 패드 채우기
         fxCtx.beginPath();
         fxCtx.ellipse(X, Y, rx, ry, 0, 0, Math.PI * 2);
         fxCtx.fillStyle = fillColor;
-        fxCtx.shadowBlur = 20;
+        fxCtx.shadowBlur = lightStep === 3 ? 20 : 12;
         fxCtx.shadowColor = glowColor;
         fxCtx.fill();
 
-        // 외곽 링
-        fxCtx.lineWidth = 4.5;
+        // 2. 외곽 테두리 선
+        fxCtx.lineWidth = lightStep === 3 ? 4.5 : 3.5;
         fxCtx.strokeStyle = strokeColor;
         fxCtx.stroke();
 
-        // 3번 빨간불 점등 시 팡 터지는 TAP 안내
+        // 3. 마지막 빨간 원일 때 집중 TAP! 안내
         if (lightStep === 3) {
             fxCtx.beginPath();
-            fxCtx.ellipse(X, Y, rx * 0.6, ry * 0.6, 0, 0, Math.PI * 2);
+            fxCtx.ellipse(X, Y, rx * 0.5, ry * 0.5, 0, 0, Math.PI * 2);
             fxCtx.strokeStyle = '#ffffff';
-            fxCtx.lineWidth = 3;
+            fxCtx.lineWidth = 2.5;
             fxCtx.stroke();
 
-            fxCtx.font = '900 26px "Impact", "Arial Black", sans-serif';
+            fxCtx.font = '900 24px "Impact", "Arial Black", sans-serif';
             fxCtx.textAlign = 'center';
             fxCtx.fillStyle = '#ffffff';
-            fxCtx.shadowBlur = 14;
+            fxCtx.shadowBlur = 12;
             fxCtx.shadowColor = '#ff0000';
-            fxCtx.fillText('TAP!', X, Y - 52);
+            fxCtx.fillText('TAP!', X, Y - 45);
         }
 
         fxCtx.restore();
