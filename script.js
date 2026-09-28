@@ -1309,7 +1309,7 @@ function updatePhysics() {
     applyStonePos();
 }
 
-// 5. 바운스 판정: 퍼펙트 시 높이 복원 & 다음 사이클 낙하 속도(중력) 가속
+// 5. 바운스 판정: 퍼펙트 = 슈퍼 도약 / 일반 = 현상 유지 / 실패 = 침수
 function processBounce(rating, isAuto = false) {
     bounceCount++;
     const ex = STONE_FIXED_X, ey = STONE_FIXED_Y;
@@ -1317,142 +1317,94 @@ function processBounce(rating, isAuto = false) {
     if (!isAuto) spawnRatingText(ex, ey, rating);
     spawnRipple(ex, ey);
 
-    const wakeCount = 18;
-    for (let i = 0; i < wakeCount / 2; i++) {
-        particles.push(new WakeParticle(ex, ey, -Math.random() * 3.5 - 1.5, -stone.vy * 0.25));
-        particles.push(new WakeParticle(ex, ey, Math.random() * 3.5 + 1.5, -stone.vy * 0.25));
-    }
-
     const em = Math.pow(1.06, upgrades.elasticity);
     const sp = stone.activePhys || selectedStone.physics;
     const rarity = selectedStone.rarity;
-
-    if (rarity === 'Mythic') triggerShake('heavy');
-    else if (rarity === 'Legendary') triggerShake('medium');
-    else if (rarity === 'Rare') triggerShake('light');
-
-    let pCount = rarity === 'Mythic' ? 14 : rarity === 'Legendary' ? 40 : rarity === 'Rare' ? 25 : 16;
-    stone.remainingBudget--;
-
-    const stoneBaseHeight = sp.bounceHeightBase || 2.2;
-    const swipeFactor = Math.max(0.85, Math.min(1.25, 0.85 + (swipeSpeed / 38) * 0.4));
-
-    // 자연 감쇠율 (바운스가 거듭될수록 자연 감소)
-    const decayRatio = Math.max(0.35, stone.remainingBudget / Math.max(1, stone.totalBudget));
+    const stoneBaseHeight = sp.bounceHeightBase || 2.4;
 
     if (rating === 'PERFECT') {
         perfectCount++;
-        if (!isAuto) {
-            stone.remainingBudget += 2; // 수명 보충
-            stone.vy = Math.min(stone.vy * 1.12 + 1.5, 45); // 추진 가속
-            const earned = Math.round(100 * selectedStone.mult * 2.5);
-            document.getElementById('message').innerText = `${t('perfectTiming')} (+${earned} SP)`;
-            playerSP += earned;
-        }
-
-        // [핵심 1] 퍼펙트 성공 시 초기 높이로 시원하게 복원
-        stone.z = 0.4;
-        stone.vz = stoneBaseHeight * swipeFactor * 1.45 * em;
-
-        // [핵심 2] 높이는 복원되되, 낙하 속도는 단계별로 빨라져 다음 탭 난이도 상승!
+        
+        // 🚀 [추가 튕김 보장] 버짓 대폭 추가 (+3회) 및 속도 강력 부스트
+        stone.remainingBudget += 3;
+        stone.vy = Math.min(stone.vy * 1.25 + 2.0, 48);
+        
+        // 시원하게 다시 솟구쳐 오르는 도약력 부여
+        stone.z = 0.5;
+        stone.vz = stoneBaseHeight * 1.5 * em;
+        
+        // 다음 바운스는 낙하 속도가 더 빨라지도록 중력 가속
         currentGravity = Math.min(0.34, 0.17 + (perfectCount * 0.035));
 
-        createParticles(ex, ey, true, false, Math.round(pCount * 1.3));
-        haptic('heavy');
-        SoundManager.playBounce(true);
-        if (perfectCount === 1 && !isAuto) { spawnDramaticText(t('perfect') + ' BOUNCE!', 'neon-lime'); triggerShake('medium'); }
-        if (rarity === 'Mythic') spawnGodSplash(ex, ey);
-
-    } else if (rating === 'GOOD') {
-        if (!isAuto) {
-            stone.remainingBudget += 1;
-            stone.vy = Math.min(stone.vy * 1.05 + 0.8, 40);
-            const earned = Math.round(100 * selectedStone.mult * 1.2);
-            document.getElementById('message').innerText = `${t('goodTiming')} (+${earned} SP)`;
-            playerSP += earned;
-        } else {
-            stone.vy *= 0.94;
-            const earned = Math.round(100 * selectedStone.mult * 0.4);
-            playerSP += earned;
-        }
-
-        // 자동/일반 바운스는 점진적으로 높이가 낮아짐
-        stone.z = 0.4;
-        stone.vz = stoneBaseHeight * swipeFactor * 1.0 * em * decayRatio;
-
-        createParticles(ex, ey, false, false, pCount);
-        haptic('medium');
-        SoundManager.playBounce(false);
-        if (rarity === 'Mythic') spawnGodSplash(ex, ey);
-
-    } else {
-        // BAD 판정
-        stone.vy *= 0.65;
-        stone.remainingBudget = Math.max(0, stone.remainingBudget - 1);
-        const earned = Math.round(100 * selectedStone.mult * 0.2);
-        if (!isAuto) document.getElementById('message').innerText = t('badTiming');
+        const earned = Math.round(100 * selectedStone.mult * 2.5);
+        document.getElementById('message').innerText = `${t('perfectTiming')} (+${earned} SP)`;
         playerSP += earned;
 
+        createParticles(ex, ey, true, false, 35);
+        haptic('heavy');
+        SoundManager.playBounce(true);
+        spawnDramaticText('SUPER BOUNCE!', 'neon-lime');
+        triggerShake('medium');
+
+    } else if (rating === 'GOOD') {
+        // 일반적인 튕김 유지
+        stone.remainingBudget--;
+        stone.vy *= 0.96;
         stone.z = 0.4;
-        stone.vz = stoneBaseHeight * 0.5 * decayRatio;
+        stone.vz = stoneBaseHeight * 1.0 * em * Math.max(0.4, stone.remainingBudget / Math.max(1, stone.totalBudget));
 
-        createParticles(ex, ey, false, false, 4, true);
-        haptic('light');
+        const earned = Math.round(100 * selectedStone.mult * 1.0);
+        playerSP += earned;
+        createParticles(ex, ey, false, false, 18);
+        haptic('medium');
         SoundManager.playBounce(false);
+
+    } else {
+        // BAD가 넘어올 경우 미련 없이 즉시 가라앉힘
+        triggerWaterSink();
+        return;
     }
 
-    // 다음 바운스 정점 측정을 위해 peakZ 초기화
-    currentPeakZ = stone.vz * 3.0;
-
-    cycleStartTime = Date.now();
-    const estFrames = (stone.vz * 2) / currentGravity;
-    cycleDuration = Math.max(350, estFrames * 16.66);
-
-    triggerWake(ex, ey, 1.0);
-    const spEl = document.getElementById('sp-count');
-    if (spEl) {
-        spEl.style.transform = 'scale(1.2)';
-        spEl.style.color = 'var(--neon-gold)';
-        setTimeout(() => { spEl.style.transform = ''; spEl.style.color = ''; }, 180);
-    }
-
-    isWindowActive = false;
+    currentPeakZ = stone.vz * 3.0; // 다음 사이클 정점 갱신
     hasTappedBounce = false;
-    tapsInCurrentCycle = 0;
+
     document.getElementById('score-display').innerText = `BOUNCE: ${bounceCount}`;
     updateAssetUI();
     saveData();
     spawnBounceMarker(ex, ey, bounceCount);
 }
 
-// 2. 실시간 탭 입력: 고도 1:1 연동 판정
+// 2. 실시간 탭 입력: 퍼펙트 = 슈퍼 도약 / 실패 = 즉시 침수
 function registerBounceTap(e) {
     if (currentStatus !== 'FLYING' || isDead) return;
 
+    // 이미 탭했거나, 돌이 아직 솟구쳐 올라가는 중(상승 구간)에 누르면 연타 페널티 후 즉시 침수
     if (stone.vz >= 0 || hasTappedBounce) {
         hasTappedBounce = true;
-        stone.vy *= 0.40;
-        stone.vz *= 0.40;
-        spawnDramaticText('연타 패널티! 밸런스 붕괴', 'neon-red');
+        spawnDramaticText('연타 페널티! 수평 붕괴', 'neon-red');
         haptic('error');
+        triggerWaterMiss(); // 즉시 물에 빠짐
         return;
     }
 
+    hasTappedBounce = true;
+
+    // 돌의 최고점 대비 고도 비율 (0.0: 수면 착지 찰나 ~ 1.0: 최고점)
     const peak = Math.max(3.0, currentPeakZ);
     const heightRatio = Math.max(0.0, Math.min(1.0, stone.z / peak));
 
-    hasTappedBounce = true;
-
-    // 🎯 [고도 1:1 연동 타이밍 판정]
-    // 하강 중 수면 근접 (heightRatio <= 0.25) -> PERFECT
-    // 중간 높이 (heightRatio <= 0.60) -> GOOD
-    // 그 외 (너무 높은 곳에서 조기 탭) -> BAD
+    // [빨간 도넛 구간: 수면 닿기 직전 heightRatio <= 0.25]
     if (heightRatio <= 0.25) {
+        // ✨ PERFECT: 확실한 추가 도약 및 전진 부스트
         processBounce('PERFECT', false);
-    } else if (heightRatio <= 0.60) {
+    } else if (heightRatio <= 0.55) {
+        // 👍 GOOD: 조금 일찍 침 (현상 유지 및 일반 튕김)
         processBounce('GOOD', false);
     } else {
-        processBounce('BAD', false);
+        // ❌ BAD: 너무 일찍 누름 -> 즉시 물에 풍덩 빠지고 종료!
+        spawnDramaticText('너무 빨랐다! 풍덩~', 'neon-red');
+        haptic('error');
+        triggerWaterMiss();
     }
 }
 
