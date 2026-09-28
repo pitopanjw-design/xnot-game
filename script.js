@@ -1425,7 +1425,7 @@ function processBounce(rating, isAuto = false) {
     spawnBounceMarker(ex, ey, bounceCount);
 }
 
-// 2. 실시간 탭 입력: 진행률 기반 골든 타임 판정
+// 2. 실시간 탭 입력: 고도 1:1 연동 판정
 function registerBounceTap(e) {
     if (currentStatus !== 'FLYING' || isDead) return;
 
@@ -1438,18 +1438,18 @@ function registerBounceTap(e) {
         return;
     }
 
-    const elapsed = Date.now() - cycleStartTime;
-    const progress = Math.min(1.2, Math.max(0.0, elapsed / cycleDuration));
+    const peak = Math.max(3.0, currentPeakZ);
+    const heightRatio = Math.max(0.0, Math.min(1.0, stone.z / peak));
 
     hasTappedBounce = true;
 
-    // 🎯 [수축 도넛 타이밍 판정]
-    // 80% 이상 (빨간 도넛 수축 완료 직전) -> PERFECT
-    // 55% ~ 80% (노란 도넛 구간) -> GOOD
-    // 그 외 (파란 도넛 또는 너무 늦음) -> BAD
-    if (progress >= 0.80 && progress <= 1.05) {
+    // 🎯 [고도 1:1 연동 타이밍 판정]
+    // 하강 중 수면 근접 (heightRatio <= 0.25) -> PERFECT
+    // 중간 높이 (heightRatio <= 0.60) -> GOOD
+    // 그 외 (너무 높은 곳에서 조기 탭) -> BAD
+    if (heightRatio <= 0.25) {
         processBounce('PERFECT', false);
-    } else if (progress >= 0.55 && progress < 0.80) {
+    } else if (heightRatio <= 0.60) {
         processBounce('GOOD', false);
     } else {
         processBounce('BAD', false);
@@ -1653,73 +1653,92 @@ function drawFxCanvas() {
     }
 
     // ===================================================================
-    //  🎯 [circle.html 기반] 두꺼운 네온 도넛 실시간 수축 & 색상 전환 엔진
+    //  🎯 [물리 연동 완성] 돌의 고도에 1:1 동기화된 연속 도넛 파동 엔진
     // ===================================================================
-    if (currentStatus === 'FLYING' && !isDead) {
-        const elapsed = Date.now() - cycleStartTime;
-        const progress = Math.min(1.0, Math.max(0.0, elapsed / cycleDuration));
+    if (currentStatus === 'FLYING' && !isDead && !hasTappedBounce) {
+        const X = STONE_FIXED_X;
+        const Y = STONE_FIXED_Y + 12;
 
-        // 돌이 공중에 떠 있고 하강 중이거나 체공 중일 때 렌더링
-        if (progress > 0.05 && progress < 1.0 && !hasTappedBounce) {
-            const X = STONE_FIXED_X;
-            const Y = STONE_FIXED_Y + 12;
+        fxCtx.save();
 
-            fxCtx.save();
+        // 1. 현재 바운스 최고점 대비 고도 진행률 (0.0: 수면 ~ 1.0: 최고점)
+        const peak = Math.max(3.0, currentPeakZ);
+        const heightRatio = Math.max(0.0, Math.min(1.0, stone.z / peak));
 
-            // 1. [circle.html 로직] 진행률(progress)에 따른 실시간 색상 보간 (파랑 -> 노랑 -> 빨강)
-            let r, g, b, glowColor;
-            if (progress < 0.5) {
-                // 파랑(#00d9ff) -> 노랑(#ffea00) 보간
-                const t = progress / 0.5;
-                r = Math.round(0 + t * 255);
-                g = Math.round(217 + t * 17);
-                b = Math.round(255 - t * 255);
-                glowColor = 'rgba(0, 217, 255, 0.8)';
-            } else {
-                // 노랑(#ffea00) -> 빨강(#ff2a2a) 보간
-                const t = (progress - 0.5) / 0.5;
-                r = 255;
-                g = Math.round(234 - t * 192);
-                b = Math.round(0 + t * 42);
-                glowColor = 'rgba(255, 42, 42, 0.9)';
-            }
-            const currentColor = `rgb(${r}, ${g}, ${b})`;
+        let rx, ry, r, g, b, glowColor, lineWidth;
 
-            // 2. 중심을 지키는 기준 코어 점 (core)
-            fxCtx.beginPath();
-            fxCtx.ellipse(X, Y, 8, 4, 0, 0, Math.PI * 2);
-            fxCtx.fillStyle = currentColor;
-            fxCtx.shadowBlur = 15;
-            fxCtx.shadowColor = currentColor;
-            fxCtx.fill();
-
-            // 3. 바깥에서 중심으로 수축하는 두꺼운 도넛 파동 링 (donut-pulse-ring)
-            // progress: 0 -> 1 에 따라 가로 반경 115px -> 36px로 부드럽게 수축
-            const rx = 115 - (progress * (115 - 36));
-            const ry = rx * 0.46; // 자연스러운 수면 원근 각도
-
-            fxCtx.beginPath();
-            fxCtx.ellipse(X, Y, rx, ry, 0, 0, Math.PI * 2);
+        if (stone.vz >= 0) {
+            // =======================================================
+            // [상승 구간] 바닥에서 솟구치며 최고점으로 넓게 퍼지는 파동
+            // =======================================================
+            // 크기: 45px -> 120px 로 부드럽게 확장
+            rx = 45 + (heightRatio * (120 - 45));
+            ry = rx * 0.46;
             
-            // 두꺼운 도넛 느낌을 주는 두께와 네온 글로우
-            fxCtx.lineWidth = 14; // 두꺼운 테두리
-            fxCtx.strokeStyle = currentColor;
-            fxCtx.shadowBlur = progress > 0.8 ? 25 : 18;
-            fxCtx.shadowColor = glowColor;
-            fxCtx.stroke();
+            // 색상: 중심 청록 -> 최고점 네온 사이언 파랑
+            r = 0;
+            g = Math.round(200 + heightRatio * 55);
+            b = 255;
+            glowColor = 'rgba(0, 217, 255, 0.7)';
+            lineWidth = 10;
+        } else {
+            // =======================================================
+            // [하강 구간] 최고점에서 수면으로 좁혀져 들어오는 수축 도넛!
+            // =======================================================
+            // 크기: 120px -> 38px 로 수면에 닿을 때까지 매끄럽게 수축
+            rx = 38 + (heightRatio * (120 - 38));
+            ry = rx * 0.46;
 
-            // 4. 착지 직전(진행률 85% 이상, 빨간 도넛) 골든 타임 안내
-            if (progress >= 0.82) {
-                fxCtx.font = '900 24px "Impact", "Arial Black", sans-serif';
-                fxCtx.textAlign = 'center';
-                fxCtx.fillStyle = '#ffffff';
-                fxCtx.shadowBlur = 15;
-                fxCtx.shadowColor = '#ff2a2a';
-                fxCtx.fillText('TAP!', X, Y - 48);
+            // 색상 블렌딩: 최고점(파랑/초록) -> 중간(노랑) -> 최저점(빨강)
+            if (heightRatio > 0.5) {
+                // 노랑(#ffea00) -> 파랑(#00d9ff)
+                const t = (heightRatio - 0.5) / 0.5;
+                r = Math.round(255 - t * 255);
+                g = Math.round(234 - t * 17);
+                b = Math.round(0 + t * 255);
+                glowColor = 'rgba(255, 234, 0, 0.75)';
+                lineWidth = 12;
+            } else {
+                // 빨강(#ff2a2a) -> 노랑(#ffea00)
+                const t = heightRatio / 0.5;
+                r = 255;
+                g = Math.round(42 + t * 192);
+                b = Math.round(42 - t * 42);
+                glowColor = 'rgba(255, 42, 42, 0.9)';
+                lineWidth = 14; // 착지 직전 더 두꺼워지며 타격감 부여
             }
-
-            fxCtx.restore();
         }
+
+        const currentColor = `rgb(${r}, ${g}, ${b})`;
+
+        // 2. 중심 기준 코어 점 (core)
+        fxCtx.beginPath();
+        fxCtx.ellipse(X, Y, 7, 3.5, 0, 0, Math.PI * 2);
+        fxCtx.fillStyle = currentColor;
+        fxCtx.shadowBlur = 12;
+        fxCtx.shadowColor = currentColor;
+        fxCtx.fill();
+
+        // 3. 연속 수축/확장하는 두꺼운 도넛 링
+        fxCtx.beginPath();
+        fxCtx.ellipse(X, Y, rx, ry, 0, 0, Math.PI * 2);
+        fxCtx.lineWidth = lineWidth;
+        fxCtx.strokeStyle = currentColor;
+        fxCtx.shadowBlur = (stone.vz < 0 && heightRatio < 0.25) ? 25 : 16;
+        fxCtx.shadowColor = glowColor;
+        fxCtx.stroke();
+
+        // 4. 수면 착지 직전(하강 중, heightRatio < 0.25) TAP! 안내
+        if (stone.vz < 0 && heightRatio <= 0.25) {
+            fxCtx.font = '900 24px "Impact", "Arial Black", sans-serif';
+            fxCtx.textAlign = 'center';
+            fxCtx.fillStyle = '#ffffff';
+            fxCtx.shadowBlur = 15;
+            fxCtx.shadowColor = '#ff2a2a';
+            fxCtx.fillText('TAP!', X, Y - 48);
+        }
+
+        fxCtx.restore();
     }
 }
 
