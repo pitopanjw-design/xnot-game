@@ -1605,7 +1605,7 @@ function drawFxCanvas() {
     }
 
     // ===================================================================
-    //  🎯 [물리 연동 완성] 돌의 고도에 1:1 동기화된 연속 도넛 파동 엔진
+    //  🎯 [퍼펙트 코어 강조] 중심 빨간 타겟 극대화 수축 엔진
     // ===================================================================
     if (currentStatus === 'FLYING' && !isDead && !hasTappedBounce) {
         const X = STONE_FIXED_X;
@@ -1613,82 +1613,100 @@ function drawFxCanvas() {
 
         fxCtx.save();
 
-        // 1. 현재 바운스 최고점 대비 고도 진행률 (0.0: 수면 ~ 1.0: 최고점)
         const peak = Math.max(3.0, currentPeakZ);
         const heightRatio = Math.max(0.0, Math.min(1.0, stone.z / peak));
 
+        // -------------------------------------------------------------
+        // 1. [핵심] 수면 중심에 항상 대기 중인 "빨간 과녁 타겟 (Target Base)"
+        //    -> 하강 시 미리 보여주어 시선을 가운데로 집중시킴
+        // -------------------------------------------------------------
+        const targetRx = 54; // 돌 밑에 묻히지 않는 넉넉한 타겟 크기
+        const targetRy = targetRx * 0.46;
+
+        if (stone.vz < 0) {
+            // 하강 중 은은하게 중심을 잡아주는 고정 타겟 가이드
+            fxCtx.beginPath();
+            fxCtx.ellipse(X, Y, targetRx, targetRy, 0, 0, Math.PI * 2);
+            fxCtx.strokeStyle = 'rgba(255, 30, 30, 0.45)';
+            fxCtx.lineWidth = 3;
+            fxCtx.stroke();
+        }
+
+        // -------------------------------------------------------------
+        // 2. 바깥에서 수축/확장하는 동적 네온 도넛 링
+        // -------------------------------------------------------------
         let rx, ry, r, g, b, glowColor, lineWidth;
 
         if (stone.vz >= 0) {
-            // =======================================================
-            // [상승 구간] 바닥에서 솟구치며 최고점으로 넓게 퍼지는 파동
-            // =======================================================
-            // 크기: 45px -> 120px 로 부드럽게 확장
-            rx = 45 + (heightRatio * (120 - 45));
+            // [상승 구간] 작은 코어에서 최고점 파란 파동으로 퍼짐
+            rx = targetRx + (heightRatio * (130 - targetRx));
             ry = rx * 0.46;
-            
-            // 색상: 중심 청록 -> 최고점 네온 사이언 파랑
-            r = 0;
-            g = Math.round(200 + heightRatio * 55);
-            b = 255;
-            glowColor = 'rgba(0, 217, 255, 0.7)';
-            lineWidth = 10;
+            r = 0; g = Math.round(200 + heightRatio * 55); b = 255;
+            glowColor = 'rgba(0, 217, 255, 0.6)';
+            lineWidth = 8;
         } else {
-            // =======================================================
-            // [하강 구간] 최고점에서 수면으로 좁혀져 들어오는 수축 도넛!
-            // =======================================================
-            // 크기: 120px -> 38px 로 수면에 닿을 때까지 매끄럽게 수축
-            rx = 38 + (heightRatio * (120 - 38));
+            // [하강 구간] 최고점(130px) -> 타겟 과녁(54px)으로 착 감기며 수축!
+            rx = targetRx + (heightRatio * (130 - targetRx));
             ry = rx * 0.46;
 
-            // 색상 블렌딩: 최고점(파랑/초록) -> 중간(노랑) -> 최저점(빨강)
-            if (heightRatio > 0.5) {
-                // 노랑(#ffea00) -> 파랑(#00d9ff)
-                const t = (heightRatio - 0.5) / 0.5;
+            if (heightRatio > 0.45) {
+                // 상층부: 파랑 -> 노랑
+                const t = (heightRatio - 0.45) / 0.55;
                 r = Math.round(255 - t * 255);
-                g = Math.round(234 - t * 17);
+                g = Math.round(230 - t * 15);
                 b = Math.round(0 + t * 255);
-                glowColor = 'rgba(255, 234, 0, 0.75)';
-                lineWidth = 12;
+                glowColor = 'rgba(255, 230, 0, 0.7)';
+                lineWidth = 10;
             } else {
-                // 빨강(#ff2a2a) -> 노랑(#ffea00)
-                const t = heightRatio / 0.5;
+                // 하층부 (퍼펙트 접근 구간): 노랑 -> 핏빛 네온 레드
+                const t = heightRatio / 0.45;
                 r = 255;
-                g = Math.round(42 + t * 192);
-                b = Math.round(42 - t * 42);
-                glowColor = 'rgba(255, 42, 42, 0.9)';
-                lineWidth = 14; // 착지 직전 더 두꺼워지며 타격감 부여
+                g = Math.round(30 + t * 200);
+                b = Math.round(30 - t * 30);
+                glowColor = 'rgba(255, 30, 30, 0.95)';
+                lineWidth = 14;
             }
         }
 
         const currentColor = `rgb(${r}, ${g}, ${b})`;
 
-        // 2. 중심 기준 코어 점 (core)
-        fxCtx.beginPath();
-        fxCtx.ellipse(X, Y, 7, 3.5, 0, 0, Math.PI * 2);
-        fxCtx.fillStyle = currentColor;
-        fxCtx.shadowBlur = 12;
-        fxCtx.shadowColor = currentColor;
-        fxCtx.fill();
+        // -------------------------------------------------------------
+        // 3. 💥 [하이라이트] 빨간 퍼펙트 존 도달 시 (heightRatio <= 0.22)
+        //    중심부가 강렬하게 점등하는 폭발적 코어 연출
+        // -------------------------------------------------------------
+        if (stone.vz < 0 && heightRatio <= 0.22) {
+            // A. 중심부 전체를 때리는 붉은 네온 면 채우기 플래시
+            fxCtx.beginPath();
+            fxCtx.ellipse(X, Y, targetRx + 4, targetRy + 2, 0, 0, Math.PI * 2);
+            fxCtx.fillStyle = 'rgba(255, 20, 20, 0.55)';
+            fxCtx.shadowBlur = 35;
+            fxCtx.shadowColor = '#ff0033';
+            fxCtx.fill();
 
-        // 3. 연속 수축/확장하는 두꺼운 도넛 링
+            // B. 내부 화이트 핫 코어 링 (시선 강탈)
+            fxCtx.beginPath();
+            fxCtx.ellipse(X, Y, targetRx * 0.6, targetRy * 0.6, 0, 0, Math.PI * 2);
+            fxCtx.strokeStyle = '#ffffff';
+            fxCtx.lineWidth = 3.5;
+            fxCtx.stroke();
+
+            // C. 퍼펙트 탭 안내
+            fxCtx.font = '900 26px "Impact", "Arial Black", sans-serif';
+            fxCtx.textAlign = 'center';
+            fxCtx.fillStyle = '#ffffff';
+            fxCtx.shadowBlur = 16;
+            fxCtx.shadowColor = '#ff0000';
+            fxCtx.fillText('PERFECT!', X, Y - 46);
+        }
+
+        // 4. 주 수축 도넛 테두리 렌더링
         fxCtx.beginPath();
         fxCtx.ellipse(X, Y, rx, ry, 0, 0, Math.PI * 2);
         fxCtx.lineWidth = lineWidth;
         fxCtx.strokeStyle = currentColor;
-        fxCtx.shadowBlur = (stone.vz < 0 && heightRatio < 0.25) ? 25 : 16;
+        fxCtx.shadowBlur = (stone.vz < 0 && heightRatio <= 0.22) ? 30 : 16;
         fxCtx.shadowColor = glowColor;
         fxCtx.stroke();
-
-        // 4. 수면 착지 직전(하강 중, heightRatio < 0.25) TAP! 안내
-        if (stone.vz < 0 && heightRatio <= 0.25) {
-            fxCtx.font = '900 24px "Impact", "Arial Black", sans-serif';
-            fxCtx.textAlign = 'center';
-            fxCtx.fillStyle = '#ffffff';
-            fxCtx.shadowBlur = 15;
-            fxCtx.shadowColor = '#ff2a2a';
-            fxCtx.fillText('TAP!', X, Y - 48);
-        }
 
         fxCtx.restore();
     }
