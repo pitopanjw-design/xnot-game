@@ -1086,23 +1086,6 @@ let currentRippleDuration = 480; // 파동 지속 시간 (ms)
 let currentGravity = 0.17; // 초기 체공 중력
 let currentPeakZ = 10.0;    // 현재 바운스 사이클의 최고점 기록
 
-// 1. 단일 수면 파동 생성 (기존 spawnRipple 교체)
-function spawnRipple(x, y) {
-    const r = document.createElement('div');
-    r.className = 'ripple-qte';
-    r.style.left = `${x}px`;
-    r.style.top = `${y + 12}px`;
-    document.getElementById('game-container').appendChild(r);
-
-    lastRippleTime = Date.now();
-    currentRippleDuration = 480;
-
-    // 애니메이션 종료 후 엘리먼트 자동 정리
-    setTimeout(() => {
-        r.remove();
-    }, currentRippleDuration);
-}
-
 // 2. 발사 시 초기 물리 및 중력 리셋
 function triggerLaunch(dy, dx) {
     isDragging = false; 
@@ -1615,6 +1598,113 @@ function drawFxCanvas() {
     for (let i = particles.length - 1; i >= 0; i--) { 
         const p = particles[i]; p.update(); p.draw(fxCtx); 
         if (p.alpha <= 0) particles.splice(i, 1); 
+    }
+
+    // ===================================================================
+    //  🎯 [퍼펙트 코어 강조] 중심 빨간 타겟 극대화 수축 엔진
+    // ===================================================================
+    if (currentStatus === 'FLYING' && !isDead && !hasTappedBounce) {
+        const X = STONE_FIXED_X;
+        const Y = STONE_FIXED_Y + 12;
+
+        fxCtx.save();
+
+        const peak = Math.max(3.0, currentPeakZ);
+        const heightRatio = Math.max(0.0, Math.min(1.0, stone.z / peak));
+
+        // -------------------------------------------------------------
+        // 1. [핵심] 수면 중심에 항상 대기 중인 "빨간 과녁 타겟 (Target Base)"
+        //    -> 하강 시 미리 보여주어 시선을 가운데로 집중시킴
+        // -------------------------------------------------------------
+        const targetRx = 54; // 돌 밑에 묻히지 않는 넉넉한 타겟 크기
+        const targetRy = targetRx * 0.46;
+
+        if (stone.vz < 0) {
+            // 하강 중 은은하게 중심을 잡아주는 고정 타겟 가이드
+            fxCtx.beginPath();
+            fxCtx.ellipse(X, Y, targetRx, targetRy, 0, 0, Math.PI * 2);
+            fxCtx.strokeStyle = 'rgba(255, 30, 30, 0.45)';
+            fxCtx.lineWidth = 3;
+            fxCtx.stroke();
+        }
+
+        // -------------------------------------------------------------
+        // 2. 바깥에서 수축/확장하는 동적 네온 도넛 링
+        // -------------------------------------------------------------
+        let rx, ry, r, g, b, glowColor, lineWidth;
+
+        if (stone.vz >= 0) {
+            // [상승 구간] 작은 코어에서 최고점 파란 파동으로 퍼짐
+            rx = targetRx + (heightRatio * (130 - targetRx));
+            ry = rx * 0.46;
+            r = 0; g = Math.round(200 + heightRatio * 55); b = 255;
+            glowColor = 'rgba(0, 217, 255, 0.6)';
+            lineWidth = 8;
+        } else {
+            // [하강 구간] 최고점(130px) -> 타겟 과녁(54px)으로 착 감기며 수축!
+            rx = targetRx + (heightRatio * (130 - targetRx));
+            ry = rx * 0.46;
+
+            if (heightRatio > 0.45) {
+                // 상층부: 파랑 -> 노랑
+                const t = (heightRatio - 0.45) / 0.55;
+                r = Math.round(255 - t * 255);
+                g = Math.round(230 - t * 15);
+                b = Math.round(0 + t * 255);
+                glowColor = 'rgba(255, 230, 0, 0.7)';
+                lineWidth = 10;
+            } else {
+                // 하층부 (퍼펙트 접근 구간): 노랑 -> 핏빛 네온 레드
+                const t = heightRatio / 0.45;
+                r = 255;
+                g = Math.round(30 + t * 200);
+                b = Math.round(30 - t * 30);
+                glowColor = 'rgba(255, 30, 30, 0.95)';
+                lineWidth = 14;
+            }
+        }
+
+        const currentColor = `rgb(${r}, ${g}, ${b})`;
+
+        // -------------------------------------------------------------
+        // 3. 💥 [하이라이트] 빨간 퍼펙트 존 도달 시 (heightRatio <= 0.22)
+        //    중심부가 강렬하게 점등하는 폭발적 코어 연출
+        // -------------------------------------------------------------
+        if (stone.vz < 0 && heightRatio <= 0.22) {
+            // A. 중심부 전체를 때리는 붉은 네온 면 채우기 플래시
+            fxCtx.beginPath();
+            fxCtx.ellipse(X, Y, targetRx + 4, targetRy + 2, 0, 0, Math.PI * 2);
+            fxCtx.fillStyle = 'rgba(255, 20, 20, 0.55)';
+            fxCtx.shadowBlur = 35;
+            fxCtx.shadowColor = '#ff0033';
+            fxCtx.fill();
+
+            // B. 내부 화이트 핫 코어 링 (시선 강탈)
+            fxCtx.beginPath();
+            fxCtx.ellipse(X, Y, targetRx * 0.6, targetRy * 0.6, 0, 0, Math.PI * 2);
+            fxCtx.strokeStyle = '#ffffff';
+            fxCtx.lineWidth = 3.5;
+            fxCtx.stroke();
+
+            // C. 퍼펙트 탭 안내
+            fxCtx.font = '900 26px "Impact", "Arial Black", sans-serif';
+            fxCtx.textAlign = 'center';
+            fxCtx.fillStyle = '#ffffff';
+            fxCtx.shadowBlur = 16;
+            fxCtx.shadowColor = '#ff0000';
+            fxCtx.fillText('PERFECT!', X, Y - 46);
+        }
+
+        // 4. 주 수축 도넛 테두리 렌더링
+        fxCtx.beginPath();
+        fxCtx.ellipse(X, Y, rx, ry, 0, 0, Math.PI * 2);
+        fxCtx.lineWidth = lineWidth;
+        fxCtx.strokeStyle = currentColor;
+        fxCtx.shadowBlur = (stone.vz < 0 && heightRatio <= 0.22) ? 30 : 16;
+        fxCtx.shadowColor = glowColor;
+        fxCtx.stroke();
+
+        fxCtx.restore();
     }
 }
 
