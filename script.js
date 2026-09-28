@@ -1837,9 +1837,54 @@ function spawnRipple(x, y) {
 }
 function spawnRatingText(x, y, rating) { const d = document.createElement('div'); d.className = `effect-text ${rating.toLowerCase()}`; d.style.left = `${x}px`; d.style.top = `${y - 45}px`; const map = { PERFECT: 'PERFECT!', GOOD: 'GOOD!', BAD: 'BAD', MISS: 'MISS' }; d.innerText = map[rating] || rating; document.getElementById('game-container').appendChild(d); setTimeout(() => d.remove(), 920); }
 function spawnBounceMarker(x, y, count) {
-    const d = document.createElement('div'); d.style.cssText = `position:absolute;left:${x}px;top:${y}px;transform:translate(-50%,-50%);background:rgba(0,0,0,0.75);color:#d9ff00;border:1.5px solid #d9ff00;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:900;z-index:18;pointer-events:none;text-shadow:-1px -1px 0 #000;animation:point-fade 1.5s ease-out forwards;`; d.innerText = `${count}◆`; document.getElementById('game-container').appendChild(d);
-    const s = document.createElement('style'); s.textContent = '@keyframes point-fade{0%{opacity:1;transform:translate(-50%,-50%) scale(1)}80%{opacity:0.7}100%{opacity:0;transform:translate(-50%,-60%) scale(0.8)}}'; document.head.appendChild(s);
-    setTimeout(() => { d.remove(); s.remove(); }, 1500);
+    const container = document.getElementById('game-container');
+    if (!container) return;
+
+    const d = document.createElement('div');
+    
+    // 돌의 최대 도약 고도(Y - 80)보다 훨씬 위쪽인 상단 빈 하늘(Y - 135px)에 고정
+    const targetY = STONE_FIXED_Y - 135;
+
+    d.style.cssText = `
+        position: absolute;
+        left: ${x}px;
+        top: ${targetY}px;
+        transform: translate(-50%, -50%) scale(0.7);
+        background: rgba(10, 15, 28, 0.88);
+        color: #d9ff00;
+        border: 1.5px solid #d9ff00;
+        border-radius: 20px;
+        padding: 4px 12px;
+        font-size: 14px;
+        font-weight: 900;
+        font-family: Impact, "Arial Black", sans-serif;
+        z-index: 70;
+        pointer-events: none;
+        white-space: nowrap;
+        text-shadow: 0 0 4px #000;
+        box-shadow: 0 0 14px rgba(217, 255, 0, 0.45);
+        opacity: 0;
+        transition: transform 0.22s cubic-bezier(0.17, 0.89, 0.32, 1.25), opacity 0.22s ease-out;
+    `;
+    d.innerText = `+${count} 튀김!`;
+    container.appendChild(d);
+
+    // 1단계: 돌 위 상단 하늘에서 경쾌하게 팡 팝업
+    requestAnimationFrame(() => {
+        d.style.opacity = '1';
+        d.style.transform = 'translate(-50%, -50%) scale(1.05)';
+        setTimeout(() => {
+            d.style.transform = 'translate(-50%, -50%) scale(1.0)';
+        }, 120);
+    });
+
+    // 2단계: 돌과 링을 가리지 않고 하늘 위로 살짝 페이드아웃
+    setTimeout(() => {
+        d.style.transition = 'transform 0.35s ease-in, opacity 0.35s ease-in';
+        d.style.opacity = '0';
+        d.style.transform = 'translate(-50%, -80%) scale(0.85)';
+        setTimeout(() => d.remove(), 350);
+    }, 650);
 }
 
 // ===========================================================
