@@ -1078,12 +1078,18 @@ function dragEnd(e) {
 }
 
 // ===================================================================
-//  🚀 [복원] 장거리 롱 바운스 & 실력 연동 무한 도약 물리 엔진
+//  🪨 [고도 기반 색상 연동 & 가속 퍼펙트 존 엔진]
 // ===================================================================
 
-// 1. 발사 시 초기 버짓(수명) 및 스와이프 파워 보너스 대폭 상향
+// 1. 고도 추적 및 동적 중력 가속 전역 변수
+let currentGravity = 0.17; // 초기 체공 중력
+let currentPeakZ = 10.0;    // 현재 바운스 사이클의 최고점 기록
+
+// 2. 발사 시 초기 물리 및 중력 리셋
 function triggerLaunch(dy, dx) {
-    isDragging = false; unbindLaunchEvents(); cancelAnimationFrame(angleTimerId);
+    isDragging = false; 
+    unbindLaunchEvents(); 
+    cancelAnimationFrame(angleTimerId);
     document.getElementById('swipe-guide').style.display = 'none';
     document.getElementById('angle-gauge-wrap').style.display = 'none';
 
@@ -1145,8 +1151,12 @@ function triggerLaunch(dy, dx) {
 
     stone.activePhys = ap; stone.isCrit = isCrit; stone.isLotto = isLotto;
     bounceCount = 0; perfectCount = 0; isDead = false; hasTappedBounce = false; tapsInCurrentCycle = 0;
-    markerProgress = 0; isWindowActive = false; tapWindowStart = 0;
-    for (let i = 0; i < 14; i++) rippleLayers[i].z = i / 14; layerProgress = 0;
+    currentGravity = 0.17; // 초기 중력값 세팅 (체공 여유)
+    currentPeakZ = Math.max(10.0, stone.z);
+    isWindowActive = false;
+
+    for (let i = 0; i < 14; i++) rippleLayers[i].z = i / 14; 
+    layerProgress = 0;
 
     let launchPercent = 1.0;
     if (zone === 'EASTEREG') {
@@ -1176,13 +1186,9 @@ function triggerLaunch(dy, dx) {
         haptic('medium');
     }
 
-    // [개선 1] 스와이프 파워 보너스 수명 대폭 확대
     let swipeBonus = 0;
-    if (swipeSpeed >= 30) {
-        swipeBonus = 8; // 초광속 투척 시 +8회
-    } else if (swipeSpeed >= 18) {
-        swipeBonus = 4; // 쾌속 투척 시 +4회
-    }
+    if (swipeSpeed >= 30) swipeBonus = 8;
+    else if (swipeSpeed >= 18) swipeBonus = 4;
 
     const rawBase = Math.floor(Math.random() * (bRange[1] - bRange[0] + 1)) + bRange[0];
     stone.totalBudget = Math.max(5, Math.round((rawBase + swipeBonus) * launchPercent));
@@ -1192,7 +1198,8 @@ function triggerLaunch(dy, dx) {
     stone.vz *= Math.max(0.9, launchPercent);
     gaugeSpeedMult = 2.0;
 
-    currentStatus = 'FLYING'; isPlaying = true;
+    currentStatus = 'FLYING'; 
+    isPlaying = true;
     document.getElementById('score-display').innerText = 'BOUNCE: 0';
     SoundManager.playLaunch(swipeSpeed);
 
@@ -1208,13 +1215,14 @@ function runGameLoop() {
     animFrameId = requestAnimationFrame(runGameLoop);
 }
 
-// 2. 화면 이탈 방지 투영 함수 (최대 85px 상한선 고정)
+// 3. 화면 픽셀 투영: 수면 패드가 가려지지 않도록 넉넉한 도약폭(3.5배) 보장
 function applyStonePos() {
     const el = document.getElementById('ingame-stone');
     if (!el) return;
 
-    const rawOffset = isDead ? Math.max(-30, stone.z * 1.5) : Math.max(0, stone.z * 2.2);
-    const bounceOff = Math.min(85, rawOffset); 
+    // 돌이 최고 75px까지 솟아올라 돌 밑바닥 수면 링이 시원하게 보이도록 투영
+    const rawOffset = isDead ? Math.max(-30, stone.z * 1.5) : Math.max(0, stone.z * 3.5);
+    const bounceOff = Math.min(80, rawOffset); 
 
     const x = STONE_FIXED_X;
     const y = STONE_FIXED_Y - bounceOff;
@@ -1233,12 +1241,12 @@ function applyStonePos() {
         let scaleX = 1.0;
         let scaleY = 1.0;
 
-        if (stone.z <= 0.8 && stone.vz < 0) {
+        if (stone.z <= 1.2 && stone.vz < 0) {
             scaleX = 1.15;
-            scaleY = 0.85;
+            scaleY = 0.85; // 수면 닿기 직전 카툰 찌그러짐
         } else if (stone.vz > 1.2) {
             scaleX = 0.92;
-            scaleY = 1.08;
+            scaleY = 1.08; // 도약 시 펴짐
         }
 
         el.style.transform = `translate(-50%,-50%) scale(${scaleX}, ${scaleY}) rotate(${rot}deg)`;
@@ -1246,13 +1254,18 @@ function applyStonePos() {
     }
 }
 
-// 2. 물리 루프: 조기 침수 가드 완화 및 잔여 버짓 완전 보장
+// 4. 물리 루프: 최고점 갱신 및 동적 중력 가속 적용
 function updatePhysics() {
     if (!isDead) {
         stone.z += stone.vz;
-        stone.vz -= 0.17; // 부드러운 아케이드 체공 중력
+        stone.vz -= currentGravity; // [핵심] 콤보에 따라 가속되는 낙하 중력
         stone.x += stone.vx;
         stone.y += stone.vy;
+
+        // 현재 도약의 최고점 실시간 기록
+        if (stone.z > currentPeakZ) {
+            currentPeakZ = stone.z;
+        }
     } else {
         stone.vz -= 0.15;
         stone.z += stone.vz;
@@ -1267,25 +1280,21 @@ function updatePhysics() {
     }
     layerProgress += stone.vy * 0.00009;
 
-    // 자연스러운 완만 감속 (속도가 급격히 죽는 것 방지)
     const wm = 1 + (upgrades.weight * 0.0008);
     stone.vy *= Math.min(0.996, 0.988 * wm);
     stone.vx *= 0.98;
 
-    if (stone.vz < 0 && stone.z <= 5.0 && !isWindowActive && !hasTappedBounce && !isDead) {
-        tapWindowStart = Date.now();
+    // 하강 시 수면 링 활성화
+    if (stone.vz < 0 && !hasTappedBounce && !isDead) {
         isWindowActive = true;
     }
-    if (isWindowActive) {
-        markerProgress += 0.045;
-        if (markerProgress >= 1.0) isWindowActive = false;
-    }
 
-    // [개선 2] 수면 접촉 바운스: 컷오프를 0.3으로 낮춰 버짓이 남아있으면 계속 튀김
+    // 수면 접촉 충돌 판정
     if (stone.vz < 0 && stone.z <= 0.4 && !isDead) {
         if (hasTappedBounce) {
             hasTappedBounce = false;
         } else {
+            // 미입력 자동 착지: 속도와 버짓이 남아있으면 자동 바운스
             if (stone.remainingBudget > 0 && stone.vy > 0.3) {
                 stone.z = 0;
                 processBounce('GOOD', true);
@@ -1295,7 +1304,6 @@ function updatePhysics() {
         }
     }
 
-    // 완전히 멈췄을 때만 자연스럽게 가라앉음
     if (stone.vy < 0.25 && !isDead && stone.remainingBudget <= 0) {
         triggerWaterSink();
     }
@@ -1308,46 +1316,7 @@ function updatePhysics() {
     applyStonePos();
 }
 
-// ===========================================================
-//  🎯 실시간 타이밍 탭 판정 레이어 (수축 링 동기화)
-// ===========================================================
-function registerBounceTap(e) {
-    if (currentStatus !== 'FLYING' || isDead) return;
-
-    if (stone.vz >= 0) {
-        hasTappedBounce = true;
-        stone.vy *= 0.40;
-        stone.vz *= 0.40;
-        spawnDramaticText('연타 패널티! 밸런스 붕괴', 'neon-red');
-        haptic('error');
-        return;
-    }
-
-    if (!isWindowActive || hasTappedBounce) {
-        hasTappedBounce = true;
-        stone.vy *= 0.40;
-        stone.vz *= 0.40;
-        spawnDramaticText('연타 패널티! 밸런스 붕괴', 'neon-red');
-        haptic('error');
-        return;
-    }
-
-    // [LOCK MECHANISM] 중복 판정 차단
-    isWindowActive = false;
-    hasTappedBounce = true;
-    stone.z = 0;
-
-    // 수축 링이 기준 링과 75% ~ 100% 일치할 때 PERFECT
-    if (markerProgress >= 0.72 && markerProgress <= 1.0) {
-        processBounce('PERFECT', false);
-    } else if (markerProgress >= 0.30 && markerProgress < 0.72) {
-        processBounce('GOOD', false);
-    } else {
-        processBounce('BAD', false);
-    }
-}
-
-// 3. 바운스 판정: PERFECT/GOOD 시 수명 보너스 연장 및 속도 재추진
+// 5. 바운스 판정: 퍼펙트 시 높이 복원 & 다음 사이클 낙하 속도(중력) 가속
 function processBounce(rating, isAuto = false) {
     bounceCount++;
     const ex = STONE_FIXED_X, ey = STONE_FIXED_Y;
@@ -1370,27 +1339,31 @@ function processBounce(rating, isAuto = false) {
     else if (rarity === 'Rare') triggerShake('light');
 
     let pCount = rarity === 'Mythic' ? 14 : rarity === 'Legendary' ? 40 : rarity === 'Rare' ? 25 : 16;
-
-    // 기본 수명 1회 소모
     stone.remainingBudget--;
 
-    const stoneBaseHeight = sp.bounceHeightBase || 2.0;
+    const stoneBaseHeight = sp.bounceHeightBase || 2.2;
     const swipeFactor = Math.max(0.85, Math.min(1.25, 0.85 + (swipeSpeed / 38) * 0.4));
 
-    let ratingMult = 1.0;
+    // 자연 감쇠율 (바운스가 거듭될수록 자연 감소)
+    const decayRatio = Math.max(0.35, stone.remainingBudget / Math.max(1, stone.totalBudget));
+
     if (rating === 'PERFECT') {
         perfectCount++;
-        ratingMult = 1.35;
         if (!isAuto) {
-            // [개선 3] 수동 퍼펙트 탭 시 수명 +2회 대폭 연장 & 전진 추진력 강력 부스트!
-            stone.remainingBudget += 2; 
-            stone.vy = Math.min(stone.vy * 1.12 + 1.5, 45); 
+            stone.remainingBudget += 2; // 수명 보충
+            stone.vy = Math.min(stone.vy * 1.12 + 1.5, 45); // 추진 가속
             const earned = Math.round(100 * selectedStone.mult * 2.5);
             document.getElementById('message').innerText = `${t('perfectTiming')} (+${earned} SP)`;
             playerSP += earned;
-        } else {
-            stone.vy *= 0.96;
         }
+
+        // [핵심 1] 퍼펙트 성공 시 초기 높이로 시원하게 복원
+        stone.z = 0.4;
+        stone.vz = stoneBaseHeight * swipeFactor * 1.45 * em;
+
+        // [핵심 2] 높이는 복원되되, 낙하 속도는 단계별로 빨라져 다음 탭 난이도 상승!
+        currentGravity = Math.min(0.34, 0.17 + (perfectCount * 0.035));
+
         createParticles(ex, ey, true, false, Math.round(pCount * 1.3));
         haptic('heavy');
         SoundManager.playBounce(true);
@@ -1398,9 +1371,7 @@ function processBounce(rating, isAuto = false) {
         if (rarity === 'Mythic') spawnGodSplash(ex, ey);
 
     } else if (rating === 'GOOD') {
-        ratingMult = 1.0;
         if (!isAuto) {
-            // 수동 굿 탭 시 수명 +1회 유지
             stone.remainingBudget += 1;
             stone.vy = Math.min(stone.vy * 1.05 + 0.8, 40);
             const earned = Math.round(100 * selectedStone.mult * 1.2);
@@ -1411,22 +1382,34 @@ function processBounce(rating, isAuto = false) {
             const earned = Math.round(100 * selectedStone.mult * 0.4);
             playerSP += earned;
         }
+
+        // 자동/일반 바운스는 점진적으로 높이가 낮아짐
+        stone.z = 0.4;
+        stone.vz = stoneBaseHeight * swipeFactor * 1.0 * em * decayRatio;
+
         createParticles(ex, ey, false, false, pCount);
         haptic('medium');
         SoundManager.playBounce(false);
         if (rarity === 'Mythic') spawnGodSplash(ex, ey);
 
     } else {
-        ratingMult = 0.55;
+        // BAD 판정
         stone.vy *= 0.65;
         stone.remainingBudget = Math.max(0, stone.remainingBudget - 1);
         const earned = Math.round(100 * selectedStone.mult * 0.2);
         if (!isAuto) document.getElementById('message').innerText = t('badTiming');
         playerSP += earned;
+
+        stone.z = 0.4;
+        stone.vz = stoneBaseHeight * 0.5 * decayRatio;
+
         createParticles(ex, ey, false, false, 4, true);
         haptic('light');
         SoundManager.playBounce(false);
     }
+
+    // 다음 바운스 정점 측정을 위해 peakZ 초기화
+    currentPeakZ = stone.vz * 3.0;
 
     triggerWake(ex, ey, 1.0);
     const spEl = document.getElementById('sp-count');
@@ -1436,19 +1419,51 @@ function processBounce(rating, isAuto = false) {
         setTimeout(() => { spEl.style.transform = ''; spEl.style.color = ''; }, 180);
     }
 
-    // 점프 높이: 버짓이 남아있는 한 일정 수준 이상의 통통한 점프력 유지
-    const budgetFactor = Math.max(0.75, stone.remainingBudget / Math.max(1, stone.totalBudget));
-    stone.z = 0.4;
-    stone.vz = stoneBaseHeight * swipeFactor * ratingMult * em * budgetFactor;
-
     isWindowActive = false;
     hasTappedBounce = false;
     tapsInCurrentCycle = 0;
-    markerProgress = 0;
     document.getElementById('score-display').innerText = `BOUNCE: ${bounceCount}`;
     updateAssetUI();
     saveData();
     spawnBounceMarker(ex, ey, bounceCount);
+}
+
+// 6. 실시간 탭 입력 판정 (고도 기반 판정)
+function registerBounceTap(e) {
+    if (currentStatus !== 'FLYING' || isDead) return;
+
+    // 상승 중 연타 페널티
+    if (stone.vz >= 0) {
+        hasTappedBounce = true;
+        stone.vy *= 0.40;
+        stone.vz *= 0.40;
+        spawnDramaticText('연타 패널티! 밸런스 붕괴', 'neon-red');
+        haptic('error');
+        return;
+    }
+
+    if (!isWindowActive || hasTappedBounce) {
+        hasTappedBounce = true;
+        stone.vy *= 0.40;
+        stone.vz *= 0.40;
+        spawnDramaticText('연타 패널티! 밸런스 붕괴', 'neon-red');
+        haptic('error');
+        return;
+    }
+
+    isWindowActive = false;
+    hasTappedBounce = true;
+
+    // [다이어그램 연동 판정] 빨간색 링 구간(수면 1.8 이하 접촉 찰나)에 탭하면 PERFECT!
+    if (stone.z <= 1.8 && stone.z >= 0.0) {
+        processBounce('PERFECT', false);
+    } else if (stone.z > 1.8 && stone.z <= (currentPeakZ * 0.65)) {
+        // 노란색 링 구간에 누르면 GOOD
+        processBounce('GOOD', false);
+    } else {
+        // 너무 일찍(파란색 정점 부근) 누르면 BAD
+        processBounce('BAD', false);
+    }
 }
 
 function triggerWaterMiss() {
@@ -1605,13 +1620,12 @@ function draw7LayerBG() {
 }
 
 // ===========================================================
-// ===========================================================
-//  ✨ 카툰 속도선 & 이펙트 파티클 렌더링 엔진 (수면 수축 타겟 링 탑재)
+//  ✨ 카툰 속도선 & 이펙트 파티클 렌더링 엔진
 // ===========================================================
 function drawFxCanvas() {
     fxCtx.clearRect(0, 0, W, H);
 
-    // 1. 비행 중 속도선 연출
+    // 속도선 렌더링
     if (currentStatus === 'FLYING' && !isDead) {
         const speed = stone.vy;
         if (speed > 3) {
@@ -1647,7 +1661,7 @@ function drawFxCanvas() {
         }
     }
 
-    // 2. 등록된 파티클 렌더링
+    // 파티클 렌더링
     for (let i = particles.length - 1; i >= 0; i--) { 
         const p = particles[i]; 
         p.update(); 
@@ -1655,72 +1669,75 @@ function drawFxCanvas() {
         if (p.alpha <= 0) particles.splice(i, 1); 
     }
 
-    // =======================================================
-    // 🎯 [시안 반영] 면 채우기 기반 고시인성 수면 타이밍 패드
-    // =======================================================
+    // ===================================================================
+    //  🎯 [stone_bounce.pdf 시안 반영] 고도 연동 3단계 색상 링
+    //  - 최고점: 파란색 링 (Blue)
+    //  - 중간 고도: 노란색 링 (Yellow)
+    //  - 물에 닿을 때: 빨간색 링 (Red - 퍼펙트 존!)
+    // ===================================================================
     if (currentStatus === 'FLYING' && !isDead && isWindowActive) {
         const X = STONE_FIXED_X;
-        const Y = STONE_FIXED_Y + 14; // 수면 착지 바닥면
+        const Y = STONE_FIXED_Y + 14;
 
         fxCtx.save();
 
-        const progress = Math.min(1.0, Math.max(0.0, markerProgress));
+        // 현재 고도 비율 산출 (0.0: 수면 접촉 ~ 1.0: 체공 최고점)
+        const peak = Math.max(2.5, currentPeakZ);
+        const heightRatio = Math.max(0.0, Math.min(1.0, stone.z / peak));
 
-        // 1. 단계별 색상 정의 (면 색상, 테두리 색상, 글로우)
-        let fillColor, strokeColor, glowColor;
+        let strokeColor, glowColor, fillColor;
         let padScale = 1.0;
 
-        if (progress >= 0.75) {
-            // 3단계: 퍼펙트 순간 (강렬한 네온 라임 골드 패드)
-            fillColor = 'rgba(217, 255, 0, 0.75)';
-            strokeColor = '#ffffff';
-            glowColor = '#d9ff00';
-            padScale = 1.08; // 칠 때 살짝 커지며 팡 터지는 펄스
-        } else if (progress >= 0.50) {
-            // 2단계: 탭 준비 진입 (선명한 옐로우/오렌지 패드)
-            fillColor = 'rgba(255, 170, 0, 0.65)';
+        if (heightRatio <= 0.22) {
+            // [3단계: 물에 닿을 때 (수면 최저점)] -> 빨간색 (PERFECT 타이밍!)
+            strokeColor = '#ef4444';
+            glowColor = '#ff0033';
+            fillColor = 'rgba(239, 68, 68, 0.45)';
+            padScale = 1.08;
+        } else if (heightRatio <= 0.65) {
+            // [2단계: 중간 튕김 (하강 진입)] -> 노란색 (WARNING / READY)
             strokeColor = '#fde047';
-            glowColor = '#ff9900';
+            glowColor = '#eab308';
+            fillColor = 'rgba(253, 224, 71, 0.30)';
             padScale = 1.0;
         } else {
-            // 1단계: 하강 감지 (쿨 사이언 블루 패드)
-            fillColor = 'rgba(0, 180, 255, 0.55)';
+            // [1단계: 최고점 정점] -> 파란색 (SAFE / APEX)
             strokeColor = '#00f0ff';
             glowColor = '#00c8ff';
+            fillColor = 'rgba(0, 240, 255, 0.20)';
             padScale = 0.95;
         }
 
-        const rx = 82 * padScale;
-        const ry = 42 * padScale;
+        const rx = 76 * padScale;
+        const ry = 38 * padScale;
 
-        // 2. 바닥면 타원 패드 채우기 (절대 안 묻히는 솔리드 레이어)
+        // 1. 수면 타원 배경 패드 (면 채우기로 시인성 확보)
         fxCtx.beginPath();
         fxCtx.ellipse(X, Y, rx, ry, 0, 0, Math.PI * 2);
         fxCtx.fillStyle = fillColor;
-        fxCtx.shadowBlur = 18;
+        fxCtx.shadowBlur = 16;
         fxCtx.shadowColor = glowColor;
         fxCtx.fill();
 
-        // 3. 두툼한 고대비 외곽선 (두께 4.5px)
-        fxCtx.lineWidth = 4.5;
+        // 2. 고대비 테두리 링
+        fxCtx.lineWidth = 4.0;
         fxCtx.strokeStyle = strokeColor;
         fxCtx.stroke();
 
-        // 4. 퍼펙트 임박 시 내부 코어 링 강조
-        if (progress >= 0.75) {
+        // 3. 빨간색 퍼펙트 구간 진입 시 강렬한 화이트 코어 링 & 안내
+        if (heightRatio <= 0.22) {
             fxCtx.beginPath();
-            fxCtx.ellipse(X, Y, rx * 0.55, ry * 0.55, 0, 0, Math.PI * 2);
-            fxCtx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
-            fxCtx.lineWidth = 3;
+            fxCtx.ellipse(X, Y, rx * 0.6, ry * 0.6, 0, 0, Math.PI * 2);
+            fxCtx.strokeStyle = '#ffffff';
+            fxCtx.lineWidth = 2.5;
             fxCtx.stroke();
 
-            // 상단 TAP 안내
             fxCtx.font = '900 24px "Impact", "Arial Black", sans-serif';
             fxCtx.textAlign = 'center';
             fxCtx.fillStyle = '#ffffff';
             fxCtx.shadowBlur = 12;
-            fxCtx.shadowColor = '#000';
-            fxCtx.fillText('TAP!', X, Y - 52);
+            fxCtx.shadowColor = '#ff0000';
+            fxCtx.fillText('TAP!', X, Y - 50);
         }
 
         fxCtx.restore();
@@ -1841,46 +1858,9 @@ function createTrailParticle(x, y) { const cnt = selectedStone?.rarity === 'Myth
 function spawnRipple(x, y) { const r = document.createElement('div'); r.className = 'ripple'; r.style.left = `${x}px`; r.style.top = `${y}px`; document.getElementById('game-container').appendChild(r); setTimeout(() => r.remove(), 850); }
 function spawnRatingText(x, y, rating) { const d = document.createElement('div'); d.className = `effect-text ${rating.toLowerCase()}`; d.style.left = `${x}px`; d.style.top = `${y - 45}px`; const map = { PERFECT: 'PERFECT!', GOOD: 'GOOD!', BAD: 'BAD', MISS: 'MISS' }; d.innerText = map[rating] || rating; document.getElementById('game-container').appendChild(d); setTimeout(() => d.remove(), 920); }
 function spawnBounceMarker(x, y, count) {
-    const d = document.createElement('div');
-    // 돌 밑 수면(y) 대신 돌 위쪽(y - 80px) 빈 공간에 팝업
-    d.style.cssText = `
-        position: absolute;
-        left: ${x}px;
-        top: ${y - 80}px;
-        transform: translate(-50%, -50%);
-        background: rgba(5, 5, 20, 0.85);
-        color: #d9ff00;
-        border: 1.5px solid #d9ff00;
-        border-radius: 20px;
-        padding: 4px 12px;
-        font-size: 13px;
-        font-weight: 900;
-        font-family: Impact, "Arial Black", sans-serif;
-        z-index: 60;
-        pointer-events: none;
-        text-shadow: -1px -1px 0 #000, 1px 1px 0 #000;
-        box-shadow: 0 0 12px rgba(217, 255, 0, 0.4);
-        animation: point-float-up 1.2s cubic-bezier(0.15, 0.85, 0.15, 1) forwards;
-    `;
-    d.innerText = `+${count} 튀김!`;
-    document.getElementById('game-container').appendChild(d);
-
-    const s = document.createElement('style');
-    // 위로 살짝 떠오르며 부드럽게 페이드아웃
-    s.textContent = `
-        @keyframes point-float-up {
-            0% { opacity: 0; transform: translate(-50%, -20%) scale(0.7); }
-            20% { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
-            40% { transform: translate(-50%, -60%) scale(1.0); }
-            80% { opacity: 0.9; }
-            100% { opacity: 0; transform: translate(-50%, -100%) scale(0.85); }
-        }
-    `;
-    document.head.appendChild(s);
-    setTimeout(() => {
-        d.remove();
-        s.remove();
-    }, 1200);
+    const d = document.createElement('div'); d.style.cssText = `position:absolute;left:${x}px;top:${y}px;transform:translate(-50%,-50%);background:rgba(0,0,0,0.75);color:#d9ff00;border:1.5px solid #d9ff00;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:900;z-index:18;pointer-events:none;text-shadow:-1px -1px 0 #000;animation:point-fade 1.5s ease-out forwards;`; d.innerText = `${count}◆`; document.getElementById('game-container').appendChild(d);
+    const s = document.createElement('style'); s.textContent = '@keyframes point-fade{0%{opacity:1;transform:translate(-50%,-50%) scale(1)}80%{opacity:0.7}100%{opacity:0;transform:translate(-50%,-60%) scale(0.8)}}'; document.head.appendChild(s);
+    setTimeout(() => { d.remove(); s.remove(); }, 1500);
 }
 
 // ===========================================================
