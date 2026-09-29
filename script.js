@@ -301,7 +301,11 @@ const BG_FILES = [
     'images/background_lake.png',
     'images/foreground_river.png',
     'images/midground_river.png',
-    'images/background_river.png'
+    'images/background_river.png',
+    // 🌙 [신규 추가] 달밤(moon) 테마 에셋
+    'images/foreground_moon.webp',
+    'images/midground_moon.webp',
+    'images/background_moon.webp'
 ];
 const bgImgCache = {};
 BG_FILES.forEach(p => {
@@ -311,6 +315,17 @@ BG_FILES.forEach(p => {
 });
 let currentBgPath = BG_FILES[0];
 let currentTheme = 'lake';
+
+function changeRandomBg() {
+    // lake, river, moon 3종 테마 중 1개 균등 랜덤 추첨
+    const themes = ['lake', 'river', 'moon'];
+    currentTheme = themes[Math.floor(Math.random() * themes.length)];
+
+    const ext = currentTheme === 'moon' ? 'webp' : 'png';
+    currentBgPath = `images/foreground_${currentTheme}.${ext}`;
+    const container = document.getElementById('game-container');
+    if (container) container.style.background = `url('${currentBgPath}') no-repeat center/cover`;
+}
 
 const RARITY_BG = { Ordinary: new Image(), Rare: new Image(), Legendary: new Image(), Mythic: new Image() };
 RARITY_BG.Ordinary.src = 'images/background_ordinary.png';
@@ -1026,6 +1041,7 @@ function startGameplay() {
     // 3. 상태값 확정 및 인터랙션 바인딩
     currentStatus = 'READY_TO_LAUNCH';
     bindLaunchEvents();
+    changeRandomBg();
     drawStaticBackground();
 
     // 4. 게이지 수치 계산 및 애니메이션 가동
@@ -1538,11 +1554,16 @@ function drawScaledCenteredCoverImage(ctx, img, W, H, scale = 1.0) {
     ctx.restore();
 }
 
+function getThemeImg(layer) {
+    const ext = currentTheme === 'moon' ? 'webp' : 'png';
+    return bgImgCache[`images/${layer}_${currentTheme}.${ext}`];
+}
+
 function drawStaticBackground() {
     bgCtx.clearRect(0, 0, W, H);
-    const imgBase = bgImgCache[`images/background_${currentTheme}.png`];
-    const imgMid = bgImgCache[`images/midground_${currentTheme}.png`];
-    const imgFore = bgImgCache[`images/foreground_${currentTheme}.png`];
+    const imgBase = getThemeImg('background');
+    const imgMid = getThemeImg('midground');
+    const imgFore = getThemeImg('foreground');
 
     if (imgBase && imgBase.complete) drawScaledCenteredCoverImage(bgCtx, imgBase, W, H, 1.0);
     if (imgMid && imgMid.complete) drawScaledCenteredCoverImage(bgCtx, imgMid, W, H, 1.0);
@@ -1556,9 +1577,9 @@ function draw7LayerBG() {
     const vp = { x: W / 2, y: HORIZON_Y };
     const rarity = selectedStone?.rarity || 'Ordinary';
 
-    const imgBase = bgImgCache[`images/background_${currentTheme}.png`];
-    const imgMid = bgImgCache[`images/midground_${currentTheme}.png`];
-    const imgFore = bgImgCache[`images/foreground_${currentTheme}.png`];
+    const imgBase = getThemeImg('background');
+    const imgMid = getThemeImg('midground');
+    const imgFore = getThemeImg('foreground');
 
     bgCtx.save();
     if (imgBase && imgBase.complete) drawScaledCenteredCoverImage(bgCtx, imgBase, W, H, 1.0);
