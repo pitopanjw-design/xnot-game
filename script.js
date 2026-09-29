@@ -927,7 +927,12 @@ function setStoneStyle() {
 //  📐 게이지 판정 및 높이 계산 (원래의 단순한 안전 코드로 원복)
 // ===========================================================
 function getAngleZone(angleVal) {
-    const perfSize = 0.08; // 소수점 에러가 없는 안전한 고정값
+    // 🌟 [신설] 정중앙 1% 두께의 초정밀 슈퍼 존 (0.495 ~ 0.505)
+    if (angleVal >= 0.495 && angleVal <= 0.505) {
+        return 'SUPER';
+    }
+
+    const perfSize = 0.08;
     const pMin = 0.5 - (perfSize / 2);
     const pMax = 0.5 + (perfSize / 2);
 
@@ -955,12 +960,33 @@ function updateGaugePerfectZone() {
         }
     };
 
-    // 정적 고정 퍼센트로 단순화 (어떤 변수도 참조하지 않으므로 에러 발생 불가)
     set('gz-red-bot', 1, 5);
     set('gz-safe-bot', 31, 15);
     set('gz-perfect', 46, 8);
     set('gz-safe-top', 54, 15);
     set('gz-red-top', 94, 5);
+
+    // 🌟 퍼펙트 존 정중앙에 1% 두께의 황금빛 슈퍼 라인 생성 (없으면 동적 주입)
+    let superEl = document.getElementById('gz-super-zone');
+    if (!superEl) {
+        const pZone = document.getElementById('angle-gauge-bg') || document.getElementById('angle-gauge-bar') || document.getElementById('angle-gauge-wrap');
+        if (pZone) {
+            superEl = document.createElement('div');
+            superEl.id = 'gz-super-zone';
+            superEl.style.cssText = `
+                position: absolute;
+                left: 0;
+                width: 100%;
+                height: 1%;
+                bottom: 49.5%;
+                background: #ffffff;
+                box-shadow: 0 0 8px #ffd700, 0 0 14px #ffffff;
+                z-index: 10;
+                pointer-events: none;
+            `;
+            pZone.appendChild(superEl);
+        }
+    }
 }
 
 // ===========================================================
@@ -1112,6 +1138,7 @@ function triggerLaunch(dy, dx) {
     const ss = selectedStone;
     let bRange = ss.budgetRange;
 
+    // 돌 특성 복제 및 크리티컬 연산 (기존 로직 유지)
     if (ss.rarity === 'Mythic') {
         if (window.forceLotto || Math.random() < ss.physics.lottoChance) { 
             ap = JSON.parse(JSON.stringify(ss.physics.lottoPhysics)); 
@@ -1152,7 +1179,7 @@ function triggerLaunch(dy, dx) {
 
     stone.activePhys = ap; stone.isCrit = isCrit; stone.isLotto = isLotto;
     bounceCount = 0; perfectCount = 0; isDead = false; hasTappedBounce = false; tapsInCurrentCycle = 0;
-    currentGravity = 0.17; // 초기 중력값 세팅 (체공 여유)
+    currentGravity = 0.17;
     currentPeakZ = Math.max(10.0, stone.z);
     isWindowActive = false;
 
@@ -1160,7 +1187,18 @@ function triggerLaunch(dy, dx) {
     layerProgress = 0;
 
     let launchPercent = 1.0;
-    if (zone === 'EASTEREG') {
+    let isSuperLaunch = false;
+
+    // 🌟 판정별 배율 및 특수 연출 분기
+    if (zone === 'SUPER') {
+        // [1% 슈퍼 존]: 퍼펙트(1.6)의 3배에 달하는 울트라 추진력
+        launchPercent = 4.8;
+        isSuperLaunch = true;
+        document.getElementById('message').innerText = "⚡ SUPER SKIPPER! ⚡";
+        spawnDramaticText("SUPER SKIPPER!", 'neon-gold');
+        triggerShake('heavy');
+        haptic('heavy');
+    } else if (zone === 'EASTEREG') {
         launchPercent = 2.2;
         document.getElementById('message').innerText = gaugeSpeedMult >= 3.0 ? "⚡ MAX SPEED HYPER DRIVE! ⚡" : "⚡ 하이퍼 드라이브 발사! ⚡";
         spawnDramaticText("HYPER DRIVE!", 'neon-gold');
@@ -1195,8 +1233,8 @@ function triggerLaunch(dy, dx) {
     stone.totalBudget = Math.max(5, Math.round((rawBase + swipeBonus) * launchPercent));
     stone.remainingBudget = stone.totalBudget;
 
-    stone.vy *= Math.max(0.9, launchPercent);
-    stone.vz *= Math.max(0.9, launchPercent);
+    stone.vy *= Math.max(0.9, isSuperLaunch ? 2.2 : launchPercent);
+    stone.vz *= Math.max(0.9, isSuperLaunch ? 1.4 : launchPercent);
     gaugeSpeedMult = 2.0;
 
     spawnRipple(STONE_FIXED_X, STONE_FIXED_Y);
@@ -1209,7 +1247,30 @@ function triggerLaunch(dy, dx) {
     document.getElementById('game-container').addEventListener('mousedown', registerBounceTap);
     document.getElementById('game-container').addEventListener('touchstart', registerBounceTap, { passive: true });
 
-    runGameLoop();
+    // 🌟 슈퍼 존 발동 시: 화면 일시 정지(Hit-Stop) + 돌 황금빛 아우라 발광 연출 후 출발!
+    if (isSuperLaunch) {
+        const stoneEl = document.getElementById('ingame-stone');
+        if (stoneEl) {
+            // 돌 가장자리에 황금빛 폭발 아우라 적용
+            stoneEl.style.filter = 'drop-shadow(0 0 25px #ffd700) drop-shadow(0 0 45px #ffffff) brightness(1.4)';
+            stoneEl.style.transform = 'translate(-50%, -50%) scale(1.35)';
+        }
+
+        // 380ms 동안 게임 루프를 지연시켜 '멈칫!' 하는 긴장감 연출
+        setTimeout(() => {
+            if (stoneEl) {
+                stoneEl.style.transition = 'filter 0.5s ease, transform 0.3s ease';
+                stoneEl.style.filter = selectedStone.rarity === 'Mythic'
+                    ? 'drop-shadow(0 0 22px rgba(255,215,0,0.85))'
+                    : 'drop-shadow(0 6px 12px rgba(0,0,0,0.55))';
+                stoneEl.style.transform = 'translate(-50%, -50%) scale(1.0)';
+                setTimeout(() => { if (stoneEl) stoneEl.style.transition = ''; }, 500);
+            }
+            runGameLoop();
+        }, 380);
+    } else {
+        runGameLoop();
+    }
 }
 
 function runGameLoop() {
