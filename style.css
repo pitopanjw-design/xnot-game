@@ -280,15 +280,28 @@ button, .action-confirm-btn, #main-btn, #shop-btn, #intro-start-btn, #intro-info
 .gauge-zone { position: absolute; left: 0; width: 100%; }
 .gz-red    { background: rgba(255, 80,80,0.4); }
 .gz-safe   { background: rgba(0,240,255,0.25); border-top:1px dashed rgba(0,240,255,0.5); border-bottom:1px dashed rgba(0,240,255,0.5); }
-.gz-perfect{ background: rgba(217,255,0,0.35); border-top:2px dashed var(--neon-lime); border-bottom:2px dashed var(--neon-lime); }
-.gz-perfect-label {
+/* =======================================================
+   🎯 퍼펙트 존 텍스트 위치 교정 (슈퍼존 윗공간 배치)
+   ======================================================= */
+#gz-perfect {
     position: absolute;
-    left: 50%; top: 50%;
-    transform: translate(-50%,-50%);
-    font-size: 8px; font-weight: 900;
-    color: var(--neon-lime);
-    text-shadow: -1px -1px 0 #000, 1px 1px 0 #000;
-    white-space: nowrap;
+    width: 100%;
+    background: rgba(217, 255, 0, 0.22);
+    border-top: 1.5px dashed #d9ff00;
+    border-bottom: 1.5px dashed #d9ff00;
+    box-sizing: border-box;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start; /* 중앙 정렬에서 상단 정렬로 변경 */
+    padding-top: 2px;        /* 슈퍼존 윗공간에 깔끔하게 안착 */
+    color: #ffffff;
+    font-size: 8px;          /* 좁은 게이지 바에 맞는 선명한 폰트 */
+    font-weight: 900;
+    font-family: Impact, "Arial Black", sans-serif;
+    letter-spacing: 0.5px;
+    text-shadow: 0 0 3px #000, 0 0 6px #d9ff00;
+    pointer-events: none;
+    z-index: 5;
 }
 #gauge-bar {
     position: absolute; bottom: 0; width: 100%;

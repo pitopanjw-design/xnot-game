@@ -966,7 +966,7 @@ function updateGaugePerfectZone() {
     set('gz-safe-top', 54, 15);
     set('gz-red-top', 94, 5);
 
-    // 🌟 퍼펙트 존 정중앙에 1% 두께의 황금빛 슈퍼 라인 생성 (없으면 동적 주입)
+    // 🌟 슈퍼 존 라인 세팅 (PERFECT 글씨 아래쪽에 배치)
     let superEl = document.getElementById('gz-super-zone');
     if (!superEl) {
         const pZone = document.getElementById('angle-gauge-bg') || document.getElementById('angle-gauge-bar') || document.getElementById('angle-gauge-wrap');
@@ -977,11 +977,11 @@ function updateGaugePerfectZone() {
                 position: absolute;
                 left: 0;
                 width: 100%;
-                height: 1%;
-                bottom: 49.5%;
+                height: 1.2%;
+                bottom: 49.4%;
                 background: #ffffff;
-                box-shadow: 0 0 8px #ffd700, 0 0 14px #ffffff;
-                z-index: 10;
+                box-shadow: 0 0 6px #ffd700, 0 0 10px #ffffff;
+                z-index: 4;
                 pointer-events: none;
             `;
             pZone.appendChild(superEl);
