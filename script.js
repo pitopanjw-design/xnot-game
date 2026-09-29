@@ -317,14 +317,17 @@ let currentBgPath = BG_FILES[0];
 let currentTheme = 'lake';
 
 function changeRandomBg() {
-    // lake, river, moon 3종 테마 중 1개 균등 랜덤 추첨
+    // lake, river, moon 3종 테마 중 1개 균등 랜덤 추첨 (각 33.3%)
     const themes = ['lake', 'river', 'moon'];
     currentTheme = themes[Math.floor(Math.random() * themes.length)];
 
     const ext = currentTheme === 'moon' ? 'webp' : 'png';
     currentBgPath = `images/foreground_${currentTheme}.${ext}`;
+    
     const container = document.getElementById('game-container');
-    if (container) container.style.background = `url('${currentBgPath}') no-repeat center/cover`;
+    if (container) {
+        container.style.background = `url('${currentBgPath}') no-repeat center/cover`;
+    }
 }
 
 const RARITY_BG = { Ordinary: new Image(), Rare: new Image(), Legendary: new Image(), Mythic: new Image() };
@@ -767,11 +770,6 @@ function spawnDramaticText(text, cls = 'neon-lime') {
     setTimeout(() => d.remove(), 1900);
 }
 
-function changeRandomBg() {
-    currentTheme = Math.random() < 0.5 ? 'lake' : 'river';
-    currentBgPath = `images/foreground_${currentTheme}.png`;
-    document.getElementById('game-container').style.background = `url('${currentBgPath}') no-repeat center/cover`;
-}
 
 // ===========================================================
 //  🎰 룰렛 물리 정지 가챠 머신 로직
