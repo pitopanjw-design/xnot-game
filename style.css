@@ -241,21 +241,33 @@ button, .action-confirm-btn, #main-btn, #shop-btn, #intro-start-btn, #intro-info
 }
 .shaking { animation: shake 0.45s cubic-bezier(.36,.07,.19,.97) both; }
 
-/* ============================
-   수면 파동 오버레이
-============================ */
+/* =======================================================
+   🌊 순정 수면 동심원 물결 파동 (Natural Expanding Ripple)
+   ======================================================= */
 .ripple {
     position: absolute;
-    border: 3px solid rgba(255,255,255,0.9);
     border-radius: 50%;
-    transform: translate(-50%, -50%);
     pointer-events: none;
-    z-index: 15;
-    animation: ripple-out 0.8s ease-out forwards;
+    transform: translate(-50%, -50%);
+    box-sizing: border-box;
+    border: 2.5px solid rgba(255, 255, 255, 0.85);
+    box-shadow: 0 0 14px rgba(0, 217, 255, 0.6);
+    animation: natural-ripple 0.8s ease-out forwards;
+    z-index: 20;
 }
-@keyframes ripple-out {
-    from { width: 10px; height: 5px; opacity: 1; }
-    to   { width: 220px; height: 100px; opacity: 0; }
+
+@keyframes natural-ripple {
+    0% {
+        width: 15px;
+        height: 7px;
+        opacity: 0.9;
+    }
+    100% {
+        width: 140px;
+        height: 65px;
+        opacity: 0;
+        border-color: rgba(0, 217, 255, 0.2);
+    }
 }
 
 /* ============================
