@@ -1193,6 +1193,9 @@ function triggerLaunch(dy, dx) {
 
     stone.activePhys = ap; stone.isCrit = isCrit; stone.isLotto = isLotto;
     bounceCount = 0; perfectCount = 0; isDead = false; hasTappedBounce = false; tapsInCurrentCycle = 0;
+    comboCount = 0;
+    rhythmTargets = [];
+    nextSpawnTime = Date.now() + 600; // 발사 후 0.6초 뒤 첫 타겟 출현
     currentGravity = 0.17;
     currentPeakZ = Math.max(10.0, stone.z);
     isWindowActive = false;
@@ -1445,37 +1448,85 @@ function processBounce(rating, isAuto = false) {
     spawnBounceMarker(ex, ey, bounceCount);
 }
 
-// 2. 탭 판정 로직: 수면 파동이 빨간 과녁으로 수축한 찰나(진행률 80% 이상)에 탭하면 PERFECT
+// ===================================================================
+//  🎯 [동물 타겟 리듬 탭 판정] 가장 가까운 동물 타격 & 콤보 가속
+// ===================================================================
 function registerBounceTap(e) {
     if (currentStatus !== 'FLYING' || isDead) return;
 
-    // 돌이 위로 솟구치는 상승 구간에 누르면 연타 페널티 후 즉시 침수
-    if (stone.vz >= 0 || hasTappedBounce) {
-        hasTappedBounce = true;
-        spawnDramaticText('연타 페널티! 수평 붕괴', 'neon-red');
-        haptic('error');
-        triggerWaterMiss();
-        return;
+    // 돌과 가장 가까운 유효 타겟 찾기 (가장 진척도가 높은 오브젝트)
+    let closest = null;
+    let minDiff = 999;
+
+    for (let t of rhythmTargets) {
+        if (!t.isHit && !t.isMissed) {
+            const diff = Math.abs(t.progress - 1.0);
+            if (diff < minDiff) {
+                minDiff = diff;
+                closest = t;
+            }
+        }
     }
 
-    hasTappedBounce = true;
-
-    // 파동 진행도 (0.0: 확장 시작 ~ 1.0: 빨간 코어 수축 완료)
-    const elapsed = Date.now() - lastRippleTime;
-    const progress = Math.min(1.0, elapsed / currentRippleDuration);
-
-    // [80% ~ 100% 구간]: 파동이 빨간색 타겟으로 딱 모여든 골든 타임!
-    if (progress >= 0.80 && progress <= 1.0) {
-        // ✨ PERFECT: 버짓 넉넉히 리필(+3회), 속도 부스트 및 시원한 재도약
-        processBounce('PERFECT', false);
-    } else if (progress >= 0.50 && progress < 0.80) {
-        // 👍 GOOD: 노란 링 구간에 살짝 일찍 침 (일반 튕김)
-        processBounce('GOOD', false);
+    // 판정 허용 범위: diff <= 0.25 (수면 도달 전후)
+    if (closest && minDiff <= 0.22) {
+        closest.isHit = true;
+        
+        // 🌟 PERFECT (정확도 ±0.1 이내) / GOOD 판정
+        const rating = minDiff <= 0.10 ? 'PERFECT' : 'GOOD';
+        onRhythmHit(closest, rating);
     } else {
-        // ❌ BAD: 너무 일찍 누름 -> 미련 없이 즉시 수면 아래로 풍덩!
-        spawnDramaticText('너무 빨랐다! 풍덩~', 'neon-red');
-        haptic('error');
-        triggerWaterMiss();
+        // 허공 탭: 연타 페널티 방지 및 가벼운 스침 처리 (즉사하지 않고 콤보만 초기화)
+        comboCount = 0;
+        haptic('light');
+    }
+}
+
+// 동물 타격 성공 시: 사운드, 콤보 폭발 및 비거리 가속
+function onRhythmHit(target, rating) {
+    comboCount++;
+    if (comboCount > maxCombo) maxCombo = comboCount;
+
+    const ex = STONE_FIXED_X;
+    const ey = STONE_FIXED_Y;
+
+    // 타격 성공 애니메이션
+    spawnRatingText(ex, ey - 30, rating);
+    spawnDramaticText(
+        target.type === 'DUCK' ? `🦆 CATCH! ${comboCount} COMBO` : `🐸 LEAP! ${comboCount} COMBO`,
+        comboCount >= 5 ? 'neon-gold' : 'neon-lime'
+    );
+
+    // 🚀 [비거리 폭발 메커니즘] 콤보가 쌓일수록 엄청난 추진력 보충
+    const comboBonus = Math.min(8, Math.floor(comboCount / 2));
+    stone.remainingBudget += (rating === 'PERFECT' ? 2 : 1) + comboBonus;
+    
+    // 전진 속도 가속
+    stone.vy = Math.min(48, Math.max(stone.vy, 22) * 1.12 + 1.2);
+    
+    // 돌 높이 도약
+    stone.z = 0.5;
+    stone.vz = (target.type === 'FROG' ? 3.4 : 2.8) * Math.pow(1.06, upgrades.elasticity);
+
+    // 햅틱 및 사운드
+    haptic(rating === 'PERFECT' ? 'heavy' : 'medium');
+    SoundManager.playBounce(rating === 'PERFECT');
+    triggerShake(comboCount >= 5 ? 'medium' : 'light');
+
+    // 파티클 폭발
+    createParticles(ex, ey, true, false, 25);
+    
+    // 바운스 카운트 마커 상단 갱신
+    bounceCount++;
+    document.getElementById('score-display').innerText = `BOUNCE: ${bounceCount}`;
+    spawnBounceMarker(ex, ey, bounceCount);
+}
+
+// 동물 놓쳤을 때: 즉사하지 않고 콤보 리셋 후 자연 감속
+function onRhythmMiss(target) {
+    if (comboCount > 0) {
+        spawnDramaticText('COMBO BREAK...', 'neon-red');
+        comboCount = 0;
     }
 }
 
@@ -1644,6 +1695,17 @@ function draw7LayerBG() {
 function drawFxCanvas() {
     fxCtx.clearRect(0, 0, W, H);
 
+    // 🌟 [추가] 리듬 동물 타겟 업데이트 및 렌더링
+    updateRhythmSpawner();
+    for (let i = rhythmTargets.length - 1; i >= 0; i--) {
+        const t = rhythmTargets[i];
+        t.update();
+        t.draw(fxCtx);
+        if (t.progress > 1.35 || t.isHit) {
+            rhythmTargets.splice(i, 1);
+        }
+    }
+
     // 속도선 렌더링
     if (currentStatus === 'FLYING' && !isDead) {
         const speed = stone.vy;
@@ -1680,6 +1742,138 @@ function drawFxCanvas() {
         if (p.alpha <= 0) particles.splice(i, 1); 
     }
 }
+
+// ===================================================================
+//  🦆🐸 [리듬 동물 타겟 엔진] 오리/개구리 변칙 출현 및 콤보 질주 시스템
+// ===================================================================
+
+let rhythmTargets = [];
+let nextSpawnTime = 0;
+let comboCount = 0;
+let maxCombo = 0;
+
+// 1. 리듬 타겟 엔티티 클래스
+class RhythmTarget {
+    constructor(type = 'DUCK', pattern = 'STRAIGHT') {
+        this.type = type; // 'DUCK' | 'FROG'
+        this.pattern = pattern; // 'STRAIGHT' | 'INTERCEPT'
+        this.progress = 0; // 0.0 (원경 수평선) -> 1.0 (돌 타겟 라인 도달)
+        this.isHit = false;
+        this.isMissed = false;
+
+        // 시작 및 목표 좌표
+        this.startX = pattern === 'INTERCEPT' 
+            ? (Math.random() < 0.5 ? W * 0.1 : W * 0.9) // 좌/우 옆구리 기습
+            : CX + (Math.random() - 0.5) * 60;          // 수평선 중앙 직진
+        this.startY = HORIZON_Y;
+
+        this.targetX = STONE_FIXED_X;
+        this.targetY = STONE_FIXED_Y;
+
+        // 개구리는 오리보다 1.4배 빠르게 전진하여 중간에 앞지름
+        this.speed = (type === 'FROG') ? 0.022 : 0.015;
+        this.jumpPhase = 0; // 개구리 전용 뜀박질 위상
+    }
+
+    update() {
+        this.progress += this.speed * Math.max(0.8, stone.vy / 18);
+
+        // 현재 2D 위치 보간 계산
+        const easeT = Math.pow(this.progress, 1.4); // 원근감 가속
+        this.currentX = this.startX + (this.targetX - this.startX) * easeT;
+        this.currentY = this.startY + (this.targetY - this.startY) * easeT;
+
+        // 원근감에 따른 스케일 (원경 0.25 -> 돌 위치 1.1)
+        this.scale = 0.25 + (this.progress * 0.85);
+
+        // 개구리 옆구리 점프 포물선 궤적
+        if (this.type === 'FROG') {
+            this.jumpPhase += 0.2;
+            this.jumpOffsetY = -Math.abs(Math.sin(this.jumpPhase)) * 26 * this.scale;
+        } else {
+            this.jumpOffsetY = Math.sin(Date.now() * 0.008) * 3; // 오리 둥둥
+        }
+
+        // 판정선을 완전히 지나치면 미스 처리
+        if (this.progress > 1.25 && !this.isHit && !this.isMissed) {
+            this.isMissed = true;
+            onRhythmMiss(this);
+        }
+    }
+
+    draw(ctx) {
+        if (this.isHit || this.progress > 1.3) return;
+
+        ctx.save();
+        ctx.translate(this.currentX, this.currentY + (this.jumpOffsetY || 0));
+        ctx.scale(this.scale, this.scale);
+
+        // 발밑 수면 그림자/물결
+        ctx.beginPath();
+        ctx.ellipse(0, 8, 16, 7, 0, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+        ctx.fill();
+
+        // 🦆 / 🐸 귀여운 벡터 캐릭터 렌더링
+        ctx.font = '32px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(this.type === 'DUCK' ? '🦆' : '🐸', 0, 0);
+
+        // 판정 근접 시 타겟 하이라이트 펄스 링 (진행률 0.85 ~ 1.15)
+        if (this.progress >= 0.85 && this.progress <= 1.15) {
+            ctx.beginPath();
+            ctx.ellipse(0, 5, 24, 12, 0, 0, Math.PI * 2);
+            ctx.strokeStyle = this.type === 'DUCK' ? '#ffea00' : '#00ff66';
+            ctx.lineWidth = 2.5;
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = ctx.strokeStyle;
+            ctx.stroke();
+        }
+
+        ctx.restore();
+    }
+}
+
+// 스폰 시 콤보에 따른 가속 및 랜덤 속도 분기
+function spawnDynamicTarget() {
+    const isFrog = Math.random() < 0.35;
+    const target = new RhythmTarget(isFrog ? 'FROG' : 'DUCK', isFrog ? 'INTERCEPT' : 'STRAIGHT');
+
+    // 1. 콤보 비례 템포 가속 (최대 2.0배)
+    const comboSpeedMult = 1.0 + Math.min(1.0, comboCount * 0.035);
+
+    // 2. 20% 확률로 급류 스피드 오리, 15% 확률로 멈칫 오리
+    const rand = Math.random();
+    let speedVariance = 1.0;
+    if (rand < 0.20) speedVariance = 1.45; // 급류
+    else if (rand < 0.35) speedVariance = 0.85; // 느린 물살
+
+    target.speed = target.speed * comboSpeedMult * speedVariance;
+    rhythmTargets.push(target);
+}
+
+// 2. 변칙 스폰 생성기: 오리 직진 중 개구리 기습 인터셉트
+function updateRhythmSpawner() {
+    if (currentStatus !== 'FLYING' || isDead) return;
+
+    const now = Date.now();
+    if (now >= nextSpawnTime) {
+        spawnDynamicTarget();
+
+        // 20% 확률로 추가 기습(트윈 러시)
+        if (Math.random() < 0.20) {
+            setTimeout(() => {
+                if (currentStatus === 'FLYING' && !isDead) {
+                    spawnDynamicTarget();
+                }
+            }, 220);
+        }
+        nextSpawnTime = now + Math.max(500, 850 - comboCount * 15) + Math.random() * 350;
+    }
+}
+
+
 
 // ===========================================================
 //  ⚙️ 이펙트 서브 모듈 오브젝트 풀 인스턴스 클래스들
