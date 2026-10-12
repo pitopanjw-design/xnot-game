@@ -1747,6 +1747,35 @@ function drawFxCanvas() {
 //  🦆🐸 [리듬 동물 타겟 엔진] 오리/개구리 변칙 출현 및 콤보 질주 시스템
 // ===================================================================
 
+// 🐸 개구리 좌/우 3단 모션 스프라이트 프리캐싱
+const FROG_ASSETS = {
+    L: [new Image(), new Image(), new Image()],
+    R: [new Image(), new Image(), new Image()]
+};
+
+// 좌측 출발 (오른쪽으로 뜀)
+FROG_ASSETS.L[0].src = 'images/lfrog_01.webp';
+FROG_ASSETS.L[1].src = 'images/lfrog_02.webp';
+FROG_ASSETS.L[2].src = 'images/lfrog_03.webp';
+
+// 우측 출발 (왼쪽으로 뜀)
+FROG_ASSETS.R[0].src = 'images/rfrog_01.webp';
+FROG_ASSETS.R[1].src = 'images/rfrog_02.webp';
+FROG_ASSETS.R[2].src = 'images/rfrog_03.webp';
+
+// 🦆🪵 러버덕 좌/우 및 통나무 에셋 프리캐싱
+const TARGET_ASSETS = {
+    DUCK: {
+        L: new Image(),
+        R: new Image()
+    },
+    WOOD: new Image()
+};
+
+TARGET_ASSETS.DUCK.L.src = 'images/lloverduck.webp';
+TARGET_ASSETS.DUCK.R.src = 'images/rloverduck.webp';
+TARGET_ASSETS.WOOD.src = 'images/wood.webp';
+
 let rhythmTargets = [];
 let nextSpawnTime = 0;
 let comboCount = 0;
@@ -1755,46 +1784,68 @@ let maxCombo = 0;
 // 1. 리듬 타겟 엔티티 클래스
 class RhythmTarget {
     constructor(type = 'DUCK', pattern = 'STRAIGHT') {
-        this.type = type; // 'DUCK' | 'FROG'
-        this.pattern = pattern; // 'STRAIGHT' | 'INTERCEPT'
-        this.progress = 0; // 0.0 (원경 수평선) -> 1.0 (돌 타겟 라인 도달)
+        this.type = type; // 'DUCK' | 'FROG' | 'WOOD'
+        this.pattern = pattern;
+        this.progress = 0;
         this.isHit = false;
         this.isMissed = false;
 
-        // 시작 및 목표 좌표
-        this.startX = pattern === 'INTERCEPT' 
-            ? (Math.random() < 0.5 ? W * 0.1 : W * 0.9) // 좌/우 옆구리 기습
-            : CX + (Math.random() - 0.5) * 60;          // 수평선 중앙 직진
-        this.startY = HORIZON_Y;
+        this.isFromLeft = Math.random() < 0.5;
+        this.dirKey = this.isFromLeft ? 'L' : 'R';
+
+        if (type === 'FROG') {
+            // 개구리: 양쪽 측면에서 튀어나옴
+            this.startX = this.isFromLeft ? W * 0.05 : W * 0.95;
+            this.startY = HORIZON_Y + 25;
+            this.speed = 0.019;
+            this.jumpFreq = 4.0;
+        } else if (type === 'WOOD') {
+            // 통나무: 느리게 수평선 중앙에서 흘러내려오는 장애물
+            this.startX = CX + (Math.random() - 0.5) * 120;
+            this.startY = HORIZON_Y + 15;
+            this.speed = 0.011; // 오리보다 느린 유속
+        } else {
+            // 오리: 좌/우 약간 편향된 위치에서 대각선 물살을 타고 하강
+            this.startX = CX + (this.isFromLeft ? -50 - Math.random() * 50 : 50 + Math.random() * 50);
+            this.startY = HORIZON_Y + 18;
+            this.speed = 0.014;
+        }
 
         this.targetX = STONE_FIXED_X;
-        this.targetY = STONE_FIXED_Y;
-
-        // 개구리는 오리보다 1.4배 빠르게 전진하여 중간에 앞지름
-        this.speed = (type === 'FROG') ? 0.022 : 0.015;
-        this.jumpPhase = 0; // 개구리 전용 뜀박질 위상
+        this.targetY = STONE_FIXED_Y + 10;
+        this.jumpCycle = 0;
+        this.motionFrame = 0;
     }
 
     update() {
         this.progress += this.speed * Math.max(0.8, stone.vy / 18);
 
-        // 현재 2D 위치 보간 계산
-        const easeT = Math.pow(this.progress, 1.4); // 원근감 가속
+        const easeT = Math.pow(this.progress, 1.8);
         this.currentX = this.startX + (this.targetX - this.startX) * easeT;
         this.currentY = this.startY + (this.targetY - this.startY) * easeT;
+        this.scale = 0.22 + (this.progress * 1.15);
 
-        // 원근감에 따른 스케일 (원경 0.25 -> 돌 위치 1.1)
-        this.scale = 0.25 + (this.progress * 0.85);
-
-        // 개구리 옆구리 점프 포물선 궤적
         if (this.type === 'FROG') {
-            this.jumpPhase += 0.2;
-            this.jumpOffsetY = -Math.abs(Math.sin(this.jumpPhase)) * 26 * this.scale;
+            this.jumpCycle += 0.14;
+            const sinVal = Math.sin(this.jumpCycle);
+
+            if (sinVal > 0) {
+                this.jumpAltitude = -sinVal * 42 * this.scale;
+                if (sinVal < 0.35) this.motionFrame = 0;      // r/lfrog_01
+                else if (sinVal <= 0.85) this.motionFrame = 1; // r/lffrog_02
+                else this.motionFrame = 2;                    // r/lfrog_03
+            } else {
+                this.jumpAltitude = 0;
+                this.motionFrame = 0;
+            }
+        } else if (this.type === 'WOOD') {
+            // 통나무는 물에 무겁게 잠겨 묵직하게 흔들림
+            this.jumpAltitude = Math.sin(Date.now() * 0.004) * 1.5;
         } else {
-            this.jumpOffsetY = Math.sin(Date.now() * 0.008) * 3; // 오리 둥둥
+            // 오리 찰랑임
+            this.jumpAltitude = Math.sin(Date.now() * 0.007) * 2.5;
         }
 
-        // 판정선을 완전히 지나치면 미스 처리
         if (this.progress > 1.25 && !this.isHit && !this.isMissed) {
             this.isMissed = true;
             onRhythmMiss(this);
@@ -1804,30 +1855,56 @@ class RhythmTarget {
     draw(ctx) {
         if (this.isHit || this.progress > 1.3) return;
 
-        ctx.save();
-        ctx.translate(this.currentX, this.currentY + (this.jumpOffsetY || 0));
-        ctx.scale(this.scale, this.scale);
+        const w = (this.type === 'WOOD' ? 70 : 62) * this.scale;
+        const h = (this.type === 'WOOD' ? 45 : 62) * this.scale;
 
-        // 발밑 수면 그림자/물결
+        ctx.save();
+
+        // 1. 수면 그림자 (원근감 앵커)
         ctx.beginPath();
-        ctx.ellipse(0, 8, 16, 7, 0, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+        const shadowScale = this.type === 'FROG' 
+            ? Math.max(0.4, 1.0 - Math.abs(this.jumpAltitude) / 60) 
+            : 1.0;
+        ctx.ellipse(this.currentX, this.currentY + 12 * this.scale, (w * 0.45) * shadowScale, (h * 0.22) * shadowScale, 0, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0, 15, 30, 0.45)';
         ctx.fill();
 
-        // 🦆 / 🐸 귀여운 벡터 캐릭터 렌더링
-        ctx.font = '32px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(this.type === 'DUCK' ? '🦆' : '🐸', 0, 0);
+        // 2. 오브젝트 본체 렌더링
+        ctx.translate(this.currentX, this.currentY + (this.jumpAltitude || 0));
 
-        // 판정 근접 시 타겟 하이라이트 펄스 링 (진행률 0.85 ~ 1.15)
-        if (this.progress >= 0.85 && this.progress <= 1.15) {
+        if (this.type === 'FROG') {
+            const frogImg = FROG_ASSETS[this.dirKey][this.motionFrame];
+            if (frogImg && frogImg.complete && frogImg.naturalWidth > 0) {
+                ctx.shadowColor = '#00ff66';
+                ctx.shadowBlur = this.progress >= 0.85 ? 16 : 4;
+                ctx.drawImage(frogImg, -w / 2, -h / 2, w, h);
+            }
+        } else if (this.type === 'WOOD') {
+            // 🪵 통나무 렌더링 (빨간 위험 경고 섀도우)
+            const woodImg = TARGET_ASSETS.WOOD;
+            if (woodImg && woodImg.complete && woodImg.naturalWidth > 0) {
+                ctx.shadowColor = '#ff2222';
+                ctx.shadowBlur = this.progress >= 0.85 ? 18 : 3;
+                ctx.drawImage(woodImg, -w / 2, -h / 2, w, h);
+            }
+        } else {
+            // 🦆 오리 렌더링 (방향에 맞는 에셋 선택)
+            const duckImg = TARGET_ASSETS.DUCK[this.dirKey];
+            if (duckImg && duckImg.complete && duckImg.naturalWidth > 0) {
+                ctx.shadowColor = '#ffea00';
+                ctx.shadowBlur = this.progress >= 0.85 ? 16 : 4;
+                ctx.drawImage(duckImg, -w / 2, -h / 2, w, h);
+            }
+        }
+
+        // 3. 골든 타임 펄스 링 (통나무는 붉은 경고 링 표시)
+        if (this.progress >= 0.88 && this.progress <= 1.12) {
             ctx.beginPath();
-            ctx.ellipse(0, 5, 24, 12, 0, 0, Math.PI * 2);
-            ctx.strokeStyle = this.type === 'DUCK' ? '#ffea00' : '#00ff66';
+            ctx.ellipse(0, 8, w * 0.55, h * 0.25, 0, 0, Math.PI * 2);
+            ctx.strokeStyle = this.type === 'WOOD' ? '#ff3333' : (this.type === 'FROG' ? '#00ff66' : '#ffea00');
             ctx.lineWidth = 2.5;
-            ctx.shadowBlur = 10;
             ctx.shadowColor = ctx.strokeStyle;
+            ctx.shadowBlur = 12;
             ctx.stroke();
         }
 
@@ -1853,23 +1930,29 @@ function spawnDynamicTarget() {
     rhythmTargets.push(target);
 }
 
-// 2. 변칙 스폰 생성기: 오리 직진 중 개구리 기습 인터셉트
+// 2. 변칙 스폰 생성기: 오리 직진 중 개구리 기습 및 10콤보 이상 함정 통나무 스폰
 function updateRhythmSpawner() {
     if (currentStatus !== 'FLYING' || isDead) return;
 
     const now = Date.now();
     if (now >= nextSpawnTime) {
-        spawnDynamicTarget();
+        const rand = Math.random();
 
-        // 20% 확률로 추가 기습(트윈 러시)
-        if (Math.random() < 0.20) {
-            setTimeout(() => {
-                if (currentStatus === 'FLYING' && !isDead) {
-                    spawnDynamicTarget();
-                }
-            }, 220);
+        // 10콤보 이상일 때 20% 확률로 함정 통나무 스폰
+        if (comboCount >= 10 && rand < 0.20) {
+            rhythmTargets.push(new RhythmTarget('WOOD', 'STRAIGHT'));
+            nextSpawnTime = now + 950 + Math.random() * 400;
+        } 
+        // 35% 확률로 개구리 기습
+        else if (rand < 0.55) {
+            rhythmTargets.push(new RhythmTarget('FROG', 'INTERCEPT'));
+            nextSpawnTime = now + 850 + Math.random() * 450;
+        } 
+        // 45% 확률로 오리 직진
+        else {
+            rhythmTargets.push(new RhythmTarget('DUCK', 'STRAIGHT'));
+            nextSpawnTime = now + 800 + Math.random() * 400;
         }
-        nextSpawnTime = now + Math.max(500, 850 - comboCount * 15) + Math.random() * 350;
     }
 }
 
