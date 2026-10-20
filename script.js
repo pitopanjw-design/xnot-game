@@ -1335,7 +1335,7 @@ function applyStonePos() {
     }
 }
 
-// 1. 물리 루프: 돌의 하강 고도에 따라 1단계 -> 2단계 -> 3단계 순차 점등
+// 1. 물리 루프: 수면 충돌 바운스 안정화
 function updatePhysics() {
     if (!isDead) {
         stone.z += stone.vz;
@@ -1362,35 +1362,39 @@ function updatePhysics() {
     stone.vy *= Math.min(0.996, 0.988 * wm);
     stone.vx *= 0.98;
 
-    // 수면 충돌 바운스
+    // 🌟 [수정] 수면 충돌 바운스: 확실한 높이(z > 0.5) 복원으로 루프 멈춤 차단
     if (stone.vz < 0 && stone.z <= 0.4 && !isDead) {
         if (hasTappedBounce) {
             hasTappedBounce = false;
         } else {
             if (stone.remainingBudget > 0 && stone.vy > 0.3) {
-                stone.z = 0;
                 processBounce('GOOD', true);
             } else {
                 triggerWaterSink();
+                return;
             }
         }
     }
 
-    if (stone.vy < 0.25 && !isDead && stone.remainingBudget <= 0) triggerWaterSink();
-    if (stone.vz < 0 && stone.z < -6 && !isDead && !hasTappedBounce) triggerWaterMiss();
+    if (stone.vy < 0.25 && !isDead && stone.remainingBudget <= 0) {
+        triggerWaterSink();
+        return;
+    }
+    if (stone.vz < 0 && stone.z < -6 && !isDead && !hasTappedBounce) {
+        triggerWaterMiss();
+        return;
+    }
 
     if (currentStatus === 'FLYING' && !isDead) createTrailParticle(STONE_FIXED_X, STONE_FIXED_Y);
     applyStonePos();
 }
 
-// 3. 바운스 처리: 퍼펙트 탭 시 높이 복원 & 낙하 속도 점진 가속
+// 3. 바운스 처리
 function processBounce(rating, isAuto = false) {
     bounceCount++;
     const ex = STONE_FIXED_X, ey = STONE_FIXED_Y;
 
     if (!isAuto) spawnRatingText(ex, ey, rating);
-    
-    // [핵심] 바로 이 단 하나의 수면 파동이 다음 탭의 타겟이 됨!
     spawnRipple(ex, ey);
 
     const em = Math.pow(1.06, upgrades.elasticity);
@@ -1399,16 +1403,12 @@ function processBounce(rating, isAuto = false) {
 
     if (rating === 'PERFECT') {
         perfectCount++;
-
-        // 🚀 버짓 대폭 연장 (+3회) & 전진 속도 부스트
         stone.remainingBudget += 3;
         stone.vy = Math.min(stone.vy * 1.25 + 2.0, 48);
 
-        // 시원하게 다시 솟구쳐 오르는 도약력 부여
-        stone.z = 0.5;
-        stone.vz = stoneBaseHeight * 1.5 * em;
-
-        // 다음 바운스는 낙하 속도가 빨라지도록 가속 중력 적용
+        // 🌟 확실하게 수면 위로 띄워 다음 프레임 즉각 재충돌 방지
+        stone.z = 0.6;
+        stone.vz = Math.max(1.8, stoneBaseHeight * 1.5 * em);
         currentGravity = Math.min(0.34, 0.17 + (perfectCount * 0.035));
 
         const earned = Math.round(100 * selectedStone.mult * 2.5);
@@ -1424,8 +1424,11 @@ function processBounce(rating, isAuto = false) {
     } else if (rating === 'GOOD') {
         stone.remainingBudget--;
         stone.vy *= 0.96;
-        stone.z = 0.4;
-        stone.vz = stoneBaseHeight * 1.0 * em * Math.max(0.4, stone.remainingBudget / Math.max(1, stone.totalBudget));
+
+        // 🌟 확실하게 수면 위로 띄움 (최소 반발력 1.2 보장)
+        stone.z = 0.55;
+        const decayFact = Math.max(0.4, stone.remainingBudget / Math.max(1, stone.totalBudget));
+        stone.vz = Math.max(1.2, stoneBaseHeight * 1.0 * em * decayFact);
 
         const earned = Math.round(100 * selectedStone.mult * 1.0);
         playerSP += earned;
@@ -1434,12 +1437,11 @@ function processBounce(rating, isAuto = false) {
         SoundManager.playBounce(false);
 
     } else {
-        // 타이밍 실패 시 즉시 침수 처리
         triggerWaterSink();
         return;
     }
 
-    currentPeakZ = stone.vz * 3.0;
+    currentPeakZ = Math.max(currentPeakZ, stone.vz * 3.0);
     hasTappedBounce = false;
 
     document.getElementById('score-display').innerText = `BOUNCE: ${bounceCount}`;
@@ -1695,15 +1697,22 @@ function draw7LayerBG() {
 function drawFxCanvas() {
     fxCtx.clearRect(0, 0, W, H);
 
-    // 🌟 [추가] 리듬 동물 타겟 업데이트 및 렌더링
+    // 🌟 리듬 타겟 업데이트 및 렌더링 안정화
     updateRhythmSpawner();
     for (let i = rhythmTargets.length - 1; i >= 0; i--) {
         const t = rhythmTargets[i];
         t.update();
         t.draw(fxCtx);
-        if (t.progress > 1.35 || t.isHit) {
+
+        // 화면 아래로 지나갔거나 맞춘 타겟 안전 제거
+        if (t.depth > 1.3 || t.isHit) {
             rhythmTargets.splice(i, 1);
         }
+    }
+
+    // 오브젝트 누적 방지 안전 가드 (최대 5개 초과 시 오래된 것 제거)
+    if (rhythmTargets.length > 5) {
+        rhythmTargets.shift();
     }
 
     // 속도선 렌더링
@@ -1827,43 +1836,41 @@ class RhythmTarget {
     get progress() { return this.depth; }
 
     update() {
-        const streamFlow = Math.max(0.85, (stone.vy || 12) / 16);
+        // 🌟 강물 흐름 속도 정상화 (너무 느려서 뭉치지 않도록 조정)
+        const streamFlow = Math.max(1.0, (stone.vy || 15) / 14);
         this.depth += this.speed * streamFlow;
 
-        // 수면 원근 가속 곡선
         const waterDepthCurve = Math.pow(this.depth, 1.8);
         this.scale = 0.25 + waterDepthCurve * 1.05;
 
         if (this.type === 'FROG') {
-            // 🐸 개구리: 화면 밖에서 돌 앞쪽으로 2단 고속 대각선 점프
             this.currentX = this.startX + (this.targetX - this.startX) * this.depth;
             this.currentY = this.startY + (this.targetY - this.startY) * this.depth;
 
-            // 도약 포물선 (sin 곡선)
             this.jumpStep += 0.18;
             const sinH = Math.sin(this.jumpStep);
 
             if (sinH > 0) {
-                this.floatY = -sinH * 46 * this.scale; // 공중 솟구침
-                if (sinH < 0.35) this.motionFrame = 0;      // 01: 웅크림
-                else if (sinH <= 0.85) this.motionFrame = 1; // 02: 공중 도약
-                else this.motionFrame = 2;                  // 03: 착지 자세
+                this.floatY = -sinH * 46 * this.scale;
+                if (sinH < 0.35) this.motionFrame = 0;
+                else if (sinH <= 0.85) this.motionFrame = 1;
+                else this.motionFrame = 2;
             } else {
                 this.floatY = 0;
-                this.motionFrame = 0; // 수면 착지 안착
+                this.motionFrame = 0;
             }
             this.floatRot = 0;
         } else {
-            // 🦆 러브덕 & 🪵 통나무: 강물 스크롤과 일치하게 직선 표류
             this.currentY = HORIZON_Y + (STONE_FIXED_Y - HORIZON_Y) * waterDepthCurve;
             this.currentX = CX + (this.laneX - CX) * (0.35 + waterDepthCurve * 0.65);
 
             this.bobCycle += 0.09;
             this.floatY = Math.sin(this.bobCycle) * (this.type === 'WOOD' ? 2.2 : 3.5) * this.scale;
-            this.floatRot = Math.sin(this.bobCycle * 0.6) * 0.06; // 물살 기우뚱
+            this.floatRot = Math.sin(this.bobCycle * 0.6) * 0.06;
         }
 
-        if (this.depth > 1.28 && !this.isHit && !this.isMissed) {
+        // 놓쳤을 때 1회만 처리
+        if (this.depth > 1.25 && !this.isHit && !this.isMissed) {
             this.isMissed = true;
             onRhythmMiss(this);
         }
