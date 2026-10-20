@@ -1,6 +1,6 @@
 // ※ 이미지 에셋인 milky_way02.png는 픽셀 오류 방지를 위해 알파 채널이 포함된 투명 PNG-24 포맷으로 저장해 주세요.
 // ===========================================================
-//  🔊 Web Audio API 오디오 시스템
+//  🔊 Web Audio API 오디오 시스템 (텔레그램 인앱 안전 가드 적용)
 // ===========================================================
 const SoundManager = {
     ctx: null, masterGain: null, isMuted: false, bgm: null, bgmGain: null,
@@ -54,15 +54,34 @@ const SoundManager = {
     updateMuteUI() { const b = document.getElementById('mute-btn'); if (b) b.innerText = this.isMuted ? '🔇' : '🔊'; },
     _play(freq, type, dur, vol = 0.3, freqEnd = null) {
         if (this.isMuted || !this.ctx) return;
-        const o = this.ctx.createOscillator();
-        const g = this.ctx.createGain();
-        o.connect(g); g.connect(this.masterGain);
-        o.type = type;
-        o.frequency.setValueAtTime(freq, this.ctx.currentTime);
-        if (freqEnd) o.frequency.exponentialRampToValueAtTime(freqEnd, this.ctx.currentTime + dur);
-        g.gain.setValueAtTime(vol, this.ctx.currentTime);
-        g.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + dur);
-        o.start(); o.stop(this.ctx.currentTime + dur + 0.01);
+        try {
+            if (this.ctx.state === 'suspended') {
+                this.ctx.resume().catch(() => {});
+                return;
+            }
+
+            const currTime = this.ctx.currentTime;
+            if (typeof currTime !== 'number' || isNaN(currTime)) return;
+
+            const o = this.ctx.createOscillator();
+            const g = this.ctx.createGain();
+            o.connect(g); 
+            g.connect(this.masterGain);
+            o.type = type;
+            
+            const safeFreq = Math.max(20, Math.min(20000, freq || 440));
+            o.frequency.setValueAtTime(safeFreq, currTime);
+
+            if (freqEnd && freqEnd > 0) {
+                const safeEnd = Math.max(20, Math.min(20000, freqEnd));
+                o.frequency.exponentialRampToValueAtTime(safeEnd, currTime + dur);
+            }
+
+            g.gain.setValueAtTime(vol, currTime);
+            g.gain.exponentialRampToValueAtTime(0.001, currTime + dur);
+            o.start(currTime); 
+            o.stop(currTime + dur + 0.02);
+        } catch (e) { }
     },
     playTick() { this.resume(); this._play(800, 'triangle', 0.04, 0.18, 100); },
     playLaunch(s) { this.resume(); this._play(240 + s * 10, 'triangle', 0.28, 0.4, 55); },
@@ -206,7 +225,7 @@ function haptic(type) {
 }
 
 // ===========================================================
-//  🪨 돌 고유 데이터 구조 명세 (bounceHeightBase 포함)
+//  🪨 돌 고유 데이터 구조 명세
 // ===========================================================
 const STONES = [
     {
@@ -215,7 +234,7 @@ const STONES = [
         budgetRange: [12, 16],
         physics: { 
             vzDecay: 0.87, vyDecay: 0.965, baseVz: 1.0, friction: 0.995, critChance: 0.001, critMult: 1.1,
-            bounceHeightBase: 1.8 // 낮고 빠른 저공 연타
+            bounceHeightBase: 1.8 
         }
     },
     {
@@ -224,7 +243,7 @@ const STONES = [
         budgetRange: [8, 11],
         physics: { 
             vzDecay: 0.82, vyDecay: 0.94, baseVz: 1.5, friction: 0.986, critChance: 0.02, critMult: 1.25,
-            bounceHeightBase: 2.3 // 표준 아케이드 통통 바운스
+            bounceHeightBase: 2.3 
         }
     },
     {
@@ -234,7 +253,7 @@ const STONES = [
         critBudgetRange: [20, 25],
         physics: {
             vzDecay: 0.70, vyDecay: 0.90, baseVz: 0.8, friction: 0.970, critChance: 0.025,
-            bounceHeightBase: 1.5, // 묵직하게 낮게 뜀
+            bounceHeightBase: 1.5, 
             critPhysics: { vzDecay: 0.90, vyDecay: 0.98, baseVz: 1.6, friction: 0.998, bounceHeightBase: 2.6 }
         }
     },
@@ -245,14 +264,14 @@ const STONES = [
         lottoBudgetRange: [40, 50],
         physics: {
             lottoChance: 1 / 2036265,
-            bounceHeightBase: 2.5, // 탄력 있는 하이 바운스
+            bounceHeightBase: 2.5, 
             lottoPhysics: { vzDecay: 0.99, vyDecay: 0.999, baseVz: 2.5, friction: 0.9999, bounceHeightBase: 2.8 }
         }
     }
 ];
 
 // ===========================================================
-//  📊 게임 구동 전역 상태 엔진 변수
+//  📊 게임 구동 전역 상태 변수
 // ===========================================================
 let playerHearts = 5;
 let playerSP = 0;
@@ -275,7 +294,7 @@ let animFrameId = null;
 
 // 실시간 3축 물리학 벡터
 let stone = { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, activePhys: null, isCrit: false, isLotto: false };
-const GRAVITY = 0.16; // 💡 1번 수정: 부드러운 순정 중력값 복구
+const GRAVITY = 0.16;
 let swipeSpeed = 0;
 let markerProgress = 0;
 let tapWindowStart = 0;
@@ -287,25 +306,16 @@ let CX = W / 2, HORIZON_Y = H * 0.42;
 let STONE_FIXED_X = CX;
 let STONE_FIXED_Y = H * 0.68;
 
-// 입력 핸들러 제어 변수
+// 입력 제어 변수
 let isDragging = false, dragTouchId = null;
 let startX = 0, startY = 0, startTime = 0;
 
-// 동적 수면 백드롭 이미지 프리 캐싱 레이어
+// 백그라운드 이미지
 const BG_FILES = [
-    'images/foreground.png',
-    'images/midground.png',
-    'images/background.png',
-    'images/foreground_lake.png',
-    'images/midground_lake.png',
-    'images/background_lake.png',
-    'images/foreground_river.png',
-    'images/midground_river.png',
-    'images/background_river.png',
-    // 🌙 [신규 추가] 달밤(moon) 테마 에셋
-    'images/foreground_moon.webp',
-    'images/midground_moon.webp',
-    'images/background_moon.webp'
+    'images/foreground.png', 'images/midground.png', 'images/background.png',
+    'images/foreground_lake.png', 'images/midground_lake.png', 'images/background_lake.png',
+    'images/foreground_river.png', 'images/midground_river.png', 'images/background_river.png',
+    'images/foreground_moon.webp', 'images/midground_moon.webp', 'images/background_moon.webp'
 ];
 const bgImgCache = {};
 BG_FILES.forEach(p => {
@@ -317,10 +327,8 @@ let currentBgPath = BG_FILES[0];
 let currentTheme = 'lake';
 
 function changeRandomBg() {
-    // lake, river, moon 3종 테마 중 1개 균등 랜덤 추첨
     const themes = ['lake', 'river', 'moon'];
     currentTheme = themes[Math.floor(Math.random() * themes.length)];
-
     const ext = currentTheme === 'moon' ? 'webp' : 'png';
     currentBgPath = `images/foreground_${currentTheme}.${ext}`;
     const container = document.getElementById('game-container');
@@ -333,25 +341,52 @@ RARITY_BG.Rare.src = 'images/background_rare.png';
 RARITY_BG.Legendary.src = 'images/background_legendary.png';
 RARITY_BG.Mythic.src = 'images/background_mythic.png';
 
-// 엔티티 오브젝트 풀
 let particles = [];
 let wakes = [];
 let rippleLayers = [];
 for (let i = 0; i < 14; i++) rippleLayers.push({ z: i / 14 });
 
 const LAYERS = [
-    { id: 'sky', parallax: 0.0 },
-    { id: 'far-isle', parallax: 0.04 },
-    { id: 'horizon', parallax: 0.10 },
-    { id: 'water-far', parallax: 0.20 },
-    { id: 'water-mid', parallax: 0.42 },
-    { id: 'water-near', parallax: 0.78 },
+    { id: 'sky', parallax: 0.0 }, { id: 'far-isle', parallax: 0.04 },
+    { id: 'horizon', parallax: 0.10 }, { id: 'water-far', parallax: 0.20 },
+    { id: 'water-mid', parallax: 0.42 }, { id: 'water-near', parallax: 0.78 },
     { id: 'shore', parallax: 1.4 }
 ];
 let layerProgress = 0;
 
 // ===========================================================
-//  🖼️ 디스플레이 렌더러 파이프라인 컨텍스트 초기화
+//  🦆🐸🪵 리듬 오브젝트 필수 WebP 에셋 풀
+// ===========================================================
+const ASSET_VER = Date.now();
+
+const ASSETS_STREAM = {
+    DUCK_L: new Image(),
+    DUCK_R: new Image(),
+    WOOD: new Image(),
+    FROG_L: [new Image(), new Image(), new Image()],
+    FROG_R: [new Image(), new Image(), new Image()]
+};
+
+ASSETS_STREAM.DUCK_L.src = `images/lloverduck.webp?v=${ASSET_VER}`;
+ASSETS_STREAM.DUCK_R.src = `images/rloverduck.webp?v=${ASSET_VER}`;
+ASSETS_STREAM.WOOD.src   = `images/wood.webp?v=${ASSET_VER}`;
+
+ASSETS_STREAM.FROG_L[0].src = `images/lfrog_01.webp?v=${ASSET_VER}`;
+ASSETS_STREAM.FROG_L[1].src = `images/lfrog_02.webp?v=${ASSET_VER}`;
+ASSETS_STREAM.FROG_L[2].src = `images/lfrog_03.webp?v=${ASSET_VER}`;
+
+ASSETS_STREAM.FROG_R[0].src = `images/rfrog_01.webp?v=${ASSET_VER}`;
+ASSETS_STREAM.FROG_R[1].src = `images/rfrog_02.webp?v=${ASSET_VER}`;
+ASSETS_STREAM.FROG_R[2].src = `images/rfrog_03.webp?v=${ASSET_VER}`;
+
+let rhythmTargets = [];
+let nextSpawnTime = 0;
+let comboCount = 0;
+let maxCombo = 0;
+let launchCoolDownUntil = 0; // 고스트 클릭 방어용 타임스탬프
+
+// ===========================================================
+//  🖼️ 캔버스 렌더러 초기화
 // ===========================================================
 const bgCanvas = document.getElementById('bg-canvas');
 const bgCtx = bgCanvas.getContext('2d');
@@ -366,74 +401,57 @@ function resizeCanvases() {
     STONE_FIXED_X = CX; STONE_FIXED_Y = H * 0.68;
 }
 window.addEventListener('resize', resizeCanvases);
+if (window.Telegram?.WebApp) {
+    window.Telegram.WebApp.onEvent('viewportChanged', () => {
+        resizeCanvases();
+        if (typeof drawStaticBackground === 'function') drawStaticBackground();
+    });
+}
 resizeCanvases();
 
 // ===========================================================
-// ===========================================================
-//  ☁️ Supabase Production Credentials Setup & Synchronization
+//  ☁️ Supabase 연동 파이프라인
 // ===========================================================
 const SUPABASE_URL = "https://tdzheutebifrknrbnysj.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_tPmSK_w6sPZKr64YObj38A_RYbLOZ4q";
 let supabaseClient = null;
 
-// Dynamic script injection to guarantee Supabase SDK existence
 if (typeof supabase === 'undefined') {
     const script = document.createElement('script');
     script.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2";
     script.async = false;
-    script.onload = () => {
-        console.log("[Supabase SDK] Dynamic CDN Load Successful.");
-        if (typeof initSupabase === 'function') initSupabase();
-    };
+    script.onload = () => { if (typeof initSupabase === 'function') initSupabase(); };
     document.head.appendChild(script);
 }
 
 function initSupabase() {
     if (typeof supabase !== 'undefined') {
         supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        console.log("XNOT Supabase Client: Core Connection Established.");
     }
 }
 initSupabase();
 
-
-// ===========================================================
-//  🤝 추천인(Referral) Supabase 기록 파이프라인
-// ===========================================================
 async function checkAndRegisterReferral(currentUserId) {
     if (!supabaseClient || !currentUserId) return;
-
-    // 이미 추천 등록 처리를 완료했는지 로컬 캐시 확인 (중복 등록 방지)
     if (localStorage.getItem('xnot_ref_registered')) return;
 
     let referrerId = null;
-
-    // 1. 텔레그램 WebApp SDK에서 start_param 추출
     try {
         const startParam = window.Telegram?.WebApp?.initDataUnsafe?.start_param;
-        if (startParam && startParam.startsWith('ref_')) {
-            referrerId = startParam.replace('ref_', '');
-        }
+        if (startParam && startParam.startsWith('ref_')) referrerId = startParam.replace('ref_', '');
     } catch (e) { }
 
-    // 2. URL Query String 대체 확인 (브라우저/직접 접속 대응)
     if (!referrerId) {
         try {
             const urlParams = new URLSearchParams(window.location.search);
             const tgStart = urlParams.get('tgWebAppStartParam') || urlParams.get('startapp');
-            if (tgStart && tgStart.startsWith('ref_')) {
-                referrerId = tgStart.replace('ref_', '');
-            }
+            if (tgStart && tgStart.startsWith('ref_')) referrerId = tgStart.replace('ref_', '');
         } catch (e) { }
     }
 
-    // 추천 파라미터가 없거나 자기 자신을 추천한 경우 무시
     if (!referrerId || referrerId === currentUserId) return;
 
     try {
-        console.log(`[Referral System] New user: ${currentUserId} referred by: ${referrerId}`);
-
-        // Supabase xnot_referrals 테이블에 기록 (new_user_id가 기본키이므로 중복 자동 무시)
         const { error } = await supabaseClient
             .from('xnot_referrals')
             .upsert([{
@@ -442,40 +460,24 @@ async function checkAndRegisterReferral(currentUserId) {
                 created_at: new Date().toISOString()
             }], { onConflict: 'new_user_id', ignoreDuplicates: true });
 
-        if (!error) {
-            console.log("✅ [Referral System] Successfully recorded to xnot_referrals!");
-            localStorage.setItem('xnot_ref_registered', 'true');
-        } else {
-            console.warn("❌ [Referral System Notice]", error.message);
-        }
-    } catch (err) {
-        console.error("💥 [Referral Exception]", err);
-    }
+        if (!error) localStorage.setItem('xnot_ref_registered', 'true');
+    } catch (err) { }
 }
 
-//  💾 데이터 입출력 (Local & Cloud Storage)
-// ===========================================================
 let isInitialDataLoaded = false;
-
 async function loadData() {
     if (isInitialDataLoaded) return;
     isInitialDataLoaded = true;
 
-    // 1. Recover legacy information from LocalStorage first
     const savedData = localStorage.getItem('xnot_v4_save');
     let userId = localStorage.getItem('xnot_user_id');
 
     if (!userId) {
-        try {
-            userId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id ? `tg_${window.Telegram.WebApp.initDataUnsafe.user.id}` : null;
-        } catch(e) { }
-        if (!userId) {
-            userId = 'user_' + Math.random().toString(36).substring(2, 9);
-        }
+        try { userId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id ? `tg_${window.Telegram.WebApp.initDataUnsafe.user.id}` : null; } catch(e) { }
+        if (!userId) userId = 'user_' + Math.random().toString(36).substring(2, 9);
         localStorage.setItem('xnot_user_id', userId);
     }
 
-    // 추천인 등록 확인 및 기록 실행
     checkAndRegisterReferral(userId);
 
     if (savedData) {
@@ -485,29 +487,19 @@ async function loadData() {
             else if (typeof parsed.sp === 'string') playerSP = parseInt(parsed.sp) || 0;
             if (isNaN(playerSP)) playerSP = 0;
 
-            if (parsed.upgrades !== undefined) { 
-                upgrades = Object.assign({ weight: 0, elasticity: 0, spin: 0, perfectZone: 0 }, parsed.upgrades); 
-            }
+            if (parsed.upgrades !== undefined) upgrades = Object.assign({ weight: 0, elasticity: 0, spin: 0, perfectZone: 0 }, parsed.upgrades); 
             if (parsed.walletAddress !== undefined) userWalletAddress = parsed.walletAddress;
             
-            // 음수 하트 오염 자동 치유 (5개로 리셋)
             let restoredHearts = (parsed.hearts !== undefined) ? parsed.hearts : 5;
             if (typeof restoredHearts !== 'number' || restoredHearts <= 0) restoredHearts = 5;
             playerHearts = restoredHearts;
-
-            console.log(`[Local Load] Restored profile. SP: ${playerSP}, Hearts: ${playerHearts}`);
-        } catch (e) {
-            console.error("Local restore error:", e);
-        }
+        } catch (e) { }
     }
 
-    // Refresh UI with local state immediately
     if (typeof updateAssetUI === 'function') updateAssetUI();
 
-    // 2. Cold-Start Check: Look up user in Supabase to migrate or fetch updates
     if (supabaseClient !== null) {
         try {
-            console.log(`[Supabase Check] Checking cloud status for User ID: ${userId}...`);
             let { data: cloudUser, error } = await supabaseClient
                 .from('xnot_users')
                 .select('*')
@@ -515,7 +507,6 @@ async function loadData() {
                 .single();
 
             const currentHearts = typeof playerHearts !== 'undefined' ? playerHearts : 5;
-
             let tgUsername = 'Guest';
             try {
                 const u = window.Telegram?.WebApp?.initDataUnsafe?.user;
@@ -523,87 +514,32 @@ async function loadData() {
             } catch (e) { }
 
             if (error && error.code === 'PGRST116') {
-                console.log("[Supabase Migration] Legacy user detected. Initializing cloud record...");
-                await supabaseClient
-                    .from('xnot_users')
-                    .insert([{
-                        user_id: String(userId),
-                        username: String(tgUsername),
-                        high_score: parseInt(playerSP) || 0,
-                        hearts: parseInt(currentHearts) || 5,
-                        last_saved_time: Date.now()
-                    }]);
+                await supabaseClient.from('xnot_users').insert([{
+                    user_id: String(userId), username: String(tgUsername),
+                    high_score: parseInt(playerSP) || 0, hearts: parseInt(currentHearts) || 5,
+                    last_saved_time: Date.now()
+                }]);
             } else if (cloudUser) {
-                console.log("[Supabase Sync] User record loaded from cloud.");
                 const cloudScore = parseInt(cloudUser.high_score);
-                if (!isNaN(cloudScore) && cloudScore > playerSP) {
-                    playerSP = cloudScore;
-                    console.log(`[Supabase Sync] Restored total SP to: ${playerSP}`);
-                }
-                if (typeof cloudUser.hearts === 'number' && cloudUser.hearts > 0 && currentStatus === 'PRE_SPIN') {
-                    playerHearts = cloudUser.hearts;
-                }
-                if (currentStatus === 'PRE_SPIN' && typeof updateAssetUI === 'function') {
-                    updateAssetUI();
-                }
+                if (!isNaN(cloudScore) && cloudScore > playerSP) playerSP = cloudScore;
+                if (typeof cloudUser.hearts === 'number' && cloudUser.hearts > 0 && currentStatus === 'PRE_SPIN') playerHearts = cloudUser.hearts;
+                if (currentStatus === 'PRE_SPIN' && typeof updateAssetUI === 'function') updateAssetUI();
             }
-        } catch (err) {
-            console.error("Supabase handshake notice:", err);
-        }
+        } catch (err) { }
     }
-
-    // 3. Telegram CloudStorage Sync Fallback (스코프 안전 병합)
-    try {
-        window.Telegram?.WebApp?.CloudStorage?.getItem('stone_v4', (err, val) => {
-            if (!err && val) {
-                try {
-                    const parsed = JSON.parse(val);
-                    if (typeof parsed.sp === 'number' && !isNaN(parsed.sp) && parsed.sp > playerSP) { 
-                        playerSP = parsed.sp; 
-                    }
-                    if (parsed.upgrades !== undefined) { 
-                        upgrades = Object.assign({ weight: 0, elasticity: 0, spin: 0, perfectZone: 0 }, parsed.upgrades); 
-                    }
-                    if (parsed.walletAddress && !userWalletAddress) { userWalletAddress = parsed.walletAddress; }
-                    if (typeof parsed.hearts === 'number' && parsed.hearts > 0 && currentStatus === 'PRE_SPIN') {
-                        playerHearts = parsed.hearts;
-                    }
-                    if (currentStatus === 'PRE_SPIN' && typeof updateAssetUI === 'function') {
-                        updateAssetUI();
-                    }
-                } catch(e) { }
-            }
-        });
-    } catch (e) { }
 }
 
-// Complete High-Reliability Synchronous Save Pipeline
 async function saveData() {
-    const userId = localStorage.getItem('xnot_user_id') || (() => {
-        const id = 'user_' + Math.random().toString(36).substring(2, 9);
-        localStorage.setItem('xnot_user_id', id);
-        return id;
-    })();
-    const currentHearts = typeof playerHearts !== 'undefined' ? playerHearts : (typeof hearts !== 'undefined' ? hearts : 5);
+    const userId = localStorage.getItem('xnot_user_id') || 'user_' + Date.now();
+    const currentHearts = typeof playerHearts !== 'undefined' ? playerHearts : 5;
     const rightNow = Date.now();
 
-    // 1. Local storage insurance policy
-    const localSavePayload = {
-        sp: playerSP,
-        upgrades: upgrades,
-        hearts: currentHearts,
-        walletAddress: userWalletAddress,
-        lastSavedTime: rightNow
-    };
+    const localSavePayload = { sp: playerSP, upgrades: upgrades, hearts: currentHearts, walletAddress: userWalletAddress, lastSavedTime: rightNow };
     localStorage.setItem('xnot_v4_save', JSON.stringify(localSavePayload));
     try { window.Telegram?.WebApp?.CloudStorage?.setItem('stone_v4', JSON.stringify(localSavePayload)); } catch (e) { }
 
-    if (typeof supabaseClient === 'undefined' || supabaseClient === null) {
-        console.error("[Supabase Null] Connection object missing. Verify URL and ANON KEY.");
-        return false;
-    }
+    if (!supabaseClient) return false;
 
-    // Resolve Telegram username for cloud sync
     let tgUsername = 'Guest';
     try {
         const u = window.Telegram?.WebApp?.initDataUnsafe?.user;
@@ -611,36 +547,19 @@ async function saveData() {
     } catch (e) { }
 
     try {
-        console.log(`[Supabase Pipeline] Sending exact state — user: ${userId} | username: ${tgUsername} | SP: ${playerSP} | Hearts: ${currentHearts}`);
-
-        // Blocking HTTP network request — awaits Postgres gateway response
-        const { data, error } = await supabaseClient
+        const { error } = await supabaseClient
             .from('xnot_users')
             .upsert({
-                user_id: String(userId),
-                username: String(tgUsername),
-                high_score: parseInt(playerSP || 0),
-                hearts: parseInt(currentHearts),
-                last_saved_time: parseInt(rightNow),
-                updated_at: new Date().toISOString()
+                user_id: String(userId), username: String(tgUsername),
+                high_score: parseInt(playerSP || 0), hearts: parseInt(currentHearts),
+                last_saved_time: parseInt(rightNow), updated_at: new Date().toISOString()
             }, { onConflict: 'user_id' });
-
-        if (error) {
-            console.error("❌ [Postgres Sync Rejected]", error.message, "Code:", error.code);
-            console.warn("💡 TIP: Code '42501' = RLS is ON. Disable RLS for 'xnot_users' in Supabase dashboard.");
-            return false;
-        } else {
-            console.log("✅ [Postgres Sync Success] Live cluster locked down data.");
-            return true;
-        }
-    } catch (criticalNetError) {
-        console.error("💥 [Supabase Critical Network Failure]", criticalNetError);
-        return false;
-    }
+        return !error;
+    } catch (e) { return false; }
 }
 
 // ===========================================================
-//  📱 텔레그램 SDK 초기화 샌드박스
+//  📱 텔레그램 SDK 초기화
 // ===========================================================
 function initTMA() {
     if (!window.Telegram?.WebApp) return;
@@ -648,13 +567,12 @@ function initTMA() {
     tg.ready(); 
     tg.expand();
     
-    // 세로 스와이프 제스처만 방어 (닫기 확인 팝업은 비활성화)
     try {
         tg.disableVerticalSwipes && tg.disableVerticalSwipes();
-        tg.isClosingConfirmationEnabled = false; // [수정] 불필요한 경고 팝업 차단
+        tg.isClosingConfirmationEnabled = false;
+        tg.setHeaderColor('#050510'); tg.setBackgroundColor('#050510');
     } catch(e) { }
 
-    try { tg.setHeaderColor('#050510'); tg.setBackgroundColor('#050510'); } catch (e) { }
     const u = tg.initDataUnsafe?.user;
     if (u) {
         document.getElementById('user-name').innerText = u.first_name || u.username || 'Guest';
@@ -662,61 +580,35 @@ function initTMA() {
     }
 }
 
-// ===========================================================
-//  💎 TON Connect 지갑 연동 로직
-// ===========================================================
 let tonConnectUI = null;
 let userWalletAddress = null;
-
 function initTonConnect() {
     try {
         const TCUI = window.TONConnectUI;
         if (TCUI) {
-            // manifestUrl을 도메인 및 GitHub Pages 서브경로에 관계없이 정상 서빙하도록 결합
             const manifestUrl = new URL('tonconnect-manifest.json', window.location.href).href;
-            tonConnectUI = new TCUI.TonConnectUI({
-                manifestUrl: manifestUrl,
-                buttonRootId: 'ton-connect-button'
-            });
-
+            tonConnectUI = new TCUI.TonConnectUI({ manifestUrl, buttonRootId: 'ton-connect-button' });
             tonConnectUI.onStatusChange(wallet => {
                 const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
                 const baseName = tgUser ? (tgUser.first_name || tgUser.username) : 'Guest';
-
                 if (wallet) {
                     userWalletAddress = wallet.account.address;
-                    console.log("TON 지갑 연결됨:", userWalletAddress);
-
                     const uName = document.getElementById('user-name');
-                    if (uName) {
-                        uName.innerText = `${baseName} (${shortenAddress(userWalletAddress)})`;
-                    }
+                    if (uName) uName.innerText = `${baseName} (${shortenAddress(userWalletAddress)})`;
                     saveData();
                 } else {
                     userWalletAddress = null;
-                    console.log("TON 지갑 연결 해제됨");
-
                     const uName = document.getElementById('user-name');
-                    if (uName) {
-                        uName.innerText = baseName;
-                    }
+                    if (uName) uName.innerText = baseName;
                     saveData();
                 }
             });
         }
-    } catch (e) {
-        console.error("TON Connect 초기화 실패:", e);
-    }
+    } catch (e) { }
 }
 
-function shortenAddress(addr) {
-    if (!addr) return '';
-    return addr.slice(0, 4) + '...' + addr.slice(-4);
-}
+function shortenAddress(addr) { return addr ? addr.slice(0, 4) + '...' + addr.slice(-4) : ''; }
 
-// ===========================================================
-//  🎨 인터페이스 헬퍼 메소드
-// ===========================================================
 function setAssetBarVisible(v) {
     const ab = document.getElementById('asset-bar');
     const uc = document.getElementById('user-card');
@@ -767,12 +659,6 @@ function spawnDramaticText(text, cls = 'neon-lime') {
     setTimeout(() => d.remove(), 1900);
 }
 
-function changeRandomBg() {
-    currentTheme = Math.random() < 0.5 ? 'lake' : 'river';
-    currentBgPath = `images/foreground_${currentTheme}.png`;
-    document.getElementById('game-container').style.background = `url('${currentBgPath}') no-repeat center/cover`;
-}
-
 // ===========================================================
 //  🎰 룰렛 물리 정지 가챠 머신 로직
 // ===========================================================
@@ -801,7 +687,6 @@ function triggerWheel(e) {
 
     const idx = Math.floor(Math.random() * STONES.length);
     const stone_def = STONES[idx];
-
     const offsets = [315, 225, 135, 45];
     const offset = offsets[idx];
     const totalRot = 2160 + offset;
@@ -855,41 +740,20 @@ function triggerWheel(e) {
     };
 
     wEl.addEventListener('transitionend', onSpinEnd, { once: true });
-    setTimeout(onSpinEnd, 4000); // 3.8s 회전 후 이벤트 누락 방지 안전 타이머
+    setTimeout(onSpinEnd, 4000);
 }
 
-// ===========================================================
-//  🕹️ 인게임 진입 및 조작 인터페이스 활성화
-// ===========================================================
 function handleMainBtn(e) {
-    if (e) {
-        e.preventDefault && e.preventDefault();
-        e.stopPropagation && e.stopPropagation();
-    }
+    if (e) { e.preventDefault && e.preventDefault(); e.stopPropagation && e.stopPropagation(); }
     SoundManager.resume();
 
-    // 1. 하트 부족 시 충전 팝업 오픈
-    if (playerHearts <= 0) { 
-        openYoutubeCharge(); 
-        return; 
-    }
+    if (playerHearts <= 0) { openYoutubeCharge(); return; }
+    if (currentStatus === 'PRE_SPIN') { triggerWheel(); return; }
 
-    // 2. 룰렛 돌리기
-    if (currentStatus === 'PRE_SPIN') { 
-        triggerWheel(); 
-        return; 
-    }
-
-    // 3. 돌 선택 완료 후 돌 던지기 시작 (SPIN_DONE 또는 이미 돌이 선택된 상태라면 100% 진입)
     if (currentStatus === 'SPIN_DONE' || (selectedStone && !isSpinning)) {
         currentStatus = 'TRANSITIONING';
-        
         const mb = document.getElementById('main-btn');
-        if (mb) {
-            mb.classList.remove('pulse');
-            mb.disabled = true;
-        }
-
+        if (mb) { mb.classList.remove('pulse'); mb.disabled = true; }
         playerHearts = Math.max(0, playerHearts - 1);
         updateAssetUI();
         saveData();
@@ -897,31 +761,20 @@ function handleMainBtn(e) {
     }
 }
 
-// ===========================================================
-//  🎬 화면 전환
-// ===========================================================
 function playSeamlessTransition() {
-    if (!selectedStone) {
-        selectedStone = STONES[0];
-    }
+    if (!selectedStone) selectedStone = STONES[0];
     const roulette = document.getElementById('roulette-screen');
     const overlay = document.getElementById('transition-overlay');
-    
     if (overlay) overlay.style.display = 'none';
     if (roulette) roulette.style.display = 'none';
-    
-    // 텔레그램 뷰포트 변경에 대비해 캔버스 및 좌표 즉각 갱신
     resizeCanvases();
-    
     startGameplay();
 }
 
 function setStoneStyle() {
     const el = document.getElementById('ingame-stone');
     if (!el) return;
-    if (!selectedStone) {
-        selectedStone = STONES[0];
-    }
+    if (!selectedStone) selectedStone = STONES[0];
     const s = selectedStone;
     if (s.w) el.style.width = `${s.w}px`; 
     if (s.h) el.style.height = `${s.h}px`;
@@ -938,80 +791,45 @@ function setStoneStyle() {
         : 'drop-shadow(0 6px 12px rgba(0,0,0,0.55))';
 }
 
-// ===========================================================
-//  📐 게이지 판정 및 높이 계산 (원래의 단순한 안전 코드로 원복)
-// ===========================================================
 function getAngleZone(angleVal) {
-    // 🌟 [신설] 정중앙 1% 두께의 초정밀 슈퍼 존 (0.495 ~ 0.505)
-    if (angleVal >= 0.495 && angleVal <= 0.505) {
-        return 'SUPER';
-    }
-
+    if (angleVal >= 0.495 && angleVal <= 0.505) return 'SUPER';
     const perfSize = 0.08;
     const pMin = 0.5 - (perfSize / 2);
     const pMax = 0.5 + (perfSize / 2);
 
-    if ((angleVal >= 0.00 && angleVal <= 0.01) || (angleVal >= 0.99 && angleVal <= 1.00)) {
-        return 'EASTEREG';
-    }
-    if ((angleVal > 0.01 && angleVal <= 0.06) || (angleVal >= 0.94 && angleVal < 0.99)) {
-        return 'RED';
-    }
-    if (angleVal >= pMin && angleVal <= pMax) {
-        return 'PERFECT';
-    }
-    if ((angleVal >= pMin - 0.15 && angleVal < pMin) || (angleVal > pMax && angleVal <= pMax + 0.15)) {
-        return 'GREEN';
-    }
+    if ((angleVal >= 0.00 && angleVal <= 0.01) || (angleVal >= 0.99 && angleVal <= 1.00)) return 'EASTEREG';
+    if ((angleVal > 0.01 && angleVal <= 0.06) || (angleVal >= 0.94 && angleVal < 0.99)) return 'RED';
+    if (angleVal >= pMin && angleVal <= pMax) return 'PERFECT';
+    if ((angleVal >= pMin - 0.15 && angleVal < pMin) || (angleVal > pMax && angleVal <= pMax + 0.15)) return 'GREEN';
     return 'YELLOW';
 }
 
 function updateGaugePerfectZone() {
     const set = (id, bot, h) => {
         const el = document.getElementById(id);
-        if (el) {
-            el.style.bottom = bot + '%';
-            el.style.height = h + '%';
-        }
+        if (el) { el.style.bottom = bot + '%'; el.style.height = h + '%'; }
     };
-
     set('gz-red-bot', 1, 5);
     set('gz-safe-bot', 31, 15);
     set('gz-perfect', 46, 8);
     set('gz-safe-top', 54, 15);
     set('gz-red-top', 94, 5);
 
-    // 🌟 슈퍼 존 라인 세팅 (PERFECT 글씨 아래쪽에 배치)
     let superEl = document.getElementById('gz-super-zone');
     if (!superEl) {
         const pZone = document.getElementById('angle-gauge-bg') || document.getElementById('angle-gauge-bar') || document.getElementById('angle-gauge-wrap');
         if (pZone) {
             superEl = document.createElement('div');
             superEl.id = 'gz-super-zone';
-            superEl.style.cssText = `
-                position: absolute;
-                left: 0;
-                width: 100%;
-                height: 1.2%;
-                bottom: 49.4%;
-                background: #ffffff;
-                box-shadow: 0 0 6px #ffd700, 0 0 10px #ffffff;
-                z-index: 4;
-                pointer-events: none;
-            `;
+            superEl.style.cssText = `position:absolute;left:0;width:100%;height:1.2%;bottom:49.4%;background:#ffffff;box-shadow:0 0 6px #ffd700,0 0 10px #ffffff;z-index:4;pointer-events:none;`;
             pZone.appendChild(superEl);
         }
     }
 }
 
-// ===========================================================
-//  🕹️ 인게임 시작 루프
-// ===========================================================
 function startGameplay() {
     gaugeSpeedMult = 2.0;
     resizeCanvases();
-
-    // 1. 상단 HUD 정리 및 돌 엘리먼트 가시화
     setAssetBarVisible(false);
     setStoneStyle();
 
@@ -1019,14 +837,13 @@ function startGameplay() {
     if (stoneEl) {
         stoneEl.style.display = 'block';
         stoneEl.style.left = `${CX}px`;
-        stoneEl.style.bottom = '80px';
-        stoneEl.style.top = 'auto';
-        stoneEl.style.transform = 'translateX(-50%) scale(1)';
+        stoneEl.style.top = `${STONE_FIXED_Y}px`;
+        stoneEl.style.bottom = 'auto';
+        stoneEl.style.transform = 'translate(-50%, -50%) scale(1)';
         stoneEl.style.opacity = '1';
         stoneEl.style.zIndex = '35';
     }
 
-    // 2. 인게임 안내 UI 노출
     const scoreDisp = document.getElementById('score-display');
     if (scoreDisp) scoreDisp.innerText = t('ready');
     const msg = document.getElementById('message');
@@ -1038,13 +855,11 @@ function startGameplay() {
     const gaugeWrap = document.getElementById('angle-gauge-wrap');
     if (gaugeWrap) gaugeWrap.style.display = 'block';
 
-    // 3. 상태값 확정 및 인터랙션 바인딩
     currentStatus = 'READY_TO_LAUNCH';
     bindLaunchEvents();
     changeRandomBg();
     drawStaticBackground();
 
-    // 4. 게이지 수치 계산 및 애니메이션 가동
     updateGaugePerfectZone();
     startAngleGauge();
 }
@@ -1053,11 +868,10 @@ function startAngleGauge() {
     angleVal = 0.5; angleDir = 1;
     const tick = () => {
         if (currentStatus !== 'READY_TO_LAUNCH') return;
-        angleVal += angleDir * 0.007 * gaugeSpeedMult; // [Balance] 30% speed reduction (0.010 → 0.007)
+        angleVal += angleDir * 0.007 * gaugeSpeedMult;
         if (angleVal >= 1) { angleVal = 1; angleDir = -1; }
         else if (angleVal <= 0) {
-            angleVal = 0;
-            angleDir = 1;
+            angleVal = 0; angleDir = 1;
             gaugeSpeedMult = Math.min(3.0, parseFloat((gaugeSpeedMult + 0.2).toFixed(1)));
         }
         document.getElementById('gauge-bar').style.height = `${angleVal * 100}%`;
@@ -1069,7 +883,7 @@ function startAngleGauge() {
 }
 
 // ===========================================================
-//  🤚 고속 스와이프 투척 메커니즘
+//  🤚 고속 스와이프 투척 메커니즘 (touchcancel 방어 적용)
 // ===========================================================
 function bindLaunchEvents() {
     const el = document.getElementById('ingame-stone');
@@ -1079,13 +893,17 @@ function bindLaunchEvents() {
     window.addEventListener('touchmove', dragMove, { passive: false });
     window.addEventListener('mouseup', dragEnd);
     window.addEventListener('touchend', dragEnd);
+    window.addEventListener('touchcancel', dragEnd);
 }
+
 function unbindLaunchEvents() {
     const el = document.getElementById('ingame-stone');
     el.removeEventListener('mousedown', dragStart); el.removeEventListener('touchstart', dragStart);
     window.removeEventListener('mousemove', dragMove); window.removeEventListener('touchmove', dragMove);
     window.removeEventListener('mouseup', dragEnd); window.removeEventListener('touchend', dragEnd);
+    window.removeEventListener('touchcancel', dragEnd);
 }
+
 function dragStart(e) {
     if (currentStatus !== 'READY_TO_LAUNCH') return;
     SoundManager.resume(); isDragging = true;
@@ -1094,6 +912,7 @@ function dragStart(e) {
     startTime = Date.now();
     e.cancelable && e.preventDefault();
 }
+
 function dragMove(e) {
     if (!isDragging || currentStatus !== 'READY_TO_LAUNCH') return;
     let cx, cy;
@@ -1103,10 +922,11 @@ function dragMove(e) {
     } else { cx = e.clientX; cy = e.clientY; }
     const dy = startY - cy, dx = cx - startX;
     const el = document.getElementById('ingame-stone');
-    el.style.transform = `translate(calc(-50% + ${dx}px), ${-Math.max(0, dy)}px) scale(${dy > 0 ? 1.05 : 1})`;
+    el.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% - ${Math.max(0, dy)}px)) scale(${dy > 0 ? 1.05 : 1})`;
     if (dy >= 150) triggerLaunch(150, dx);
     e.cancelable && e.preventDefault();
 }
+
 function dragEnd(e) {
     if (!isDragging) return;
     if (e.changedTouches) {
@@ -1116,19 +936,17 @@ function dragEnd(e) {
     let cx, cy; if (e.changedTouches) { cx = e.changedTouches[0].clientX; cy = e.changedTouches[0].clientY; } else { cx = e.clientX; cy = e.clientY; }
     const dy = startY - cy, dx = cx - startX;
     if (dy > 15) triggerLaunch(dy, dx);
-    else { const el = document.getElementById('ingame-stone'); el.style.transition = 'transform 0.3s'; el.style.transform = 'translateX(-50%) scale(1)'; setTimeout(() => el.style.transition = '', 350); }
+    else { const el = document.getElementById('ingame-stone'); el.style.transition = 'transform 0.3s'; el.style.transform = 'translate(-50%, -50%) scale(1)'; setTimeout(() => el.style.transition = '', 350); }
 }
 
 // ===================================================================
-//  🌊 [단일 수면 파동 통합 엔진] 
+//  🌊 리듬 물수제비 통합 물리 발사 엔진
 // ===================================================================
+let lastRippleTime = 0;
+let currentRippleDuration = 480;
+let currentGravity = 0.17;
+let currentPeakZ = 10.0;
 
-let lastRippleTime = 0;       // 현재 파동 생성 시각
-let currentRippleDuration = 480; // 파동 지속 시간 (ms)
-let currentGravity = 0.17; // 초기 체공 중력
-let currentPeakZ = 10.0;    // 현재 바운스 사이클의 최고점 기록
-
-// 2. 발사 시 초기 물리 및 중력 리셋
 function triggerLaunch(dy, dx) {
     isDragging = false; 
     unbindLaunchEvents(); 
@@ -1138,14 +956,16 @@ function triggerLaunch(dy, dx) {
 
     const dur = Math.max(1, Date.now() - startTime); 
     const effDy = Math.min(dy, 150);
-    swipeSpeed = Math.min((effDy / dur) * 15, 38); 
-    const distFact = effDy / 150;
+    
+    // 모바일 짧은 플릭에서도 속도 보장 (최소 22, distFact 중복 제거)
+    const calculatedSpeed = (effDy / dur) * 15;
+    swipeSpeed = Math.max(22, Math.min(calculatedSpeed, 40)); 
 
     stone.x = 0; stone.y = 0; stone.z = 15;
     const rad = launchAngle * Math.PI / 180;
-    stone.vy = (swipeSpeed * Math.cos(rad)) * distFact;
-    stone.vz = (swipeSpeed * Math.sin(rad) * 0.75) * distFact;
-    stone.vx = ((dx / dur) * 2) * distFact;
+    stone.vy = swipeSpeed * Math.cos(rad);
+    stone.vz = Math.max(2.5, swipeSpeed * Math.sin(rad) * 0.75);
+    stone.vx = Math.min(3.0, Math.max(-3.0, (dx / dur) * 1.5));
 
     let zone = getAngleZone(angleVal);
     if (gaugeSpeedMult >= 3.0 && zone === 'PERFECT') zone = 'EASTEREG';
@@ -1154,22 +974,16 @@ function triggerLaunch(dy, dx) {
     const ss = selectedStone;
     let bRange = ss.budgetRange;
 
-    // 돌 특성 복제 및 크리티컬 연산 (기존 로직 유지)
     if (ss.rarity === 'Mythic') {
         if (window.forceLotto || Math.random() < ss.physics.lottoChance) { 
-            ap = JSON.parse(JSON.stringify(ss.physics.lottoPhysics)); 
-            isLotto = true; 
-            bRange = ss.lottoBudgetRange; 
+            ap = JSON.parse(JSON.stringify(ss.physics.lottoPhysics)); isLotto = true; bRange = ss.lottoBudgetRange; 
         } else {
             const ref = Math.random() < 0.5 ? STONES[0] : STONES[2];
             if (ref === STONES[2]) {
                 if (window.forceCrit || Math.random() < ref.physics.critChance) {
-                    ap = JSON.parse(JSON.stringify(ref.physics.critPhysics)); 
-                    isCrit = true; 
-                    bRange = STONES[2].critBudgetRange; 
+                    ap = JSON.parse(JSON.stringify(ref.physics.critPhysics)); isCrit = true; bRange = STONES[2].critBudgetRange; 
                 } else {
-                    ap = JSON.parse(JSON.stringify(ref.physics)); 
-                    bRange = STONES[2].budgetRange;     
+                    ap = JSON.parse(JSON.stringify(ref.physics)); bRange = STONES[2].budgetRange;     
                 }
             } else {
                 ap = JSON.parse(JSON.stringify(ref.physics)); 
@@ -1179,12 +993,8 @@ function triggerLaunch(dy, dx) {
         }
     } else if (ss.rarity === 'Legendary') {
         if (window.forceCrit || Math.random() < ss.physics.critChance) { 
-            ap = JSON.parse(JSON.stringify(ss.physics.critPhysics)); 
-            isCrit = true; 
-            bRange = ss.critBudgetRange;
-        } else { 
-            ap = JSON.parse(JSON.stringify(ss.physics)); 
-        }
+            ap = JSON.parse(JSON.stringify(ss.physics.critPhysics)); isCrit = true; bRange = ss.critBudgetRange;
+        } else { ap = JSON.parse(JSON.stringify(ss.physics)); }
     } else {
         ap = JSON.parse(JSON.stringify(ss.physics)); 
         if (window.forceCrit || Math.random() < (ap.critChance || 0)) isCrit = true; 
@@ -1195,6 +1005,15 @@ function triggerLaunch(dy, dx) {
 
     stone.activePhys = ap; stone.isCrit = isCrit; stone.isLotto = isLotto;
     bounceCount = 0; perfectCount = 0; isDead = false; hasTappedBounce = false; tapsInCurrentCycle = 0;
+    comboCount = 0;
+    rhythmTargets = [];
+
+    // 첫 마중 오리 타겟 배치
+    const firstDuck = new RhythmTarget('DUCK');
+    firstDuck.depth = 0.45;
+    rhythmTargets.push(firstDuck);
+    nextSpawnTime = Date.now() + 500;
+
     currentGravity = 0.17;
     currentPeakZ = Math.max(10.0, stone.z);
     isWindowActive = false;
@@ -1205,15 +1024,11 @@ function triggerLaunch(dy, dx) {
     let launchPercent = 1.0;
     let isSuperLaunch = false;
 
-    // 🌟 판정별 배율 및 특수 연출 분기
     if (zone === 'SUPER') {
-        // [1% 슈퍼 존]: 퍼펙트(1.6)의 3배에 달하는 울트라 추진력
-        launchPercent = 4.8;
-        isSuperLaunch = true;
+        launchPercent = 4.8; isSuperLaunch = true;
         document.getElementById('message').innerText = "⚡ SUPER SKIPPER! ⚡";
         spawnDramaticText("SUPER SKIPPER!", 'neon-gold');
-        triggerShake('heavy');
-        haptic('heavy');
+        triggerShake('heavy'); haptic('heavy');
     } else if (zone === 'EASTEREG') {
         launchPercent = 2.2;
         document.getElementById('message').innerText = gaugeSpeedMult >= 3.0 ? "⚡ MAX SPEED HYPER DRIVE! ⚡" : "⚡ 하이퍼 드라이브 발사! ⚡";
@@ -1229,11 +1044,16 @@ function triggerLaunch(dy, dx) {
         document.getElementById('message').innerText = "👍 안정적인 그린 발사";
         haptic('medium');
     } else if (zone === 'RED') {
-        launchPercent = 0.0;
-        stone.vy = 0; stone.vz = 0;
-        haptic('error');
-        triggerWaterMiss();
+        launchPercent = 0.4; stone.vy = 8; stone.vz = 0.5;
+        stone.totalBudget = 0; stone.remainingBudget = 0;
         document.getElementById('message').innerText = "❌ MISS! 투척 실패";
+        haptic('error');
+
+        currentStatus = 'FLYING'; isPlaying = true;
+        document.getElementById('score-display').innerText = 'BOUNCE: 0';
+        try { SoundManager.playLaunch(swipeSpeed); } catch (e) { }
+        runGameLoop();
+        setTimeout(() => { triggerWaterMiss(); }, 350);
         return;
     } else {
         launchPercent = 1.0;
@@ -1241,16 +1061,13 @@ function triggerLaunch(dy, dx) {
         haptic('medium');
     }
 
-    let swipeBonus = 0;
-    if (swipeSpeed >= 30) swipeBonus = 8;
-    else if (swipeSpeed >= 18) swipeBonus = 4;
-
+    let swipeBonus = swipeSpeed >= 30 ? 8 : (swipeSpeed >= 24 ? 4 : 2);
     const rawBase = Math.floor(Math.random() * (bRange[1] - bRange[0] + 1)) + bRange[0];
-    stone.totalBudget = Math.max(5, Math.round((rawBase + swipeBonus) * launchPercent));
+    stone.totalBudget = Math.max(14, Math.round((rawBase + swipeBonus) * launchPercent));
     stone.remainingBudget = stone.totalBudget;
 
-    stone.vy *= Math.max(0.9, isSuperLaunch ? 2.2 : launchPercent);
-    stone.vz *= Math.max(0.9, isSuperLaunch ? 1.4 : launchPercent);
+    stone.vy *= Math.max(0.95, isSuperLaunch ? 2.2 : launchPercent);
+    stone.vz *= Math.max(0.95, isSuperLaunch ? 1.4 : launchPercent);
     gaugeSpeedMult = 2.0;
 
     spawnRipple(STONE_FIXED_X, STONE_FIXED_Y);
@@ -1258,21 +1075,25 @@ function triggerLaunch(dy, dx) {
     currentStatus = 'FLYING'; 
     isPlaying = true;
     document.getElementById('score-display').innerText = 'BOUNCE: 0';
-    SoundManager.playLaunch(swipeSpeed);
+    try { SoundManager.playLaunch(swipeSpeed); } catch (e) { }
 
-    document.getElementById('game-container').addEventListener('mousedown', registerBounceTap);
-    document.getElementById('game-container').addEventListener('touchstart', registerBounceTap, { passive: true });
+    // 고스트 클릭 차단 (220ms 가드)
+    launchCoolDownUntil = Date.now() + 220;
 
-    // 🌟 슈퍼 존 발동 시: 화면 일시 정지(Hit-Stop) + 돌 황금빛 아우라 발광 연출 후 출발!
+    const gc = document.getElementById('game-container');
+    if (gc) {
+        gc.removeEventListener('mousedown', registerBounceTap);
+        gc.removeEventListener('touchstart', registerBounceTap);
+        gc.addEventListener('mousedown', registerBounceTap);
+        gc.addEventListener('touchstart', registerBounceTap, { passive: true });
+    }
+
     if (isSuperLaunch) {
         const stoneEl = document.getElementById('ingame-stone');
         if (stoneEl) {
-            // 돌 가장자리에 황금빛 폭발 아우라 적용
             stoneEl.style.filter = 'drop-shadow(0 0 25px #ffd700) drop-shadow(0 0 45px #ffffff) brightness(1.4)';
             stoneEl.style.transform = 'translate(-50%, -50%) scale(1.35)';
         }
-
-        // 380ms 동안 게임 루프를 지연시켜 '멈칫!' 하는 긴장감 연출
         setTimeout(() => {
             if (stoneEl) {
                 stoneEl.style.transition = 'filter 0.5s ease, transform 0.3s ease';
@@ -1295,14 +1116,20 @@ function runGameLoop() {
     animFrameId = requestAnimationFrame(runGameLoop);
 }
 
-// 3. 화면 픽셀 투영: 수면 패드가 가려지지 않도록 넉넉한 도약폭(3.5배) 보장
 function applyStonePos() {
     const el = document.getElementById('ingame-stone');
     if (!el) return;
 
-    // 돌이 최고 75px까지 솟아올라 돌 밑바닥 수면 링이 시원하게 보이도록 투영
-    const rawOffset = isDead ? Math.max(-30, stone.z * 1.5) : Math.max(0, stone.z * 3.5);
-    const bounceOff = Math.min(80, rawOffset); 
+    let bounceOff = 0;
+    if (isDead) {
+        bounceOff = Math.max(-45, stone.z * 1.8);
+    } else {
+        if (stone.z <= 8) {
+            bounceOff = stone.z * 3.6;
+        } else {
+            bounceOff = 28.8 + Math.min(125, Math.pow(stone.z - 8, 0.78) * 6.0);
+        }
+    }
 
     const x = STONE_FIXED_X;
     const y = STONE_FIXED_Y - bounceOff;
@@ -1314,19 +1141,17 @@ function applyStonePos() {
     const rot = stone.y * 3.0;
 
     if (isDead) {
-        const op = Math.max(0, 1 + stone.z / 30);
-        el.style.transform = `translate(-50%,-50%) scale(0.85) rotate(${rot}deg)`;
+        const op = Math.max(0, 1 + stone.z / 18);
+        el.style.transform = `translate(-50%,-50%) scale(${0.72 * op}) rotate(${rot}deg)`;
         el.style.opacity = op;
     } else {
-        let scaleX = 1.0;
-        let scaleY = 1.0;
+        const scaleBase = Math.max(0.72, 1.0 - (bounceOff * 0.0016));
+        let scaleX = scaleBase, scaleY = scaleBase;
 
         if (stone.z <= 1.2 && stone.vz < 0) {
-            scaleX = 1.15;
-            scaleY = 0.85; // 수면 닿기 직전 카툰 찌그러짐
+            scaleX *= 1.18; scaleY *= 0.82;
         } else if (stone.vz > 1.2) {
-            scaleX = 0.92;
-            scaleY = 1.08; // 도약 시 펴짐
+            scaleX *= 0.92; scaleY *= 1.10;
         }
 
         el.style.transform = `translate(-50%,-50%) scale(${scaleX}, ${scaleY}) rotate(${rot}deg)`;
@@ -1334,18 +1159,17 @@ function applyStonePos() {
     }
 }
 
-// 1. 물리 루프: 돌의 하강 고도에 따라 1단계 -> 2단계 -> 3단계 순차 점등
 function updatePhysics() {
     if (!isDead) {
         stone.z += stone.vz;
         stone.vz -= currentGravity;
         stone.x += stone.vx;
         stone.y += stone.vy;
-
         if (stone.z > currentPeakZ) currentPeakZ = stone.z;
     } else {
-        stone.vz -= 0.15;
+        stone.vz -= 0.10;
         stone.z += stone.vz;
+        stone.vy *= 0.92;
         applyStonePos();
         return;
     }
@@ -1361,35 +1185,32 @@ function updatePhysics() {
     stone.vy *= Math.min(0.996, 0.988 * wm);
     stone.vx *= 0.98;
 
-    // 수면 충돌 바운스
+    // 수면 충돌 바운스 안정화
     if (stone.vz < 0 && stone.z <= 0.4 && !isDead) {
         if (hasTappedBounce) {
             hasTappedBounce = false;
         } else {
-            if (stone.remainingBudget > 0 && stone.vy > 0.3) {
-                stone.z = 0;
+            if (stone.remainingBudget > 0 && stone.vy > 0.25) {
                 processBounce('GOOD', true);
             } else {
                 triggerWaterSink();
+                return;
             }
         }
     }
 
-    if (stone.vy < 0.25 && !isDead && stone.remainingBudget <= 0) triggerWaterSink();
-    if (stone.vz < 0 && stone.z < -6 && !isDead && !hasTappedBounce) triggerWaterMiss();
+    if (stone.vy < 0.20 && !isDead && stone.remainingBudget <= 0) { triggerWaterSink(); return; }
+    if (stone.vz < 0 && stone.z < -8 && !isDead && !hasTappedBounce) { triggerWaterMiss(); return; }
 
     if (currentStatus === 'FLYING' && !isDead) createTrailParticle(STONE_FIXED_X, STONE_FIXED_Y);
     applyStonePos();
 }
 
-// 3. 바운스 처리: 퍼펙트 탭 시 높이 복원 & 낙하 속도 점진 가속
 function processBounce(rating, isAuto = false) {
     bounceCount++;
     const ex = STONE_FIXED_X, ey = STONE_FIXED_Y;
 
     if (!isAuto) spawnRatingText(ex, ey, rating);
-    
-    // [핵심] 바로 이 단 하나의 수면 파동이 다음 탭의 타겟이 됨!
     spawnRipple(ex, ey);
 
     const em = Math.pow(1.06, upgrades.elasticity);
@@ -1398,16 +1219,10 @@ function processBounce(rating, isAuto = false) {
 
     if (rating === 'PERFECT') {
         perfectCount++;
-
-        // 🚀 버짓 대폭 연장 (+3회) & 전진 속도 부스트
         stone.remainingBudget += 3;
         stone.vy = Math.min(stone.vy * 1.25 + 2.0, 48);
-
-        // 시원하게 다시 솟구쳐 오르는 도약력 부여
-        stone.z = 0.5;
-        stone.vz = stoneBaseHeight * 1.5 * em;
-
-        // 다음 바운스는 낙하 속도가 빨라지도록 가속 중력 적용
+        stone.z = 0.9;
+        stone.vz = Math.max(2.2, stoneBaseHeight * 1.5 * em);
         currentGravity = Math.min(0.34, 0.17 + (perfectCount * 0.035));
 
         const earned = Math.round(100 * selectedStone.mult * 2.5);
@@ -1419,26 +1234,24 @@ function processBounce(rating, isAuto = false) {
         SoundManager.playBounce(true);
         spawnDramaticText('SUPER BOUNCE!', 'neon-lime');
         triggerShake('medium');
-
     } else if (rating === 'GOOD') {
         stone.remainingBudget--;
-        stone.vy *= 0.96;
-        stone.z = 0.4;
-        stone.vz = stoneBaseHeight * 1.0 * em * Math.max(0.4, stone.remainingBudget / Math.max(1, stone.totalBudget));
+        stone.vy *= 0.97;
+        stone.z = 0.8;
+        const decayFact = Math.max(0.5, stone.remainingBudget / Math.max(1, stone.totalBudget));
+        stone.vz = Math.max(1.6, stoneBaseHeight * 1.1 * em * decayFact);
 
         const earned = Math.round(100 * selectedStone.mult * 1.0);
         playerSP += earned;
         createParticles(ex, ey, false, false, 18);
         haptic('medium');
         SoundManager.playBounce(false);
-
     } else {
-        // 타이밍 실패 시 즉시 침수 처리
         triggerWaterSink();
         return;
     }
 
-    currentPeakZ = stone.vz * 3.0;
+    currentPeakZ = Math.max(currentPeakZ, stone.vz * 3.0);
     hasTappedBounce = false;
 
     document.getElementById('score-display').innerText = `BOUNCE: ${bounceCount}`;
@@ -1447,37 +1260,88 @@ function processBounce(rating, isAuto = false) {
     spawnBounceMarker(ex, ey, bounceCount);
 }
 
-// 2. 탭 판정 로직: 수면 파동이 빨간 과녁으로 수축한 찰나(진행률 80% 이상)에 탭하면 PERFECT
+// ===================================================================
+//  🎯 [동물 타겟 리듬 탭 판정]
+// ===================================================================
 function registerBounceTap(e) {
     if (currentStatus !== 'FLYING' || isDead) return;
+    if (Date.now() < launchCoolDownUntil) return;
 
-    // 돌이 위로 솟구치는 상승 구간에 누르면 연타 페널티 후 즉시 침수
-    if (stone.vz >= 0 || hasTappedBounce) {
-        hasTappedBounce = true;
-        spawnDramaticText('연타 페널티! 수평 붕괴', 'neon-red');
-        haptic('error');
-        triggerWaterMiss();
-        return;
+    let closest = null;
+    let minDiff = 999;
+
+    for (let t of rhythmTargets) {
+        if (!t.isHit && !t.isMissed) {
+            const diff = Math.abs(t.progress - 1.0);
+            if (diff < minDiff) {
+                minDiff = diff;
+                closest = t;
+            }
+        }
     }
 
+    if (closest && minDiff <= 0.28) {
+        closest.isHit = true;
+
+        if (closest.type === 'WOOD') {
+            comboCount = 0;
+            stone.vy = Math.max(2, stone.vy * 0.5);
+            stone.remainingBudget = Math.max(1, stone.remainingBudget - 3);
+            spawnDramaticText('🪵 쿵! 통나무 충돌!', 'neon-red');
+            haptic('error');
+            triggerShake('heavy');
+            return;
+        }
+
+        const rating = minDiff <= 0.12 ? 'PERFECT' : 'GOOD';
+        hasTappedBounce = true;
+        onRhythmHit(closest, rating);
+    } else {
+        comboCount = 0;
+        haptic('light');
+    }
+}
+
+function onRhythmHit(target, rating) {
+    comboCount++;
+    if (typeof maxCombo === 'undefined' || comboCount > maxCombo) maxCombo = comboCount;
+
+    const ex = STONE_FIXED_X;
+    const ey = STONE_FIXED_Y;
+
+    spawnRatingText(ex, ey - 30, rating);
+    spawnDramaticText(
+        target.type === 'DUCK' ? `🦆 CATCH! ${comboCount} COMBO` : `🐸 LEAP! ${comboCount} COMBO`,
+        comboCount >= 5 ? 'neon-gold' : 'neon-lime'
+    );
+
+    const comboBonus = Math.min(8, Math.floor(comboCount / 2));
+    stone.remainingBudget += (rating === 'PERFECT' ? 3 : 2) + comboBonus;
+    stone.vy = Math.min(48, Math.max(stone.vy, 22) * 1.12 + 1.2);
+    
+    stone.z = 1.0;
+    stone.vz = (target.type === 'FROG' ? 3.6 : 3.0) * Math.pow(1.06, upgrades.elasticity);
     hasTappedBounce = true;
 
-    // 파동 진행도 (0.0: 확장 시작 ~ 1.0: 빨간 코어 수축 완료)
-    const elapsed = Date.now() - lastRippleTime;
-    const progress = Math.min(1.0, elapsed / currentRippleDuration);
+    haptic(rating === 'PERFECT' ? 'heavy' : 'medium');
+    SoundManager.playBounce(rating === 'PERFECT');
+    triggerShake(comboCount >= 5 ? 'medium' : 'light');
 
-    // [80% ~ 100% 구간]: 파동이 빨간색 타겟으로 딱 모여든 골든 타임!
-    if (progress >= 0.80 && progress <= 1.0) {
-        // ✨ PERFECT: 버짓 넉넉히 리필(+3회), 속도 부스트 및 시원한 재도약
-        processBounce('PERFECT', false);
-    } else if (progress >= 0.50 && progress < 0.80) {
-        // 👍 GOOD: 노란 링 구간에 살짝 일찍 침 (일반 튕김)
-        processBounce('GOOD', false);
-    } else {
-        // ❌ BAD: 너무 일찍 누름 -> 미련 없이 즉시 수면 아래로 풍덩!
-        spawnDramaticText('너무 빨랐다! 풍덩~', 'neon-red');
-        haptic('error');
-        triggerWaterMiss();
+    createParticles(ex, ey, true, false, 25);
+    
+    bounceCount++;
+    document.getElementById('score-display').innerText = `BOUNCE: ${bounceCount}`;
+    spawnBounceMarker(ex, ey, bounceCount);
+}
+
+function onRhythmMiss(target) {
+    if (target.type === 'WOOD') {
+        spawnDramaticText('통나무 회피! SAFE', 'neon-lime');
+        return;
+    }
+    if (comboCount > 0) {
+        spawnDramaticText('COMBO BREAK...', 'neon-red');
+        comboCount = 0;
     }
 }
 
@@ -1514,18 +1378,24 @@ function triggerWaterMiss() {
 function triggerWaterSink() {
     if (isDead) return;
     isDead = true;
-    stone.vz = -1.5;
+    stone.vz = -1.2;
+    stone.vy = Math.min(stone.vy, 4);
     const ex = STONE_FIXED_X, ey = STONE_FIXED_Y;
-    spawnRipple(ex, ey); createParticles(ex, ey, false, true, 14);
-    document.getElementById('message').innerText = t('sinkMsg'); haptic('error'); SoundManager.playSink();
+    spawnRipple(ex, ey); 
+    createParticles(ex, ey, false, true, 16);
+    document.getElementById('message').innerText = t('sinkMsg'); 
+    haptic('error'); 
+    SoundManager.playSink();
 
-    endGame();
+    setTimeout(() => {
+        endGame();
+    }, 800);
 }
 
 function triggerWake(x, y, scale) { wakes.push({ x, y, vxL: -W * 0.015 * scale, vxR: W * 0.015 * scale, vy: H * 0.022 * scale, width: 9 * scale, alpha: 1, xL: x, xR: x }); }
 
 // ===========================================================
-//  🖼️ 정통 3단 레이어 중첩 패럴랙스 엔진
+//  🖼️ 3단 레이어 패럴랙스 엔진
 // ===========================================================
 function drawScaledCenteredCoverImage(ctx, img, W, H, scale = 1.0) {
     if (!img || !img.complete) return;
@@ -1535,19 +1405,13 @@ function drawScaledCenteredCoverImage(ctx, img, W, H, scale = 1.0) {
     const canvasRatio = W / H;
 
     let drawW, drawH;
-    if (canvasRatio > imgRatio) {
-        drawW = W;
-        drawH = W / imgRatio;
-    } else {
-        drawW = H * imgRatio;
-        drawH = H;
-    }
+    if (canvasRatio > imgRatio) { drawW = W; drawH = W / imgRatio; }
+    else { drawW = H * imgRatio; drawH = H; }
 
     ctx.save();
     ctx.beginPath();
     ctx.rect(0, 0, W, H);
     ctx.clip();
-
     ctx.translate(W / 2, H / 2);
     ctx.scale(scale, scale);
     ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
@@ -1564,7 +1428,6 @@ function drawStaticBackground() {
     const imgBase = getThemeImg('background');
     const imgMid = getThemeImg('midground');
     const imgFore = getThemeImg('foreground');
-
     if (imgBase && imgBase.complete) drawScaledCenteredCoverImage(bgCtx, imgBase, W, H, 1.0);
     if (imgMid && imgMid.complete) drawScaledCenteredCoverImage(bgCtx, imgMid, W, H, 1.0);
     if (imgFore && imgFore.complete) drawScaledCenteredCoverImage(bgCtx, imgFore, W, H, 1.0);
@@ -1573,7 +1436,6 @@ function drawStaticBackground() {
 function draw7LayerBG() {
     bgCtx.clearRect(0, 0, W, H);
     bgCtx.globalCompositeOperation = 'source-over';
-
     const vp = { x: W / 2, y: HORIZON_Y };
     const rarity = selectedStone?.rarity || 'Ordinary';
 
@@ -1640,13 +1502,26 @@ function draw7LayerBG() {
 }
 
 // ===========================================================
-//  ✨ 카툰 속도선 & 이펙트 파티클 렌더링 엔진
+//  ✨ 카툰 속도선 & 리듬 타겟 렌더링 엔진
 // ===========================================================
-// 3. 레이싱 신호등 UI 캔버스 렌더링
 function drawFxCanvas() {
     fxCtx.clearRect(0, 0, W, H);
 
-    // 속도선 렌더링
+    updateRhythmSpawner();
+    for (let i = rhythmTargets.length - 1; i >= 0; i--) {
+        const t = rhythmTargets[i];
+        t.update();
+        t.draw(fxCtx);
+
+        if (t.depth > 1.3 || t.isHit) {
+            rhythmTargets.splice(i, 1);
+        }
+    }
+
+    if (rhythmTargets.length > 5) {
+        rhythmTargets.shift();
+    }
+
     if (currentStatus === 'FLYING' && !isDead) {
         const speed = stone.vy;
         if (speed > 3) {
@@ -1676,144 +1551,171 @@ function drawFxCanvas() {
         }
     }
 
-    // 파티클 렌더링
     for (let i = particles.length - 1; i >= 0; i--) { 
         const p = particles[i]; p.update(); p.draw(fxCtx); 
         if (p.alpha <= 0) particles.splice(i, 1); 
     }
+}
 
-    // ===================================================================
-    //  🎯 [퍼펙트 코어 강조] 중심 빨간 타겟 극대화 수축 엔진
-    // ===================================================================
-    if (currentStatus === 'FLYING' && !isDead && !hasTappedBounce) {
-        const X = STONE_FIXED_X;
-        const Y = STONE_FIXED_Y + 12;
+// ===========================================================
+//  🌊 강물 표류 & 기습 인터셉트 엔티티 엔진
+// ===========================================================
+class RhythmTarget {
+    constructor(type = 'DUCK') {
+        this.type = type;
+        this.isHit = false;
+        this.isMissed = false;
+        this.depth = 0.0;
 
-        fxCtx.save();
+        this.isFromLeft = Math.random() < 0.5;
+        this.dirKey = this.isFromLeft ? 'L' : 'R';
 
-        const peak = Math.max(3.0, currentPeakZ);
-        const heightRatio = Math.max(0.0, Math.min(1.0, stone.z / peak));
-
-        // -------------------------------------------------------------
-        // 1. [핵심] 수면 중심에 항상 대기 중인 "빨간 과녁 타겟 (Target Base)"
-        //    -> 하강 시 미리 보여주어 시선을 가운데로 집중시킴
-        // -------------------------------------------------------------
-        const targetRx = 54; // 돌 밑에 묻히지 않는 넉넉한 타겟 크기
-        const targetRy = targetRx * 0.46;
-
-        if (stone.vz < 0) {
-            // 하강 중 은은하게 중심을 잡아주는 고정 타겟 가이드
-            fxCtx.beginPath();
-            fxCtx.ellipse(X, Y, targetRx, targetRy, 0, 0, Math.PI * 2);
-            fxCtx.strokeStyle = 'rgba(255, 30, 30, 0.45)';
-            fxCtx.lineWidth = 3;
-            fxCtx.stroke();
-        }
-
-        // -------------------------------------------------------------
-        // 2. 바깥에서 수축/확장하는 동적 네온 도넛 링
-        // -------------------------------------------------------------
-        let rx, ry, r, g, b, glowColor, lineWidth;
-
-        if (stone.vz >= 0) {
-            // [상승 구간] 작은 코어에서 최고점 파란 파동으로 퍼짐
-            rx = targetRx + (heightRatio * (130 - targetRx));
-            ry = rx * 0.46;
-            r = 0; g = Math.round(200 + heightRatio * 55); b = 255;
-            glowColor = 'rgba(0, 217, 255, 0.6)';
-            lineWidth = 8;
+        if (this.type === 'FROG') {
+            this.startX = this.isFromLeft ? -30 : W + 30;
+            this.startY = HORIZON_Y + (STONE_FIXED_Y - HORIZON_Y) * 0.3;
+            this.targetX = STONE_FIXED_X + (this.isFromLeft ? -35 : 35);
+            this.targetY = STONE_FIXED_Y + 12;
+            this.speed = 0.025;
+            this.jumpStep = 0;
+            this.motionFrame = 0;
+        } else if (this.type === 'WOOD') {
+            this.laneX = CX + (Math.random() - 0.5) * (W * 0.35);
+            this.speed = 0.011;
+            this.bobCycle = Math.random() * Math.PI * 2;
         } else {
-            // [하강 구간] 최고점(130px) -> 타겟 과녁(54px)으로 착 감기며 수축!
-            rx = targetRx + (heightRatio * (130 - targetRx));
-            ry = rx * 0.46;
+            this.laneX = CX + (this.isFromLeft ? -50 : 50);
+            this.speed = 0.015;
+            this.bobCycle = Math.random() * Math.PI * 2;
+        }
+    }
 
-            if (heightRatio > 0.45) {
-                // 상층부: 파랑 -> 노랑
-                const t = (heightRatio - 0.45) / 0.55;
-                r = Math.round(255 - t * 255);
-                g = Math.round(230 - t * 15);
-                b = Math.round(0 + t * 255);
-                glowColor = 'rgba(255, 230, 0, 0.7)';
-                lineWidth = 10;
+    get progress() { return this.depth; }
+
+    update() {
+        const streamFlow = Math.max(1.0, (stone.vy || 15) / 14);
+        this.depth += this.speed * streamFlow;
+
+        const waterDepthCurve = Math.pow(this.depth, 1.8);
+        this.scale = 0.25 + waterDepthCurve * 1.05;
+
+        if (this.type === 'FROG') {
+            this.currentX = this.startX + (this.targetX - this.startX) * this.depth;
+            this.currentY = this.startY + (this.targetY - this.startY) * this.depth;
+
+            this.jumpStep += 0.18;
+            const sinH = Math.sin(this.jumpStep);
+
+            if (sinH > 0) {
+                this.floatY = -sinH * 46 * this.scale;
+                if (sinH < 0.35) this.motionFrame = 0;
+                else if (sinH <= 0.85) this.motionFrame = 1;
+                else this.motionFrame = 2;
             } else {
-                // 하층부 (퍼펙트 접근 구간): 노랑 -> 핏빛 네온 레드
-                const t = heightRatio / 0.45;
-                r = 255;
-                g = Math.round(30 + t * 200);
-                b = Math.round(30 - t * 30);
-                glowColor = 'rgba(255, 30, 30, 0.95)';
-                lineWidth = 14;
+                this.floatY = 0;
+                this.motionFrame = 0;
             }
+            this.floatRot = 0;
+        } else {
+            this.currentY = HORIZON_Y + (STONE_FIXED_Y - HORIZON_Y) * waterDepthCurve;
+            this.currentX = CX + (this.laneX - CX) * (0.35 + waterDepthCurve * 0.65);
+
+            this.bobCycle += 0.09;
+            this.floatY = Math.sin(this.bobCycle) * (this.type === 'WOOD' ? 2.2 : 3.5) * this.scale;
+            this.floatRot = Math.sin(this.bobCycle * 0.6) * 0.06;
         }
 
-        const currentColor = `rgb(${r}, ${g}, ${b})`;
+        if (this.depth > 1.25 && !this.isHit && !this.isMissed) {
+            this.isMissed = true;
+            onRhythmMiss(this);
+        }
+    }
 
-        // -------------------------------------------------------------
-        // 3. 💥 [하이라이트] 빨간 퍼펙트 존 도달 시 (heightRatio <= 0.22)
-        //    중심부가 강렬하게 점등하는 폭발적 코어 연출
-        // -------------------------------------------------------------
-        if (stone.vz < 0 && heightRatio <= 0.22) {
-            // A. 중심부 전체를 때리는 붉은 네온 면 채우기 플래시
-            fxCtx.beginPath();
-            fxCtx.ellipse(X, Y, targetRx + 4, targetRy + 2, 0, 0, Math.PI * 2);
-            fxCtx.fillStyle = 'rgba(255, 20, 20, 0.55)';
-            fxCtx.shadowBlur = 35;
-            fxCtx.shadowColor = '#ff0033';
-            fxCtx.fill();
+    draw(ctx) {
+        if (this.isHit || this.depth > 1.35) return;
 
-            // B. 내부 화이트 핫 코어 링 (시선 강탈)
-            fxCtx.beginPath();
-            fxCtx.ellipse(X, Y, targetRx * 0.6, targetRy * 0.6, 0, 0, Math.PI * 2);
-            fxCtx.strokeStyle = '#ffffff';
-            fxCtx.lineWidth = 3.5;
-            fxCtx.stroke();
+        const w = (this.type === 'WOOD' ? 76 : 64) * this.scale;
+        const h = (this.type === 'WOOD' ? 48 : 64) * this.scale;
 
-            // C. 퍼펙트 탭 안내
-            fxCtx.font = '900 26px "Impact", "Arial Black", sans-serif';
-            fxCtx.textAlign = 'center';
-            fxCtx.fillStyle = '#ffffff';
-            fxCtx.shadowBlur = 16;
-            fxCtx.shadowColor = '#ff0000';
-            fxCtx.fillText('PERFECT!', X, Y - 46);
+        ctx.save();
+
+        const shadowScale = (this.type === 'FROG' && this.floatY < 0)
+            ? Math.max(0.35, 1.0 - Math.abs(this.floatY) / 60)
+            : 1.0;
+        ctx.beginPath();
+        ctx.ellipse(this.currentX, this.currentY + (h * 0.28), (w * 0.48) * shadowScale, (h * 0.2) * shadowScale, 0, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0, 15, 30, 0.52)';
+        ctx.fill();
+
+        if (this.type !== 'FROG' || this.floatY >= 0) {
+            ctx.beginPath();
+            ctx.ellipse(this.currentX, this.currentY + (h * 0.28), w * 0.58, h * 0.24, 0, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
         }
 
-        // 4. 주 수축 도넛 테두리 렌더링
-        fxCtx.beginPath();
-        fxCtx.ellipse(X, Y, rx, ry, 0, 0, Math.PI * 2);
-        fxCtx.lineWidth = lineWidth;
-        fxCtx.strokeStyle = currentColor;
-        fxCtx.shadowBlur = (stone.vz < 0 && heightRatio <= 0.22) ? 30 : 16;
-        fxCtx.shadowColor = glowColor;
-        fxCtx.stroke();
+        ctx.translate(this.currentX, this.currentY + (this.floatY || 0));
+        if (this.floatRot) ctx.rotate(this.floatRot);
 
-        fxCtx.restore();
+        if (this.type === 'FROG') {
+            const frogImg = ASSETS_STREAM[`FROG_${this.dirKey}`][this.motionFrame];
+            if (frogImg && frogImg.complete && frogImg.naturalWidth > 0) ctx.drawImage(frogImg, -w / 2, -h / 2, w, h);
+        } else if (this.type === 'WOOD') {
+            const woodImg = ASSETS_STREAM.WOOD;
+            if (woodImg && woodImg.complete && woodImg.naturalWidth > 0) ctx.drawImage(woodImg, -w / 2, -h / 2, w, h);
+        } else {
+            const duckImg = ASSETS_STREAM[`DUCK_${this.dirKey}`];
+            if (duckImg && duckImg.complete && duckImg.naturalWidth > 0) ctx.drawImage(duckImg, -w / 2, -h / 2, w, h);
+        }
+
+        if (this.depth >= 0.88 && this.depth <= 1.12) {
+            ctx.beginPath();
+            ctx.ellipse(0, h * 0.28, w * 0.65, h * 0.28, 0, 0, Math.PI * 2);
+            ctx.strokeStyle = this.type === 'WOOD' ? '#ff3333' : (this.type === 'FROG' ? '#00ff66' : '#ffea00');
+            ctx.lineWidth = 2.5;
+            ctx.shadowColor = ctx.strokeStyle;
+            ctx.shadowBlur = 12;
+            ctx.stroke();
+        }
+
+        ctx.restore();
+    }
+}
+
+function updateRhythmSpawner() {
+    if (currentStatus !== 'FLYING' || isDead) return;
+
+    const now = Date.now();
+    if (now >= nextSpawnTime) {
+        const rand = Math.random();
+        if (rand < 0.15) {
+            rhythmTargets.push(new RhythmTarget('WOOD'));
+        } else if (rand < 0.50) {
+            rhythmTargets.push(new RhythmTarget('FROG'));
+        } else {
+            rhythmTargets.push(new RhythmTarget('DUCK'));
+        }
+
+        const minGap = 450;
+        const randomGap = Math.random() * 1000;
+        nextSpawnTime = now + minGap + randomGap;
     }
 }
 
 // ===========================================================
-//  ⚙️ 이펙트 서브 모듈 오브젝트 풀 인스턴스 클래스들
+//  ⚙️ 이펙트 파티클 클래스들
 // ===========================================================
 class WakeParticle {
     constructor(x, y, vx, vy) {
         this.x = x; this.y = y; this.vx = vx; this.vy = vy; this.r = Math.random() * 2 + 1.5; this.alpha = 0.75; this.decay = Math.random() * 0.025 + 0.015;
     }
-    update() {
-        this.x += this.vx; this.y += this.vy; this.r += 0.4; this.alpha -= this.decay;
-    }
+    update() { this.x += this.vx; this.y += this.vy; this.r += 0.4; this.alpha -= this.decay; }
     draw(ctx) {
-        ctx.save();
-        ctx.globalAlpha = Math.max(0, this.alpha);
-        ctx.beginPath();
+        ctx.save(); ctx.globalAlpha = Math.max(0, this.alpha); ctx.beginPath();
         ctx.ellipse(this.x, this.y, this.r, this.r * 0.4, 0, 0, Math.PI * 2);
         const grad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.r);
-        grad.addColorStop(0, 'rgba(255,255,255,0.8)');
-        grad.addColorStop(0.35, 'rgba(0,240,255,0.4)');
-        grad.addColorStop(1, 'rgba(0,240,255,0)');
-        ctx.fillStyle = grad;
-        ctx.shadowBlur = 12;
-        ctx.shadowColor = 'rgba(0,240,255,0.5)';
-        ctx.fill();
-        ctx.restore();
+        grad.addColorStop(0, 'rgba(255,255,255,0.8)'); grad.addColorStop(0.35, 'rgba(0,240,255,0.4)'); grad.addColorStop(1, 'rgba(0,240,255,0)');
+        ctx.fillStyle = grad; ctx.shadowBlur = 12; ctx.shadowColor = 'rgba(0,240,255,0.5)'; ctx.fill(); ctx.restore();
     }
 }
 
@@ -1868,118 +1770,49 @@ class SplashParticle {
     }
 }
 
-class GodSplashParticle {
-    constructor(x, y) {
-        this.x = x; this.y = y; const angle = Math.random() * Math.PI * 2; const spd = Math.random() * 22 + 8;
-        this.vx = Math.cos(angle) * spd; this.vy = Math.sin(angle) * spd - (Math.random() * 12 + 6); this.r = Math.random() * 9 + 4; this.alpha = 1; this.decay = Math.random() * 0.014 + 0.007; this.grav = 0.22;
-        const rn = Math.random(); this.color = rn > 0.6 ? '#ffd700' : rn > 0.35 ? '#ff8c00' : rn > 0.15 ? '#d9ff00' : '#ffffff';
-    }
-    update() { this.x += this.vx; this.y += this.vy; this.vy += this.grav; this.vx *= 0.98; this.alpha -= this.decay; }
-    draw(ctx) {
-        ctx.save(); ctx.globalAlpha = Math.max(0, this.alpha); ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2); ctx.fillStyle = this.color;
-        ctx.shadowBlur = 20; ctx.shadowColor = '#ffd700'; ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = 1.5; ctx.stroke();
-        ctx.restore();
-    }
-}
-
-function spawnGodSplash(x, y) {
-    const count = 22; for (let i = 0; i < count; i++) {
-        const p = new GodSplashParticle(x, y);
-        const isLeft = Math.random() < 0.5;
-        p.vx = isLeft ? (-Math.random() * 8 - 5) : (Math.random() * 8 + 5);
-        p.vy = -Math.random() * 4 - 3;
-        particles.push(p);
-    }
-    const flash = document.createElement('div'); flash.style.cssText = 'position:absolute;inset:0;background:rgba(255,215,0,0.35);z-index:250;pointer-events:none;animation:fade-flash 0.4s ease forwards;'; document.getElementById('game-container').appendChild(flash);
-    const style = document.createElement('style'); style.textContent = '@keyframes fade-flash{from{opacity:1}to{opacity:0}}'; document.head.appendChild(style);
-    setTimeout(() => { flash.remove(); style.remove(); }, 420);
-}
-
 function createParticles(x, y, isPerfect, isSink, count, isBad = false) { if (!isSink && !isBad) particles.push(new ShockwaveRing(x, y, isPerfect)); const n = count > 0 ? count : (isPerfect ? 38 : (isSink ? 24 : 16)); for (let i = 0; i < n; i++) particles.push(new SplashParticle(x, y, isPerfect, isSink, isBad)); }
 function createTrailParticle(x, y) { const cnt = selectedStone?.rarity === 'Mythic' ? 5 : (stone.isCrit ? 3 : 1); for (let i = 0; i < cnt; i++) particles.push(new TrailParticle(x, y)); }
 
 // ===========================================================
 //  🎯 DOM 애니메이션 오버레이 이펙트
 // ===========================================================
-// 1. 단일 수면 파동 생성 (기존 spawnRipple 교체)
 function spawnRipple(x, y) {
     const r = document.createElement('div');
-    r.className = 'ripple-qte';
+    r.className = 'ripple';
     r.style.left = `${x}px`;
     r.style.top = `${y + 12}px`;
     document.getElementById('game-container').appendChild(r);
-
-    lastRippleTime = Date.now();
-    currentRippleDuration = 480;
-
-    // 애니메이션 종료 후 엘리먼트 자동 정리
-    setTimeout(() => {
-        r.remove();
-    }, currentRippleDuration);
+    setTimeout(() => { r.remove(); }, 850);
 }
 function spawnRatingText(x, y, rating) { const d = document.createElement('div'); d.className = `effect-text ${rating.toLowerCase()}`; d.style.left = `${x}px`; d.style.top = `${y - 45}px`; const map = { PERFECT: 'PERFECT!', GOOD: 'GOOD!', BAD: 'BAD', MISS: 'MISS' }; d.innerText = map[rating] || rating; document.getElementById('game-container').appendChild(d); setTimeout(() => d.remove(), 920); }
 function spawnBounceMarker(x, y, count) {
     const container = document.getElementById('game-container');
     if (!container) return;
-
     const d = document.createElement('div');
-    
-    // 돌의 최대 도약 고도(Y - 80)보다 훨씬 위쪽인 상단 빈 하늘(Y - 135px)에 고정
     const targetY = STONE_FIXED_Y - 135;
-
-    d.style.cssText = `
-        position: absolute;
-        left: ${x}px;
-        top: ${targetY}px;
-        transform: translate(-50%, -50%) scale(0.7);
-        background: rgba(10, 15, 28, 0.88);
-        color: #d9ff00;
-        border: 1.5px solid #d9ff00;
-        border-radius: 20px;
-        padding: 4px 12px;
-        font-size: 14px;
-        font-weight: 900;
-        font-family: Impact, "Arial Black", sans-serif;
-        z-index: 70;
-        pointer-events: none;
-        white-space: nowrap;
-        text-shadow: 0 0 4px #000;
-        box-shadow: 0 0 14px rgba(217, 255, 0, 0.45);
-        opacity: 0;
-        transition: transform 0.22s cubic-bezier(0.17, 0.89, 0.32, 1.25), opacity 0.22s ease-out;
-    `;
+    d.style.cssText = `position:absolute;left:${x}px;top:${targetY}px;transform:translate(-50%, -50%) scale(0.7);background:rgba(10, 15, 28, 0.88);color:#d9ff00;border:1.5px solid #d9ff00;border-radius:20px;padding:4px 12px;font-size:14px;font-weight:900;font-family:Impact, "Arial Black", sans-serif;z-index:70;pointer-events:none;white-space:nowrap;text-shadow:0 0 4px #000;box-shadow:0 0 14px rgba(217, 255, 0, 0.45);opacity:0;transition:transform 0.22s cubic-bezier(0.17, 0.89, 0.32, 1.25), opacity 0.22s ease-out;`;
     d.innerText = `+${count} 튀김!`;
     container.appendChild(d);
 
-    // 1단계: 돌 위 상단 하늘에서 경쾌하게 팡 팝업
     requestAnimationFrame(() => {
-        d.style.opacity = '1';
-        d.style.transform = 'translate(-50%, -50%) scale(1.05)';
-        setTimeout(() => {
-            d.style.transform = 'translate(-50%, -50%) scale(1.0)';
-        }, 120);
+        d.style.opacity = '1'; d.style.transform = 'translate(-50%, -50%) scale(1.05)';
+        setTimeout(() => { d.style.transform = 'translate(-50%, -50%) scale(1.0)'; }, 120);
     });
-
-    // 2단계: 돌과 링을 가리지 않고 하늘 위로 살짝 페이드아웃
     setTimeout(() => {
         d.style.transition = 'transform 0.35s ease-in, opacity 0.35s ease-in';
-        d.style.opacity = '0';
-        d.style.transform = 'translate(-50%, -80%) scale(0.85)';
+        d.style.opacity = '0'; d.style.transform = 'translate(-50%, -80%) scale(0.85)';
         setTimeout(() => d.remove(), 350);
     }, 650);
 }
 
 // ===========================================================
-//  🏁 채굴 결과 정산 및 게임 루프 종료
+//  🏁 채굴 결과 정산 및 게임 루프 종료 (논블로킹 비동기 저장)
 // ===========================================================
-// Critical Overhaul: Async Blocker — waits for cloud write before showing result modal
 async function endGame() {
     isPlaying = false;
     cancelAnimationFrame(animFrameId);
-
     fxCtx.clearRect(0, 0, W, H);
-    particles = [];
-    wakes = [];
+    particles = []; wakes = [];
 
     document.getElementById('game-container').removeEventListener('mousedown', registerBounceTap);
     document.getElementById('game-container').removeEventListener('touchstart', registerBounceTap);
@@ -1992,71 +1825,41 @@ async function endGame() {
     document.getElementById('res-perfect-count').innerText = `${perfectCount} ${t('bouncesUnit')}`;
     document.getElementById('res-earned-sp').innerText = `+${earnedSP.toLocaleString()} SP`;
 
-    // --- [PATCH] 트로피 이미지 엘리먼트 렌더링 파이프 고정 ---
     const trophyImg = document.querySelector('#result-modal img');
-    if (trophyImg) {
-        trophyImg.src = 'images/intro_emblem.png';
-    }
+    if (trophyImg) trophyImg.src = 'images/intro_emblem.png';
 
-    // Accumulate score into playerSP state variable
     playerSP += earnedSP;
-
-    // CRITICAL: Block exit thread until Supabase confirms write resolution
-    console.log("[EndGame Sequence] Halting exit threads until cloud database replication completes...");
-    const saved = await saveData();
-    if (saved) {
-        console.log("[EndGame Sequence] Cloud write confirmed. Proceeding to result modal.");
-    } else {
-        console.warn("[EndGame Sequence] Cloud write failed or skipped. Local save retained.");
-    }
-
-    // Proceed to open UI only after network is fully cleared
     updateAssetUI();
     haptic('success');
     SoundManager.playFanfare();
     setAssetBarVisible(false);
     document.getElementById('result-modal').style.display = 'flex';
+
+    saveData();
 }
 
 function closeResultModal() {
     document.querySelectorAll('.troll-box').forEach(el => el.remove());
     document.getElementById('result-modal').style.display = 'none';
-
     currentStatus = 'PRE_SPIN';
 
     const rs = document.getElementById('roulette-screen');
-    if (rs) {
-        rs.style.display = 'flex';
-        rs.style.opacity = '1';
-    }
-
+    if (rs) { rs.style.display = 'flex'; rs.style.opacity = '1'; }
     const rt = document.getElementById('roulette-title');
     if (rt) rt.innerText = t('lobbyTitle');
-
     const wc = document.getElementById('wheel-cap-text');
-    if (wc) {
-        wc.innerText = t('wheelTouch');
-        wc.style.color = '#fff';
-    }
-
+    if (wc) { wc.innerText = t('wheelTouch'); wc.style.color = '#fff'; }
     const sd = document.getElementById('stone-desc-text');
     if (sd) sd.innerText = '';
-
     const wEl = document.getElementById('roulette-wheel');
-    if (wEl) {
-        wEl.querySelectorAll('.wheel-sector').forEach(s => s.classList.remove('highlight'));
-    }
+    if (wEl) wEl.querySelectorAll('.wheel-sector').forEach(s => s.classList.remove('highlight'));
 
     const mb = document.getElementById('main-btn');
     if (mb) {
-        mb.disabled = false;
-        mb.classList.remove('pulse');
-        mb.innerText = t('spinBtn');
-        mb.style.background = 'linear-gradient(135deg, var(--neon-lime) 0%, #a8ff00 100%)';
-        mb.style.color = 'var(--ink)';
+        mb.disabled = false; mb.classList.remove('pulse'); mb.innerText = t('spinBtn');
+        mb.style.background = 'linear-gradient(135deg, var(--neon-lime) 0%, #a8ff00 100%)'; mb.style.color = 'var(--ink)';
     }
 
-    // 로비 복귀 시 상단 HUD 전체 노출
     setAssetBarVisible(true);
     gaugeSpeedMult = 2.0;
     updateAssetUI();
@@ -2064,45 +1867,26 @@ function closeResultModal() {
     drawStaticBackground();
 }
 
-// ===========================================================
-//  📺 유튜브 보상형 에너지 완충 엔진
-// ===========================================================
 function openYoutubeCharge() {
     const modal = document.getElementById('youtube-modal');
     const timerEl = document.getElementById('video-timer');
     modal.style.display = 'flex';
-
-    let sec = 5;
-    timerEl.innerText = sec;
+    let sec = 5; timerEl.innerText = sec;
 
     const iv = setInterval(async () => {
-        sec--;
-        timerEl.innerText = sec;
-
+        sec--; timerEl.innerText = sec;
         if (sec <= 0) {
             clearInterval(iv);
-
-            // 하트 5개 즉각 충전
             playerHearts = 5;
             updateAssetUI();
             haptic('success');
-
-            // CRITICAL: 충전 즉시 클라우드에 강제 저장
-            console.log("[YouTube Reward] Hearts refilled to 5. Forcing immediate cloud save...");
-            if (typeof saveData === 'function') {
-                await saveData();
-            }
-            console.log("[YouTube Reward] Cloud lockdown complete. Hearts secured.");
-
+            saveData();
             modal.style.display = 'none';
             currentStatus = 'PRE_SPIN';
         }
     }, 1000);
 }
 
-// ===========================================================
-//  🛒 돌 스펙 강화 상점 코어 비즈니스 로직
-// ===========================================================
 function getUpgradeCost(t) { 
     const currentLv = (upgrades && typeof upgrades[t] === 'number') ? upgrades[t] : 0;
     return Math.floor(UPGRADE_BASE_COST * Math.pow(1.65, currentLv)); 
@@ -2123,13 +1907,11 @@ function updateShopUI() {
         if (btn && costEl) {
             if (lv >= MAX_LV) { 
                 if (nextLvEl) nextLvEl.innerText = 'Max'; 
-                costEl.innerText = 'MAX'; 
-                btn.disabled = true; 
+                costEl.innerText = 'MAX'; btn.disabled = true; 
             } else { 
                 if (nextLvEl) nextLvEl.innerText = lv + 1; 
                 const cost = getUpgradeCost(type); 
-                costEl.innerText = cost.toLocaleString(); 
-                btn.disabled = playerSP < cost; 
+                costEl.innerText = cost.toLocaleString(); btn.disabled = playerSP < cost; 
             }
         }
 
@@ -2152,36 +1934,26 @@ function updateShopUI() {
 function buyUpgrade(type) {
     if (!upgrades) upgrades = { weight: 0, elasticity: 0, spin: 0, perfectZone: 0 };
     if (upgrades[type] === undefined) upgrades[type] = 0;
-
     if (upgrades[type] >= MAX_LV) return; 
     const cost = getUpgradeCost(type); 
     if (isNaN(cost) || isNaN(playerSP) || playerSP < cost) return;
 
-    playerSP -= cost; 
-    upgrades[type]++; 
-    saveData(); 
-    updateAssetUI(); 
-    updateShopUI(); 
+    playerSP -= cost; upgrades[type]++; 
+    saveData(); updateAssetUI(); updateShopUI(); 
     if (typeof updateGaugePerfectZone === 'function') updateGaugePerfectZone();
-    haptic('success'); 
-    SoundManager.playUpgrade();
+    haptic('success'); SoundManager.playUpgrade();
     document.getElementById('message').innerText = `${t('upgradeSuccess')} (Lv.${upgrades[type]})`;
 }
 
-// ===========================================================
-//  🚪 인트로 및 디버그 매개변수 초기화 진입점
-// ===========================================================
 function openInfoModal(e) { e?.preventDefault(); SoundManager.resume(); haptic('light'); document.getElementById('intro-info-modal').style.display = 'flex'; }
 function closeInfoModal(e) { e?.preventDefault(); haptic('light'); document.getElementById('intro-info-modal').style.display = 'none'; }
 function closeIntroScreen(e) {
-    e?.preventDefault();
-    SoundManager.resume();
-    haptic('success');
+    e?.preventDefault(); SoundManager.resume(); haptic('success');
     const el = document.getElementById('intro-screen');
     el.style.opacity = '0';
     setTimeout(() => {
         el.style.display = 'none';
-        setAssetBarVisible(true); // asset-bar와 user-card 모두 flex로 노출
+        setAssetBarVisible(true);
         updateAssetUI();
     }, 500);
 }
@@ -2205,14 +1977,9 @@ document.addEventListener('visibilitychange', () => {
     if (document.hidden) SoundManager.pauseAll(); else SoundManager.resumeAll();
 });
 
-// ====== Telegram Invitation System Logic (Sleek FAB & Modal) ======
-
-// Dynamic Injection of Modern Invite Button & Hidden Modal Setup
+// ====== Telegram Invitation System Logic ======
 function injectInviteUI() {
-    // Prevent duplicate injection
     if (document.getElementById('invite-trigger-btn')) return;
-
-    // 1. Create a compact, stylized floating action button (FAB) or inline button
     const triggerBtn = document.createElement('button');
     triggerBtn.id = "invite-trigger-btn";
     triggerBtn.innerText = "✉️ 친구 초대";
@@ -2221,12 +1988,10 @@ function injectInviteUI() {
     triggerBtn.addEventListener('mouseenter', () => triggerBtn.style.transform = 'scale(1.05)');
     triggerBtn.addEventListener('mouseleave', () => triggerBtn.style.transform = 'scale(1)');
 
-    // 2. Create the hidden overlay modal container
     const modalOverlay = document.createElement('div');
     modalOverlay.id = "invite-modal-overlay";
     modalOverlay.style.cssText = "display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 2000; justify-content: center; align-items: center; font-family: sans-serif;";
 
-    // 3. Create the inner content box for the modal
     modalOverlay.innerHTML = `
         <div style="background: #222; border: 2px solid #0088cc; border-radius: 15px; padding: 25px; width: 85%; max-width: 360px; text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.5); position: relative; color: white;">
             <span id="close-invite-modal" style="position: absolute; top: 10px; right: 15px; font-size: 20px; color: #aaa; cursor: pointer;">&times;</span>
@@ -2239,11 +2004,8 @@ function injectInviteUI() {
         </div>
     `;
 
-    // Append both elements to the document body safely
     document.body.appendChild(triggerBtn);
     document.body.appendChild(modalOverlay);
-
-    // Bind Toggle and Core Sharing Events
     setupInviteEventListeners(triggerBtn, modalOverlay);
 }
 
@@ -2255,57 +2017,37 @@ function setupInviteEventListeners(triggerBtn, modalOverlay) {
 
     if (!closeBtn || !tgInviteBtn || !copyLinkBtn) return;
 
-    // Open Modal
-    triggerBtn.addEventListener('click', () => {
-        modalOverlay.style.display = 'flex';
-    });
-
-    // Close Modal via 'X'
-    closeBtn.addEventListener('click', () => {
-        modalOverlay.style.display = 'none';
-    });
-
-    // Close Modal via clicking outside the card
-    modalOverlay.addEventListener('click', (e) => {
-        if (e.target === modalOverlay) modalOverlay.style.display = 'none';
-    });
+    triggerBtn.addEventListener('click', () => { modalOverlay.style.display = 'flex'; });
+    closeBtn.addEventListener('click', () => { modalOverlay.style.display = 'none'; });
+    modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) modalOverlay.style.display = 'none'; });
 
     function getReferralLink() {
         let userId = '';
-        try {
-            userId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
-        } catch (e) { }
-
-        if (!userId) {
-            userId = localStorage.getItem('xnot_user_id') || 'user_' + Date.now();
-        }
-
+        try { userId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id; } catch (e) { }
+        if (!userId) userId = localStorage.getItem('xnot_user_id') || 'user_' + Date.now();
         if (!localStorage.getItem('xnot_user_id')) localStorage.setItem('xnot_user_id', userId);
         return `https://t.me/${botUsername}?startapp=ref_${userId}`;
     }
 
-    // Share Trigger
     tgInviteBtn.addEventListener('click', () => {
         const refLink = getReferralLink();
         const shareText = encodeURIComponent("🪨 [XNOT 물수제비 채굴] 나랑 같이 돌 튕기고 코인 채굴하자! 지금 들어오면 한정판 조약돌 지급! 🚀");
         window.open(`https://t.me/share/url?url=${encodeURIComponent(refLink)}&text=${shareText}`, '_blank');
     });
 
-    // Copy Trigger
     copyLinkBtn.addEventListener('click', () => {
         const refLink = getReferralLink();
         navigator.clipboard.writeText(refLink).then(() => {
-            alert("초대 링크가 클립보드에 복사되었습니다!");
+            spawnDramaticText("초대 링크 복사 완료!", "neon-lime");
         }).catch(() => {
             const textArea = document.createElement("textarea");
             textArea.value = refLink; document.body.appendChild(textArea); textArea.select();
             document.execCommand('copy'); document.body.removeChild(textArea);
-            alert("초대 링크가 복사되었습니다!");
+            spawnDramaticText("초대 링크 복사 완료!", "neon-lime");
         });
     });
 }
 
-// Ensure execution on window load
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', injectInviteUI);
 } else {
