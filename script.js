@@ -1744,10 +1744,12 @@ function drawFxCanvas() {
 }
 
 // ===================================================================
-//  🦆🐸🪵 강물 표류 리듬 에셋 시스템 (Water Stream Flow Engine)
+//  🦆🐸🪵 순정 WebP 에셋 강물 표류 & 기습 인터셉트 엔진
 // ===================================================================
 
-// 1. 순정 에셋 1:1 직접 바인딩 (이름 불일치 원천 차단)
+// 1. 캐시 방지 적용된 순정 에셋 1:1 직접 바인딩
+const ASSET_VER = Date.now();
+
 const ASSETS_STREAM = {
     DUCK_L: new Image(),
     DUCK_R: new Image(),
@@ -1756,17 +1758,17 @@ const ASSETS_STREAM = {
     FROG_R: [new Image(), new Image(), new Image()]
 };
 
-ASSETS_STREAM.DUCK_L.src = 'images/lloverduck.webp';
-ASSETS_STREAM.DUCK_R.src = 'images/rloverduck.webp';
-ASSETS_STREAM.WOOD.src   = 'images/wood.webp';
+ASSETS_STREAM.DUCK_L.src = `images/lloverduck.webp?v=${ASSET_VER}`;
+ASSETS_STREAM.DUCK_R.src = `images/rloverduck.webp?v=${ASSET_VER}`;
+ASSETS_STREAM.WOOD.src   = `images/wood.webp?v=${ASSET_VER}`;
 
-ASSETS_STREAM.FROG_L[0].src = 'images/lfrog_01.webp';
-ASSETS_STREAM.FROG_L[1].src = 'images/lfrog_02.webp';
-ASSETS_STREAM.FROG_L[2].src = 'images/lfrog_03.webp';
+ASSETS_STREAM.FROG_L[0].src = `images/lfrog_01.webp?v=${ASSET_VER}`;
+ASSETS_STREAM.FROG_L[1].src = `images/lfrog_02.webp?v=${ASSET_VER}`;
+ASSETS_STREAM.FROG_L[2].src = `images/lfrog_03.webp?v=${ASSET_VER}`;
 
-ASSETS_STREAM.FROG_R[0].src = 'images/rfrog_01.webp';
-ASSETS_STREAM.FROG_R[1].src = 'images/rfrog_02.webp';
-ASSETS_STREAM.FROG_R[2].src = 'images/rfrog_03.webp';
+ASSETS_STREAM.FROG_R[0].src = `images/rfrog_01.webp?v=${ASSET_VER}`;
+ASSETS_STREAM.FROG_R[1].src = `images/rfrog_02.webp?v=${ASSET_VER}`;
+ASSETS_STREAM.FROG_R[2].src = `images/rfrog_03.webp?v=${ASSET_VER}`;
 
 // 필수 에셋 전체 로딩 확인 Promise (initGame 호환)
 function preloadAllTargetAssets() {
@@ -1777,7 +1779,10 @@ function preloadAllTargetAssets() {
     return Promise.all(list.map(img => new Promise(resolve => {
         if (img.complete && img.naturalWidth > 0) return resolve(true);
         img.onload = () => resolve(true);
-        img.onerror = () => resolve(false);
+        img.onerror = () => {
+            console.error(`[Asset Missing] 경로 확인 필요: ${img.src}`);
+            resolve(false);
+        };
     })));
 }
 
@@ -1791,66 +1796,74 @@ class RhythmTarget {
         this.type = type; // 'DUCK' | 'FROG' | 'WOOD'
         this.isHit = false;
         this.isMissed = false;
-
-        // 수면 깊이 (0.0: 아득한 수평선 너머 ~ 1.0: 돌이 있는 수면 라인)
         this.depth = 0.0;
 
-        // 돌을 향해 날아오는 것이 아니라, 자기 물길(X 좌표)에 정지해 있음
-        this.laneX = CX + (Math.random() - 0.5) * (W * 0.45);
-        this.isFromLeft = this.laneX < CX;
+        // 좌/우 방향 결정
+        this.isFromLeft = Math.random() < 0.5;
         this.dirKey = this.isFromLeft ? 'L' : 'R';
 
-        // 둥둥 뜨는 찰랑임 위상
-        this.bobCycle = Math.random() * Math.PI * 2;
-        this.jumpCycle = 0;
-        this.motionFrame = 0;
+        if (this.type === 'FROG') {
+            // 🐸 개구리: 화면 완전 양쪽 바깥 수풀(-20px / W+20px)에서 대각선 기습
+            this.startX = this.isFromLeft ? -30 : W + 30;
+            this.startY = HORIZON_Y + (STONE_FIXED_Y - HORIZON_Y) * 0.3; // 중경 수면
+            this.targetX = STONE_FIXED_X + (this.isFromLeft ? -35 : 35);
+            this.targetY = STONE_FIXED_Y + 12;
+            this.speed = 0.025; // 오리보다 1.6배 빨라 확실하게 오리를 추월!
+            this.jumpStep = 0;
+            this.motionFrame = 0;
+        } else if (this.type === 'WOOD') {
+            // 🪵 통나무: 수평선 중앙에서 묵직하게 하강
+            this.laneX = CX + (Math.random() - 0.5) * (W * 0.35);
+            this.speed = 0.011;
+            this.bobCycle = Math.random() * Math.PI * 2;
+        } else {
+            // 🦆 러브덕: 수평선 원경에서 물살을 타고 정면으로 직진 표류
+            this.laneX = CX + (this.isFromLeft ? -50 : 50);
+            this.speed = 0.015;
+            this.bobCycle = Math.random() * Math.PI * 2;
+        }
     }
 
-    // 판정 로직(registerBounceTap) 및 화면 컬링 호환 프로퍼티
     get progress() { return this.depth; }
 
     update() {
-        // 🌊 [핵심] 돌의 전진 속도(stone.vy)에 의해 강물이 밀려 내려오는 속도
-        // 돌이 날아가지 않고 정지하면 강물도 흐르지 않음!
-        const streamFlowSpeed = (stone.vy || 12) * 0.00075;
-        this.depth += streamFlowSpeed;
+        const streamFlow = Math.max(0.85, (stone.vy || 12) / 16);
+        this.depth += this.speed * streamFlow;
 
-        // 원근 투영: 수평선(HORIZON_Y)부터 돌 라인(STONE_FIXED_Y)을 지나 화면 아래로
-        // 수면 원근감 공식: 깊이가 깊어질수록 가속되며 내려옴
-        const waterDepthCurve = Math.pow(this.depth, 2.2);
-        this.currentY = HORIZON_Y + (STONE_FIXED_Y - HORIZON_Y) * waterDepthCurve;
+        // 수면 원근 가속 곡선
+        const waterDepthCurve = Math.pow(this.depth, 1.8);
+        this.scale = 0.25 + waterDepthCurve * 1.05;
 
-        // X 좌표: 돌을 향해 모여드는 것이 아니라 강물 흐름대로 원근 확산만 적용
-        this.currentX = CX + (this.laneX - CX) * (0.3 + waterDepthCurve * 0.7);
+        if (this.type === 'FROG') {
+            // 🐸 개구리: 화면 밖에서 돌 앞쪽으로 2단 고속 대각선 점프
+            this.currentX = this.startX + (this.targetX - this.startX) * this.depth;
+            this.currentY = this.startY + (this.targetY - this.startY) * this.depth;
 
-        // 크기 원근: 원경(0.2) -> 돌 위치(1.2)
-        this.scale = 0.2 + waterDepthCurve * 1.0;
+            // 도약 포물선 (sin 곡선)
+            this.jumpStep += 0.18;
+            const sinH = Math.sin(this.jumpStep);
 
-        // 수면 부유 연출
-        this.bobCycle += 0.08;
-        if (this.type === 'DUCK') {
-            this.floatY = Math.sin(this.bobCycle) * 3.5 * this.scale;
-            this.floatRot = Math.sin(this.bobCycle * 0.5) * 0.06;
-        } else if (this.type === 'WOOD') {
-            this.floatY = Math.sin(this.bobCycle * 0.7) * 2.0 * this.scale;
-            this.floatRot = 0.03 * Math.sin(this.bobCycle * 0.4);
-        } else if (this.type === 'FROG') {
-            // 개구리는 제자리 물길에서 통통 뜀
-            this.jumpCycle += 0.16;
-            const sinVal = Math.sin(this.jumpCycle);
-            if (sinVal > 0) {
-                this.floatY = -sinVal * 42 * this.scale;
-                if (sinVal < 0.35) this.motionFrame = 0;
-                else if (sinVal <= 0.85) this.motionFrame = 1;
-                else this.motionFrame = 2;
+            if (sinH > 0) {
+                this.floatY = -sinH * 46 * this.scale; // 공중 솟구침
+                if (sinH < 0.35) this.motionFrame = 0;      // 01: 웅크림
+                else if (sinH <= 0.85) this.motionFrame = 1; // 02: 공중 도약
+                else this.motionFrame = 2;                  // 03: 착지 자세
             } else {
                 this.floatY = 0;
-                this.motionFrame = 0;
+                this.motionFrame = 0; // 수면 착지 안착
             }
+            this.floatRot = 0;
+        } else {
+            // 🦆 러브덕 & 🪵 통나무: 강물 스크롤과 일치하게 직선 표류
+            this.currentY = HORIZON_Y + (STONE_FIXED_Y - HORIZON_Y) * waterDepthCurve;
+            this.currentX = CX + (this.laneX - CX) * (0.35 + waterDepthCurve * 0.65);
+
+            this.bobCycle += 0.09;
+            this.floatY = Math.sin(this.bobCycle) * (this.type === 'WOOD' ? 2.2 : 3.5) * this.scale;
+            this.floatRot = Math.sin(this.bobCycle * 0.6) * 0.06; // 물살 기우뚱
         }
 
-        // 돌 위치를 지나쳐 화면 아래로 완전히 흘러내려가면 제거
-        if (this.depth > 1.25 && !this.isHit && !this.isMissed) {
+        if (this.depth > 1.28 && !this.isHit && !this.isMissed) {
             this.isMissed = true;
             onRhythmMiss(this);
         }
@@ -1864,61 +1877,53 @@ class RhythmTarget {
 
         ctx.save();
 
-        // 1. 물에 잠긴 타원 그림자 (강물과 일체화)
+        // 1. 수면 그림자 (원근감 앵커링)
+        const shadowScale = (this.type === 'FROG' && this.floatY < 0)
+            ? Math.max(0.35, 1.0 - Math.abs(this.floatY) / 60)
+            : 1.0;
         ctx.beginPath();
-        ctx.ellipse(this.currentX, this.currentY + (h * 0.25), w * 0.45, h * 0.18, 0, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(5, 20, 40, 0.48)';
+        ctx.ellipse(this.currentX, this.currentY + (h * 0.28), (w * 0.48) * shadowScale, (h * 0.2) * shadowScale, 0, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0, 15, 30, 0.52)';
         ctx.fill();
 
-        // 2. 강물을 타고 흘러내려올 때 생기는 하단 물살 링
-        ctx.beginPath();
-        ctx.ellipse(this.currentX, this.currentY + (h * 0.25), w * 0.55, h * 0.22, 0, 0, Math.PI * 2);
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
+        // 2. 찰랑이는 수면 물결 링
+        if (this.type !== 'FROG' || this.floatY >= 0) {
+            ctx.beginPath();
+            ctx.ellipse(this.currentX, this.currentY + (h * 0.28), w * 0.58, h * 0.24, 0, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+        }
 
-        // 3. 오브젝트 본체 렌더링
+        // 3. 에셋 본체 렌더링 (더미/이모지 코드 완전 제거)
         ctx.translate(this.currentX, this.currentY + (this.floatY || 0));
-        ctx.rotate(this.floatRot || 0);
-
-        let imgDrawn = false;
+        if (this.floatRot) ctx.rotate(this.floatRot);
 
         if (this.type === 'FROG') {
             const frogImg = ASSETS_STREAM[`FROG_${this.dirKey}`][this.motionFrame];
-            if (frogImg && frogImg.complete && frogImg.naturalWidth > 0) {
+            if (frogImg && frogImg.complete) {
                 ctx.drawImage(frogImg, -w / 2, -h / 2, w, h);
-                imgDrawn = true;
             }
         } else if (this.type === 'WOOD') {
             const woodImg = ASSETS_STREAM.WOOD;
-            if (woodImg && woodImg.complete && woodImg.naturalWidth > 0) {
+            if (woodImg && woodImg.complete) {
                 ctx.drawImage(woodImg, -w / 2, -h / 2, w, h);
-                imgDrawn = true;
             }
         } else {
             const duckImg = ASSETS_STREAM[`DUCK_${this.dirKey}`];
-            if (duckImg && duckImg.complete && duckImg.naturalWidth > 0) {
+            if (duckImg && duckImg.complete) {
                 ctx.drawImage(duckImg, -w / 2, -h / 2, w, h);
-                imgDrawn = true;
             }
         }
 
-        // 이미지 로딩 실패 시 선명한 폴백 그래픽
-        if (!imgDrawn) {
-            ctx.font = `${Math.round(44 * this.scale)}px sans-serif`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(this.type === 'WOOD' ? '🪵' : (this.type === 'FROG' ? '🐸' : '🦆'), 0, 0);
-        }
-
-        // 4. 돌과 만나는 골든 판정 라인 (depth 0.88 ~ 1.12)
+        // 4. 골든 판정선 링 (depth 0.88 ~ 1.12)
         if (this.depth >= 0.88 && this.depth <= 1.12) {
             ctx.beginPath();
-            ctx.ellipse(0, h * 0.25, w * 0.6, h * 0.25, 0, 0, Math.PI * 2);
+            ctx.ellipse(0, h * 0.28, w * 0.65, h * 0.28, 0, 0, Math.PI * 2);
             ctx.strokeStyle = this.type === 'WOOD' ? '#ff3333' : (this.type === 'FROG' ? '#00ff66' : '#ffea00');
             ctx.lineWidth = 2.5;
             ctx.shadowColor = ctx.strokeStyle;
-            ctx.shadowBlur = 10;
+            ctx.shadowBlur = 12;
             ctx.stroke();
         }
 
@@ -1926,25 +1931,33 @@ class RhythmTarget {
     }
 }
 
-// 3. 스포너: 물길에 자연스럽게 띄우기
+// ===================================================================
+//  🎲 [완전 무작위 리듬 스포너] 독립 확률 스폰 & 가변 템포 엔진
+// ===================================================================
 function updateRhythmSpawner() {
     if (currentStatus !== 'FLYING' || isDead) return;
 
     const now = Date.now();
     if (now >= nextSpawnTime) {
-        const rand = Math.random();
-        let type = 'DUCK';
+        const rand = Math.random(); // 0.0 ~ 1.0
 
-        if (comboCount >= 8 && rand < 0.22) {
-            type = 'WOOD';
-        } else if (rand < 0.55) {
-            type = 'FROG';
+        // 1. 콤보 제한 없는 3종 오브젝트 독립 확률 분기
+        //   - 🪵 통나무 (15%): 시작부터 언제든 등장하여 연타 방지 및 긴장감 유발
+        //   - 🐸 개구리 (35%): 양옆 수풀에서 독립적으로 언제든 기습 도약
+        //   - 🦆 러브덕 (50%): 강물 위 기본 표류 타겟
+        if (rand < 0.15) {
+            rhythmTargets.push(new RhythmTarget('WOOD'));
+        } else if (rand < 0.50) {
+            rhythmTargets.push(new RhythmTarget('FROG'));
         } else {
-            type = 'DUCK';
+            rhythmTargets.push(new RhythmTarget('DUCK'));
         }
 
-        rhythmTargets.push(new RhythmTarget(type));
-        nextSpawnTime = now + 750 + Math.random() * 350;
+        // 2. 가변 스폰 주기 (고정 박자 파괴: 0.45초 ~ 1.45초)
+        //    빠를 때는 연속 2연타로 쏟아지고, 느릴 때는 잠시 숨을 고르게 함
+        const minGap = 450;
+        const randomGap = Math.random() * 1000;
+        nextSpawnTime = now + minGap + randomGap;
     }
 }
 
