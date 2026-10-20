@@ -1009,22 +1009,21 @@ function startGameplay() {
     gaugeSpeedMult = 2.0;
     resizeCanvases();
 
-    // 1. 상단 HUD 정리 및 돌 엘리먼트 가시화
     setAssetBarVisible(false);
     setStoneStyle();
 
+    // 🌟 [IDE 4번 보정] bottom: 80px 대신 STONE_FIXED_Y 기준으로 직접 배치하여 발사 시 튀는 현상 제거
     const stoneEl = document.getElementById('ingame-stone');
     if (stoneEl) {
         stoneEl.style.display = 'block';
-        stoneEl.style.left = `${CX}px`;
-        stoneEl.style.bottom = '80px';
-        stoneEl.style.top = 'auto';
-        stoneEl.style.transform = 'translateX(-50%) scale(1)';
+        stoneEl.style.left = `${STONE_FIXED_X}px`;
+        stoneEl.style.top = `${STONE_FIXED_Y}px`;
+        stoneEl.style.bottom = 'auto';
+        stoneEl.style.transform = 'translate(-50%, -50%) scale(1)';
         stoneEl.style.opacity = '1';
         stoneEl.style.zIndex = '35';
     }
 
-    // 2. 인게임 안내 UI 노출
     const scoreDisp = document.getElementById('score-display');
     if (scoreDisp) scoreDisp.innerText = t('ready');
     const msg = document.getElementById('message');
@@ -1036,13 +1035,11 @@ function startGameplay() {
     const gaugeWrap = document.getElementById('angle-gauge-wrap');
     if (gaugeWrap) gaugeWrap.style.display = 'block';
 
-    // 3. 상태값 확정 및 인터랙션 바인딩
     currentStatus = 'READY_TO_LAUNCH';
     bindLaunchEvents();
     changeRandomBg();
     drawStaticBackground();
 
-    // 4. 게이지 수치 계산 및 애니메이션 가동
     updateGaugePerfectZone();
     startAngleGauge();
 }
@@ -1077,12 +1074,20 @@ function bindLaunchEvents() {
     window.addEventListener('touchmove', dragMove, { passive: false });
     window.addEventListener('mouseup', dragEnd);
     window.addEventListener('touchend', dragEnd);
+    // 🌟 [IDE 3번 보정] 텔레그램 제스처 취소 대응
+    window.addEventListener('touchcancel', dragEnd);
 }
+
 function unbindLaunchEvents() {
     const el = document.getElementById('ingame-stone');
-    el.removeEventListener('mousedown', dragStart); el.removeEventListener('touchstart', dragStart);
-    window.removeEventListener('mousemove', dragMove); window.removeEventListener('touchmove', dragMove);
-    window.removeEventListener('mouseup', dragEnd); window.removeEventListener('touchend', dragEnd);
+    el.removeEventListener('mousedown', dragStart); 
+    el.removeEventListener('touchstart', dragStart);
+    window.removeEventListener('mousemove', dragMove); 
+    window.removeEventListener('touchmove', dragMove);
+    window.removeEventListener('mouseup', dragEnd); 
+    window.removeEventListener('touchend', dragEnd);
+    // 🌟 [IDE 3번 보정] 텔레그램 제스처 취소 해제
+    window.removeEventListener('touchcancel', dragEnd);
 }
 function dragStart(e) {
     if (currentStatus !== 'READY_TO_LAUNCH') return;
@@ -1126,7 +1131,8 @@ let currentRippleDuration = 480; // 파동 지속 시간 (ms)
 let currentGravity = 0.17; // 초기 체공 중력
 let currentPeakZ = 10.0;    // 현재 바운스 사이클의 최고점 기록
 
-// 2. 발사 시 초기 물리 및 중력 리셋
+let launchCoolDownUntil = 0; // 고스트 클릭 방어용 타임스탬프
+
 function triggerLaunch(dy, dx) {
     isDragging = false; 
     unbindLaunchEvents(); 
@@ -1136,14 +1142,20 @@ function triggerLaunch(dy, dx) {
 
     const dur = Math.max(1, Date.now() - startTime); 
     const effDy = Math.min(dy, 150);
-    swipeSpeed = Math.min((effDy / dur) * 15, 38); 
-    const distFact = effDy / 150;
+    
+    // 🌟 [IDE 1번 보정] 모바일 짧은 플릭에서도 시원하게 날아가도록 최소 보장 속도(22) 적용 및 distFact 중복 곱셈 제거
+    const calculatedSpeed = (effDy / dur) * 15;
+    swipeSpeed = Math.max(22, Math.min(calculatedSpeed, 40)); 
 
-    stone.x = 0; stone.y = 0; stone.z = 15;
+    stone.x = 0; 
+    stone.y = 0; 
+    stone.z = 15;
     const rad = launchAngle * Math.PI / 180;
-    stone.vy = (swipeSpeed * Math.cos(rad)) * distFact;
-    stone.vz = (swipeSpeed * Math.sin(rad) * 0.75) * distFact;
-    stone.vx = ((dx / dur) * 2) * distFact;
+    
+    // distFact 중복 제거로 속도가 바닥으로 곤두박질치는 현상 원천 차단
+    stone.vy = swipeSpeed * Math.cos(rad);
+    stone.vz = Math.max(2.5, swipeSpeed * Math.sin(rad) * 0.75);
+    stone.vx = Math.min(3.0, Math.max(-3.0, (dx / dur) * 1.5));
 
     let zone = getAngleZone(angleVal);
     if (gaugeSpeedMult >= 3.0 && zone === 'PERFECT') zone = 'EASTEREG';
@@ -1152,7 +1164,6 @@ function triggerLaunch(dy, dx) {
     const ss = selectedStone;
     let bRange = ss.budgetRange;
 
-    // 돌 특성 복제 및 크리티컬 연산 (기존 로직 유지)
     if (ss.rarity === 'Mythic') {
         if (window.forceLotto || Math.random() < ss.physics.lottoChance) { 
             ap = JSON.parse(JSON.stringify(ss.physics.lottoPhysics)); 
@@ -1196,11 +1207,11 @@ function triggerLaunch(dy, dx) {
     comboCount = 0;
     rhythmTargets = [];
 
-    // 🦆 첫 번째 리듬 타겟 즉시 마중 배치 (돌 착수 시점에 정확히 닿아 바로 첫 타격 가능)
+    // 첫 번째 오리 타겟 배치
     const firstDuck = new RhythmTarget('DUCK');
-    firstDuck.depth = 0.42; // 원경에서 중경으로 이미 접근 중인 상태
+    firstDuck.depth = 0.45;
     rhythmTargets.push(firstDuck);
-    nextSpawnTime = Date.now() + 400; // 0.4초 뒤 다음 타겟 스폰 준비
+    nextSpawnTime = Date.now() + 500;
 
     currentGravity = 0.17;
     currentPeakZ = Math.max(10.0, stone.z);
@@ -1212,9 +1223,7 @@ function triggerLaunch(dy, dx) {
     let launchPercent = 1.0;
     let isSuperLaunch = false;
 
-    // 🌟 판정별 배율 및 특수 연출 분기
     if (zone === 'SUPER') {
-        // [1% 슈퍼 존]: 퍼펙트(1.6)의 3배에 달하는 울트라 추진력
         launchPercent = 4.8;
         isSuperLaunch = true;
         document.getElementById('message').innerText = "⚡ SUPER SKIPPER! ⚡";
@@ -1236,10 +1245,9 @@ function triggerLaunch(dy, dx) {
         document.getElementById('message').innerText = "👍 안정적인 그린 발사";
         haptic('medium');
     } else if (zone === 'RED') {
-        // 🌟 RED 존: 화면 멈춤 없이 실패 애니메이션(물속 곤두박질)을 루프로 재생 후 미스 처리
-        launchPercent = 0.2;
-        stone.vy = 4;
-        stone.vz = -0.5;
+        launchPercent = 0.4;
+        stone.vy = 8;
+        stone.vz = 0.5;
         stone.totalBudget = 0;
         stone.remainingBudget = 0;
         document.getElementById('message').innerText = "❌ MISS! 투척 실패";
@@ -1248,12 +1256,10 @@ function triggerLaunch(dy, dx) {
         currentStatus = 'FLYING';
         isPlaying = true;
         document.getElementById('score-display').innerText = 'BOUNCE: 0';
-        SoundManager.playLaunch(swipeSpeed);
+        try { SoundManager.playLaunch(swipeSpeed); } catch (e) { }
         runGameLoop();
 
-        setTimeout(() => {
-            triggerWaterMiss();
-        }, 220);
+        setTimeout(() => { triggerWaterMiss(); }, 350);
         return;
     } else {
         launchPercent = 1.0;
@@ -1261,16 +1267,13 @@ function triggerLaunch(dy, dx) {
         haptic('medium');
     }
 
-    let swipeBonus = 0;
-    if (swipeSpeed >= 30) swipeBonus = 8;
-    else if (swipeSpeed >= 18) swipeBonus = 4;
-
+    let swipeBonus = swipeSpeed >= 30 ? 8 : (swipeSpeed >= 24 ? 4 : 2);
     const rawBase = Math.floor(Math.random() * (bRange[1] - bRange[0] + 1)) + bRange[0];
-    stone.totalBudget = Math.max(12, Math.round((rawBase + swipeBonus) * launchPercent));
+    stone.totalBudget = Math.max(14, Math.round((rawBase + swipeBonus) * launchPercent));
     stone.remainingBudget = stone.totalBudget;
 
-    stone.vy *= Math.max(0.9, isSuperLaunch ? 2.2 : launchPercent);
-    stone.vz *= Math.max(0.9, isSuperLaunch ? 1.4 : launchPercent);
+    stone.vy *= Math.max(0.95, isSuperLaunch ? 2.2 : launchPercent);
+    stone.vz *= Math.max(0.95, isSuperLaunch ? 1.4 : launchPercent);
     gaugeSpeedMult = 2.0;
 
     spawnRipple(STONE_FIXED_X, STONE_FIXED_Y);
@@ -1278,21 +1281,25 @@ function triggerLaunch(dy, dx) {
     currentStatus = 'FLYING'; 
     isPlaying = true;
     document.getElementById('score-display').innerText = 'BOUNCE: 0';
-    SoundManager.playLaunch(swipeSpeed);
+    try { SoundManager.playLaunch(swipeSpeed); } catch (e) { }
 
-    document.getElementById('game-container').addEventListener('mousedown', registerBounceTap);
-    document.getElementById('game-container').addEventListener('touchstart', registerBounceTap, { passive: true });
+    // 🌟 [IDE 2번 보정] 고스트 클릭 방어: 발사 직후 220ms 동안은 터치 판정 차단
+    launchCoolDownUntil = Date.now() + 220;
 
-    // 🌟 슈퍼 존 발동 시: 화면 일시 정지(Hit-Stop) + 돌 황금빛 아우라 발광 연출 후 출발!
+    const gc = document.getElementById('game-container');
+    if (gc) {
+        gc.removeEventListener('mousedown', registerBounceTap);
+        gc.removeEventListener('touchstart', registerBounceTap);
+        gc.addEventListener('mousedown', registerBounceTap);
+        gc.addEventListener('touchstart', registerBounceTap, { passive: true });
+    }
+
     if (isSuperLaunch) {
         const stoneEl = document.getElementById('ingame-stone');
         if (stoneEl) {
-            // 돌 가장자리에 황금빛 폭발 아우라 적용
             stoneEl.style.filter = 'drop-shadow(0 0 25px #ffd700) drop-shadow(0 0 45px #ffffff) brightness(1.4)';
             stoneEl.style.transform = 'translate(-50%, -50%) scale(1.35)';
         }
-
-        // 380ms 동안 게임 루프를 지연시켜 '멈칫!' 하는 긴장감 연출
         setTimeout(() => {
             if (stoneEl) {
                 stoneEl.style.transition = 'filter 0.5s ease, transform 0.3s ease';
@@ -1487,6 +1494,9 @@ function processBounce(rating, isAuto = false) {
 function registerBounceTap(e) {
     if (currentStatus !== 'FLYING' || isDead) return;
 
+    // 🌟 [IDE 2번 보정] 발사 직후 잔여 손가락 터치(고스트 클릭) 무시
+    if (Date.now() < launchCoolDownUntil) return;
+
     // 돌과 가장 가까운 유효 타겟 찾기 (가장 진척도가 높은 오브젝트)
     let closest = null;
     let minDiff = 999;
@@ -1504,13 +1514,10 @@ function registerBounceTap(e) {
     // 판정 허용 범위: diff <= 0.28 (수면 도달 전후 여유 판정)
     if (closest && minDiff <= 0.28) {
         closest.isHit = true;
-        
-        // 🌟 PERFECT (정확도 ±0.12 이내) / GOOD 판정
         const rating = minDiff <= 0.12 ? 'PERFECT' : 'GOOD';
         hasTappedBounce = true;
         onRhythmHit(closest, rating);
     } else {
-        // 허공 탭: 연타 페널티 방지 및 가벼운 스침 처리 (즉사하지 않고 콤보만 초기화)
         comboCount = 0;
         haptic('light');
     }
