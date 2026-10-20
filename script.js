@@ -1195,7 +1195,13 @@ function triggerLaunch(dy, dx) {
     bounceCount = 0; perfectCount = 0; isDead = false; hasTappedBounce = false; tapsInCurrentCycle = 0;
     comboCount = 0;
     rhythmTargets = [];
-    nextSpawnTime = Date.now() + 600; // 발사 후 0.6초 뒤 첫 타겟 출현
+
+    // 🦆 첫 번째 리듬 타겟 즉시 마중 배치 (돌 착수 시점에 정확히 닿아 바로 첫 타격 가능)
+    const firstDuck = new RhythmTarget('DUCK');
+    firstDuck.depth = 0.42; // 원경에서 중경으로 이미 접근 중인 상태
+    rhythmTargets.push(firstDuck);
+    nextSpawnTime = Date.now() + 400; // 0.4초 뒤 다음 타겟 스폰 준비
+
     currentGravity = 0.17;
     currentPeakZ = Math.max(10.0, stone.z);
     isWindowActive = false;
@@ -1230,11 +1236,24 @@ function triggerLaunch(dy, dx) {
         document.getElementById('message').innerText = "👍 안정적인 그린 발사";
         haptic('medium');
     } else if (zone === 'RED') {
-        launchPercent = 0.0;
-        stone.vy = 0; stone.vz = 0;
-        haptic('error');
-        triggerWaterMiss();
+        // 🌟 RED 존: 화면 멈춤 없이 실패 애니메이션(물속 곤두박질)을 루프로 재생 후 미스 처리
+        launchPercent = 0.2;
+        stone.vy = 4;
+        stone.vz = -0.5;
+        stone.totalBudget = 0;
+        stone.remainingBudget = 0;
         document.getElementById('message').innerText = "❌ MISS! 투척 실패";
+        haptic('error');
+
+        currentStatus = 'FLYING';
+        isPlaying = true;
+        document.getElementById('score-display').innerText = 'BOUNCE: 0';
+        SoundManager.playLaunch(swipeSpeed);
+        runGameLoop();
+
+        setTimeout(() => {
+            triggerWaterMiss();
+        }, 220);
         return;
     } else {
         launchPercent = 1.0;
@@ -1247,7 +1266,7 @@ function triggerLaunch(dy, dx) {
     else if (swipeSpeed >= 18) swipeBonus = 4;
 
     const rawBase = Math.floor(Math.random() * (bRange[1] - bRange[0] + 1)) + bRange[0];
-    stone.totalBudget = Math.max(5, Math.round((rawBase + swipeBonus) * launchPercent));
+    stone.totalBudget = Math.max(12, Math.round((rawBase + swipeBonus) * launchPercent));
     stone.remainingBudget = stone.totalBudget;
 
     stone.vy *= Math.max(0.9, isSuperLaunch ? 2.2 : launchPercent);
@@ -1296,14 +1315,23 @@ function runGameLoop() {
     animFrameId = requestAnimationFrame(runGameLoop);
 }
 
-// 3. 화면 픽셀 투영: 수면 패드가 가려지지 않도록 넉넉한 도약폭(3.5배) 보장
+// 3. 화면 픽셀 투영: 고도에 비례한 역동적 도약 및 원근 스케일링 (공중 멈춤 해소)
 function applyStonePos() {
     const el = document.getElementById('ingame-stone');
     if (!el) return;
 
-    // 돌이 최고 75px까지 솟아올라 돌 밑바닥 수면 링이 시원하게 보이도록 투영
-    const rawOffset = isDead ? Math.max(-30, stone.z * 1.5) : Math.max(0, stone.z * 3.5);
-    const bounceOff = Math.min(80, rawOffset); 
+    let bounceOff = 0;
+    if (isDead) {
+        // 물속으로 퐁당 가라앉는 음수 오프셋
+        bounceOff = Math.max(-45, stone.z * 1.8);
+    } else {
+        // 저고도(수면 바운스)는 통통 튀고, 고고도(발사 체공)는 시원하게 최대 150px까지 부드러운 포물선 도약
+        if (stone.z <= 8) {
+            bounceOff = stone.z * 3.6;
+        } else {
+            bounceOff = 28.8 + Math.min(125, Math.pow(stone.z - 8, 0.78) * 6.0);
+        }
+    }
 
     const x = STONE_FIXED_X;
     const y = STONE_FIXED_Y - bounceOff;
@@ -1315,19 +1343,20 @@ function applyStonePos() {
     const rot = stone.y * 3.0;
 
     if (isDead) {
-        const op = Math.max(0, 1 + stone.z / 30);
-        el.style.transform = `translate(-50%,-50%) scale(0.85) rotate(${rot}deg)`;
+        const op = Math.max(0, 1 + stone.z / 18);
+        el.style.transform = `translate(-50%,-50%) scale(${0.72 * op}) rotate(${rot}deg)`;
         el.style.opacity = op;
     } else {
-        let scaleX = 1.0;
-        let scaleY = 1.0;
+        const scaleBase = Math.max(0.72, 1.0 - (bounceOff * 0.0016));
+        let scaleX = scaleBase;
+        let scaleY = scaleBase;
 
         if (stone.z <= 1.2 && stone.vz < 0) {
-            scaleX = 1.15;
-            scaleY = 0.85; // 수면 닿기 직전 카툰 찌그러짐
+            scaleX *= 1.18;
+            scaleY *= 0.82; // 수면 닿기 직전 카툰 찌그러짐
         } else if (stone.vz > 1.2) {
-            scaleX = 0.92;
-            scaleY = 1.08; // 도약 시 펴짐
+            scaleX *= 0.92;
+            scaleY *= 1.10; // 도약 시 펴짐
         }
 
         el.style.transform = `translate(-50%,-50%) scale(${scaleX}, ${scaleY}) rotate(${rot}deg)`;
@@ -1345,8 +1374,10 @@ function updatePhysics() {
 
         if (stone.z > currentPeakZ) currentPeakZ = stone.z;
     } else {
-        stone.vz -= 0.15;
+        // 🌊 침수 중: 수면 아래로 스르륵 감속하며 자연스럽게 침강
+        stone.vz -= 0.10;
         stone.z += stone.vz;
+        stone.vy *= 0.92;
         applyStonePos();
         return;
     }
@@ -1362,12 +1393,12 @@ function updatePhysics() {
     stone.vy *= Math.min(0.996, 0.988 * wm);
     stone.vx *= 0.98;
 
-    // 🌟 [수정] 수면 충돌 바운스: 확실한 높이(z > 0.5) 복원으로 루프 멈춤 차단
+    // 🌟 [수정] 수면 충돌 바운스: 확실한 높이(z > 0.8) 복원으로 연속 바운스 루프 안정화
     if (stone.vz < 0 && stone.z <= 0.4 && !isDead) {
         if (hasTappedBounce) {
             hasTappedBounce = false;
         } else {
-            if (stone.remainingBudget > 0 && stone.vy > 0.3) {
+            if (stone.remainingBudget > 0 && stone.vy > 0.25) {
                 processBounce('GOOD', true);
             } else {
                 triggerWaterSink();
@@ -1376,11 +1407,11 @@ function updatePhysics() {
         }
     }
 
-    if (stone.vy < 0.25 && !isDead && stone.remainingBudget <= 0) {
+    if (stone.vy < 0.20 && !isDead && stone.remainingBudget <= 0) {
         triggerWaterSink();
         return;
     }
-    if (stone.vz < 0 && stone.z < -6 && !isDead && !hasTappedBounce) {
+    if (stone.vz < 0 && stone.z < -8 && !isDead && !hasTappedBounce) {
         triggerWaterMiss();
         return;
     }
@@ -1406,9 +1437,9 @@ function processBounce(rating, isAuto = false) {
         stone.remainingBudget += 3;
         stone.vy = Math.min(stone.vy * 1.25 + 2.0, 48);
 
-        // 🌟 확실하게 수면 위로 띄워 다음 프레임 즉각 재충돌 방지
-        stone.z = 0.6;
-        stone.vz = Math.max(1.8, stoneBaseHeight * 1.5 * em);
+        // 🌟 확실하게 수면 위로 띄워 다음 프레임 즉각 재충돌 방지 (z = 0.9, vz >= 2.2)
+        stone.z = 0.9;
+        stone.vz = Math.max(2.2, stoneBaseHeight * 1.5 * em);
         currentGravity = Math.min(0.34, 0.17 + (perfectCount * 0.035));
 
         const earned = Math.round(100 * selectedStone.mult * 2.5);
@@ -1423,12 +1454,12 @@ function processBounce(rating, isAuto = false) {
 
     } else if (rating === 'GOOD') {
         stone.remainingBudget--;
-        stone.vy *= 0.96;
+        stone.vy *= 0.97;
 
-        // 🌟 확실하게 수면 위로 띄움 (최소 반발력 1.2 보장)
-        stone.z = 0.55;
-        const decayFact = Math.max(0.4, stone.remainingBudget / Math.max(1, stone.totalBudget));
-        stone.vz = Math.max(1.2, stoneBaseHeight * 1.0 * em * decayFact);
+        // 🌟 확실하게 수면 위로 띄움 (최소 반발력 1.6 보장)
+        stone.z = 0.8;
+        const decayFact = Math.max(0.5, stone.remainingBudget / Math.max(1, stone.totalBudget));
+        stone.vz = Math.max(1.6, stoneBaseHeight * 1.1 * em * decayFact);
 
         const earned = Math.round(100 * selectedStone.mult * 1.0);
         playerSP += earned;
@@ -1470,12 +1501,13 @@ function registerBounceTap(e) {
         }
     }
 
-    // 판정 허용 범위: diff <= 0.25 (수면 도달 전후)
-    if (closest && minDiff <= 0.22) {
+    // 판정 허용 범위: diff <= 0.28 (수면 도달 전후 여유 판정)
+    if (closest && minDiff <= 0.28) {
         closest.isHit = true;
         
-        // 🌟 PERFECT (정확도 ±0.1 이내) / GOOD 판정
-        const rating = minDiff <= 0.10 ? 'PERFECT' : 'GOOD';
+        // 🌟 PERFECT (정확도 ±0.12 이내) / GOOD 판정
+        const rating = minDiff <= 0.12 ? 'PERFECT' : 'GOOD';
+        hasTappedBounce = true;
         onRhythmHit(closest, rating);
     } else {
         // 허공 탭: 연타 페널티 방지 및 가벼운 스침 처리 (즉사하지 않고 콤보만 초기화)
@@ -1487,7 +1519,7 @@ function registerBounceTap(e) {
 // 동물 타격 성공 시: 사운드, 콤보 폭발 및 비거리 가속
 function onRhythmHit(target, rating) {
     comboCount++;
-    if (comboCount > maxCombo) maxCombo = comboCount;
+    if (typeof maxCombo === 'undefined' || comboCount > maxCombo) maxCombo = comboCount;
 
     const ex = STONE_FIXED_X;
     const ey = STONE_FIXED_Y;
@@ -1495,20 +1527,21 @@ function onRhythmHit(target, rating) {
     // 타격 성공 애니메이션
     spawnRatingText(ex, ey - 30, rating);
     spawnDramaticText(
-        target.type === 'DUCK' ? `🦆 CATCH! ${comboCount} COMBO` : `🐸 LEAP! ${comboCount} COMBO`,
+        target.type === 'DUCK' ? `🦆 CATCH! ${comboCount} COMBO` : (target.type === 'FROG' ? `🐸 LEAP! ${comboCount} COMBO` : `🪵 JUMP! ${comboCount} COMBO`),
         comboCount >= 5 ? 'neon-gold' : 'neon-lime'
     );
 
     // 🚀 [비거리 폭발 메커니즘] 콤보가 쌓일수록 엄청난 추진력 보충
     const comboBonus = Math.min(8, Math.floor(comboCount / 2));
-    stone.remainingBudget += (rating === 'PERFECT' ? 2 : 1) + comboBonus;
+    stone.remainingBudget += (rating === 'PERFECT' ? 3 : 2) + comboBonus;
     
     // 전진 속도 가속
     stone.vy = Math.min(48, Math.max(stone.vy, 22) * 1.12 + 1.2);
     
-    // 돌 높이 도약
-    stone.z = 0.5;
-    stone.vz = (target.type === 'FROG' ? 3.4 : 2.8) * Math.pow(1.06, upgrades.elasticity);
+    // 돌 높이 도약 및 수면 탭 상태 확정
+    stone.z = 1.0;
+    stone.vz = (target.type === 'FROG' ? 3.6 : 3.0) * Math.pow(1.06, upgrades.elasticity);
+    hasTappedBounce = true;
 
     // 햅틱 및 사운드
     haptic(rating === 'PERFECT' ? 'heavy' : 'medium');
@@ -1565,12 +1598,19 @@ function triggerWaterMiss() {
 function triggerWaterSink() {
     if (isDead) return;
     isDead = true;
-    stone.vz = -1.5;
+    stone.vz = -1.2;
+    stone.vy = Math.min(stone.vy, 4); // 침수 저항으로 전진 속도 급감
     const ex = STONE_FIXED_X, ey = STONE_FIXED_Y;
-    spawnRipple(ex, ey); createParticles(ex, ey, false, true, 14);
-    document.getElementById('message').innerText = t('sinkMsg'); haptic('error'); SoundManager.playSink();
+    spawnRipple(ex, ey); 
+    createParticles(ex, ey, false, true, 16);
+    document.getElementById('message').innerText = t('sinkMsg'); 
+    haptic('error'); 
+    SoundManager.playSink();
 
-    endGame();
+    // 🌊 돌이 물속으로 스르륵 가라앉는 침수 애니메이션(0.8초) 재생 후 결과창으로 연결
+    setTimeout(() => {
+        endGame();
+    }, 800);
 }
 
 function triggerWake(x, y, scale) { wakes.push({ x, y, vxL: -W * 0.015 * scale, vxR: W * 0.015 * scale, vy: H * 0.022 * scale, width: 9 * scale, alpha: 1, xL: x, xR: x }); }
@@ -1798,6 +1838,7 @@ function preloadAllTargetAssets() {
 let rhythmTargets = [];
 let nextSpawnTime = 0;
 let comboCount = 0;
+let maxCombo = 0;
 
 // 2. 강물 표류 엔티티 클래스
 class RhythmTarget {
@@ -2177,21 +2218,18 @@ async function endGame() {
     // Accumulate score into playerSP state variable
     playerSP += earnedSP;
 
-    // CRITICAL: Block exit thread until Supabase confirms write resolution
-    console.log("[EndGame Sequence] Halting exit threads until cloud database replication completes...");
-    const saved = await saveData();
-    if (saved) {
-        console.log("[EndGame Sequence] Cloud write confirmed. Proceeding to result modal.");
-    } else {
-        console.warn("[EndGame Sequence] Cloud write failed or skipped. Local save retained.");
-    }
-
-    // Proceed to open UI only after network is fully cleared
+    // 🌟 결과창 UI 즉시 표시 및 팡파레 재생 (네트워크 대기로 인한 화면 멈춤 원천 차단)
     updateAssetUI();
     haptic('success');
     SoundManager.playFanfare();
     setAssetBarVisible(false);
     document.getElementById('result-modal').style.display = 'flex';
+
+    // 백그라운드에서 안전하게 비동기 저장 수행
+    saveData().then(saved => {
+        if (saved) console.log("[EndGame Sequence] Cloud write confirmed.");
+        else console.warn("[EndGame Sequence] Cloud write failed or skipped. Local save retained.");
+    }).catch(e => console.error("[EndGame Sequence] Save error:", e));
 }
 
 function closeResultModal() {
