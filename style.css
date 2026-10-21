@@ -758,12 +758,12 @@ button, .action-confirm-btn, #main-btn, #shop-btn, #intro-start-btn, #intro-info
 }
 
 /* ===================================================
-   🔤 웹폰트: Pretendard & 텍스트 가독성 최적화
+   🔤 웹폰트: Gmarket Sans & 텍스트 가독성 최적화
    =================================================== */
 
 /* 1. 게임 전체 기본 폰트 적용 */
 body, button, input, select, textarea, div, p, span {
-    font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif !important;
+    font-family: 'GmarketSans', sans-serif !important;
 }
 
 /* 2. 시작 화면 & 로비 메인 버튼 폰트 사이즈 확대 및 굵기 설정 */
