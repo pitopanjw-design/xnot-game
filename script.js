@@ -1310,9 +1310,9 @@ function onRhythmHit(target, rating) {
     if (typeof maxCombo === 'undefined' || comboCount > maxCombo) maxCombo = comboCount;
 
     const ex = STONE_FIXED_X;
-    const ey = STONE_FIXED_Y;
 
-    spawnRatingText(ex, ey - 30, rating);
+    // 판정 글씨는 상단 수평선 하늘 영역에 분리 출력
+    spawnRatingText(ex, HORIZON_Y - 30, rating);
     spawnDramaticText(
         target.type === 'DUCK' ? `🦆 CATCH! ${comboCount} COMBO` : `🐸 LEAP! ${comboCount} COMBO`,
         comboCount >= 5 ? 'neon-gold' : 'neon-lime'
@@ -1330,18 +1330,21 @@ function onRhythmHit(target, rating) {
     SoundManager.playBounce(rating === 'PERFECT');
     triggerShake(comboCount >= 5 ? 'medium' : 'light');
 
-    createParticles(ex, ey, true, false, 25);
+    createParticles(ex, STONE_FIXED_Y, true, false, 25);
     
     bounceCount++;
     document.getElementById('score-display').innerText = `BOUNCE: ${bounceCount}`;
-    spawnBounceMarker(ex, ey, bounceCount);
+    spawnBounceMarker(ex, STONE_FIXED_Y, bounceCount);
 }
 
 function onRhythmMiss(target) {
     if (target.type === 'WOOD') {
-        spawnDramaticText('통나무 회피! SAFE', 'neon-lime');
+        // 거대한 중앙 텍스트 대신 상단 메시지로 깔끔하게 출력
+        const msg = document.getElementById('message');
+        if (msg) msg.innerText = "🪵 통나무 회피 SAFE!";
         return;
     }
+
     if (comboCount > 0) {
         spawnDramaticText('COMBO BREAK...', 'neon-red');
         comboCount = 0;
@@ -1840,7 +1843,26 @@ function spawnBounceMarker(x, y, count) {
     if (!container) return;
     const d = document.createElement('div');
     const targetY = STONE_FIXED_Y - 135;
-    d.style.cssText = `position:absolute;left:${x}px;top:${targetY}px;transform:translate(-50%, -50%) scale(0.7);background:rgba(10, 15, 28, 0.88);color:#d9ff00;border:1.5px solid #d9ff00;border-radius:20px;padding:4px 12px;font-size:14px;font-weight:900;font-family:Impact, "Arial Black", sans-serif;z-index:70;pointer-events:none;white-space:nowrap;text-shadow:0 0 4px #000;box-shadow:0 0 14px rgba(217, 255, 0, 0.45);opacity:0;transition:transform 0.22s cubic-bezier(0.17, 0.89, 0.32, 1.25), opacity 0.22s ease-out;`;
+    d.style.cssText = `
+        position: absolute;
+        left: ${x}px;
+        top: ${targetY}px;
+        transform: translate(-50%, -50%) scale(0.7);
+        background: rgba(10, 15, 28, 0.9);
+        color: #d9ff00;
+        border: 1.5px solid #d9ff00;
+        border-radius: 20px;
+        padding: 3px 10px;
+        font-size: 13px;
+        font-family: 'Black Han Sans', sans-serif; /* 폰트 통일 */
+        z-index: 70;
+        pointer-events: none;
+        white-space: nowrap;
+        text-shadow: 0 0 4px #000;
+        box-shadow: 0 0 12px rgba(217, 255, 0, 0.4);
+        opacity: 0;
+        transition: transform 0.22s cubic-bezier(0.17, 0.89, 0.32, 1.25), opacity 0.22s ease-out;
+    `;
     d.innerText = `+${count} 튀김!`;
     container.appendChild(d);
 
