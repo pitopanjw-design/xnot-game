@@ -833,13 +833,14 @@ function startGameplay() {
     setAssetBarVisible(false);
     setStoneStyle();
 
+    // 🌟 [수정] 돌을 화면 중앙이 아닌 하단 대기 위치(bottom: 75px)로 정확히 배치
     const stoneEl = document.getElementById('ingame-stone');
     if (stoneEl) {
         stoneEl.style.display = 'block';
         stoneEl.style.left = `${CX}px`;
-        stoneEl.style.top = `${STONE_FIXED_Y}px`;
-        stoneEl.style.bottom = 'auto';
-        stoneEl.style.transform = 'translate(-50%, -50%) scale(1)';
+        stoneEl.style.bottom = '75px';
+        stoneEl.style.top = 'auto';
+        stoneEl.style.transform = 'translateX(-50%) scale(1)';
         stoneEl.style.opacity = '1';
         stoneEl.style.zIndex = '35';
     }
@@ -1633,44 +1634,57 @@ class RhythmTarget {
     draw(ctx) {
         if (this.isHit || this.depth > 1.35) return;
 
-        const w = (this.type === 'WOOD' ? 76 : 64) * this.scale;
-        const h = (this.type === 'WOOD' ? 48 : 64) * this.scale;
+        // 원경에서도 너무 작게 쪼그라들지 않도록 기본 최소 크기(42px) 보장
+        const baseW = this.type === 'WOOD' ? 84 : 70;
+        const baseH = this.type === 'WOOD' ? 52 : 70;
+        const w = baseW * Math.max(0.45, this.scale);
+        const h = baseH * Math.max(0.45, this.scale);
 
         ctx.save();
 
+        // 1. 수면 그림자
         const shadowScale = (this.type === 'FROG' && this.floatY < 0)
-            ? Math.max(0.35, 1.0 - Math.abs(this.floatY) / 60)
+            ? Math.max(0.35, 1.0 - Math.abs(this.floatY) / 50)
             : 1.0;
         ctx.beginPath();
-        ctx.ellipse(this.currentX, this.currentY + (h * 0.28), (w * 0.48) * shadowScale, (h * 0.2) * shadowScale, 0, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(0, 15, 30, 0.52)';
+        ctx.ellipse(this.currentX, this.currentY + (h * 0.25), (w * 0.48) * shadowScale, (h * 0.18) * shadowScale, 0, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0, 15, 30, 0.55)';
         ctx.fill();
 
+        // 2. 수면 찰랑임 링
         if (this.type !== 'FROG' || this.floatY >= 0) {
             ctx.beginPath();
-            ctx.ellipse(this.currentX, this.currentY + (h * 0.28), w * 0.58, h * 0.24, 0, 0, Math.PI * 2);
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+            ctx.ellipse(this.currentX, this.currentY + (h * 0.25), w * 0.55, h * 0.22, 0, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
             ctx.lineWidth = 1.5;
             ctx.stroke();
         }
 
+        // 3. 에셋 본체 렌더링 (로드 검사 완화로 렌더링 누락 차단)
         ctx.translate(this.currentX, this.currentY + (this.floatY || 0));
         if (this.floatRot) ctx.rotate(this.floatRot);
 
         if (this.type === 'FROG') {
             const frogImg = ASSETS_STREAM[`FROG_${this.dirKey}`][this.motionFrame];
-            if (frogImg && frogImg.complete && frogImg.naturalWidth > 0) ctx.drawImage(frogImg, -w / 2, -h / 2, w, h);
+            if (frogImg && (frogImg.naturalWidth > 0 || frogImg.complete)) {
+                ctx.drawImage(frogImg, -w / 2, -h / 2, w, h);
+            }
         } else if (this.type === 'WOOD') {
             const woodImg = ASSETS_STREAM.WOOD;
-            if (woodImg && woodImg.complete && woodImg.naturalWidth > 0) ctx.drawImage(woodImg, -w / 2, -h / 2, w, h);
+            if (woodImg && (woodImg.naturalWidth > 0 || woodImg.complete)) {
+                ctx.drawImage(woodImg, -w / 2, -h / 2, w, h);
+            }
         } else {
             const duckImg = ASSETS_STREAM[`DUCK_${this.dirKey}`];
-            if (duckImg && duckImg.complete && duckImg.naturalWidth > 0) ctx.drawImage(duckImg, -w / 2, -h / 2, w, h);
+            if (duckImg && (duckImg.naturalWidth > 0 || duckImg.complete)) {
+                ctx.drawImage(duckImg, -w / 2, -h / 2, w, h);
+            }
         }
 
+        // 4. 골든 판정 가이드 링 (depth 0.88 ~ 1.12)
         if (this.depth >= 0.88 && this.depth <= 1.12) {
             ctx.beginPath();
-            ctx.ellipse(0, h * 0.28, w * 0.65, h * 0.28, 0, 0, Math.PI * 2);
+            ctx.ellipse(0, h * 0.25, w * 0.65, h * 0.25, 0, 0, Math.PI * 2);
             ctx.strokeStyle = this.type === 'WOOD' ? '#ff3333' : (this.type === 'FROG' ? '#00ff66' : '#ffea00');
             ctx.lineWidth = 2.5;
             ctx.shadowColor = ctx.strokeStyle;
