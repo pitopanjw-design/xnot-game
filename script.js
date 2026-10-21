@@ -1570,27 +1570,30 @@ class RhythmTarget {
         this.isMissed = false;
         this.depth = 0.0;
 
-        // 🌟 좌/우 방향 50% 균등 랜덤 결정 (L: 왼쪽 바라봄, R: 오른쪽 바라봄)
         this.isFromLeft = Math.random() < 0.5;
         this.dirKey = this.isFromLeft ? 'L' : 'R';
 
-        this.waterStartY = HORIZON_Y + 12; 
+        this.waterStartY = HORIZON_Y + 10;
         this.waterTargetY = STONE_FIXED_Y + 15;
 
         if (this.type === 'FROG') {
-            this.startX = this.isFromLeft ? (W * 0.05) : (W * 0.95);
-            this.targetX = STONE_FIXED_X + (this.isFromLeft ? -25 : 25);
-            this.speed = 0.038;
-            this.jumpStep = 0;
-            this.motionFrame = 0;
+            // 🐸 개구리: 수풀 가장자리 배치 & 웅크리기 대기 시간(약 1.0~1.4초) 부여
+            this.startX = this.isFromLeft ? (W * 0.08) : (W * 0.92);
+            this.targetX = STONE_FIXED_X + (this.isFromLeft ? -20 : 20);
+            this.state = 'WAITING'; // 'WAITING' (웅크림 대기) -> 'JUMPING' (기습 도약)
+            this.waitDuration = 60 + Math.floor(Math.random() * 25); // 약 1.0~1.4초 동안 눈치보기
+            this.waitTimer = 0;
+            this.jumpProgress = 0.0;
+            this.motionFrame = 0; // 01번 웅크린 모션 유지
         } else if (this.type === 'WOOD') {
+            // 🪵 통나무: 물살에 떠밀리며 묵직하게 천천히 표류
             this.laneX = CX + (Math.random() - 0.5) * (W * 0.35);
-            this.speed = 0.022;
+            this.baseSpeed = 0.009; 
             this.bobCycle = Math.random() * Math.PI * 2;
         } else {
-            // 🦆 러브덕: 좌/우 방향에 맞춰 자연스러운 물길 레인 배정
+            // 🦆 러브덕: 완급 조절 (원경에서는 느긋하게, 근경에서는 유속 타고 가속)
             this.laneX = CX + (this.isFromLeft ? -45 : 45);
-            this.speed = 0.028;
+            this.baseSpeed = 0.012; 
             this.bobCycle = Math.random() * Math.PI * 2;
         }
     }
@@ -1598,36 +1601,66 @@ class RhythmTarget {
     get progress() { return this.depth; }
 
     update() {
-        const streamFlow = Math.max(1.0, (stone.vy || 16) / 12);
-        this.depth += this.speed * streamFlow;
-
-        const waterCurve = Math.pow(this.depth, 1.8);
-        this.scale = 0.28 + waterCurve * 1.0;
-        this.currentY = this.waterStartY + (this.waterTargetY - this.waterStartY) * waterCurve;
-
         if (this.type === 'FROG') {
-            this.currentX = this.startX + (this.targetX - this.startX) * this.depth;
-            this.jumpStep += 0.22;
-            const sinH = Math.sin(this.jumpStep);
+            // 🐸 개구리 2단계 상태 머신: [대기] -> [도약]
+            if (this.state === 'WAITING') {
+                this.waitTimer++;
+                // 수풀 가장자리에서 숨 고르기 미세 호흡 (들썩임)
+                this.floatY = Math.sin(this.waitTimer * 0.15) * 2;
+                this.motionFrame = 0; // 웅크린 자세 고정
+                this.currentX = this.startX;
+                this.currentY = this.waterStartY + (this.waterTargetY - this.waterStartY) * 0.35; // 중경 수풀 라인
+                this.scale = 0.55;
 
-            if (sinH > 0) {
-                this.floatY = -sinH * 38 * this.scale;
-                if (sinH < 0.35) this.motionFrame = 0;
-                else if (sinH <= 0.85) this.motionFrame = 1;
-                else this.motionFrame = 2;
+                // 대기 시간 종료 시 폭발적인 도약 단계로 전환!
+                if (this.waitTimer >= this.waitDuration) {
+                    this.state = 'JUMPING';
+                    this.depth = 0.35;
+                }
+                return;
             } else {
-                this.floatY = 0;
-                this.motionFrame = 0;
+                // 도약 개시: 돌 앞으로 0.6초 만에 포물선으로 펄쩍 뛰어듬!
+                this.jumpProgress += 0.038;
+                this.depth = 0.35 + (this.jumpProgress * 0.75);
+
+                this.currentX = this.startX + (this.targetX - this.startX) * Math.min(1.0, this.jumpProgress * 1.2);
+                const jumpCurve = Math.sin(Math.min(1.0, this.jumpProgress) * Math.PI);
+
+                this.currentY = (this.waterStartY + (this.waterTargetY - this.waterStartY) * 0.35) 
+                                + (this.waterTargetY - (this.waterStartY + (this.waterTargetY - this.waterStartY) * 0.35)) * this.jumpProgress;
+                
+                this.floatY = -jumpCurve * 55; // 시원하게 공중으로 도약
+                this.scale = 0.55 + (this.jumpProgress * 0.5);
+
+                // 모션 프레임 정밀 제어 (0:웅크림 -> 1:공중도약 -> 2:수면착지)
+                if (jumpCurve > 0.4 && this.jumpProgress < 0.75) {
+                    this.motionFrame = 1; // 공중 도약
+                } else if (this.jumpProgress >= 0.75) {
+                    this.motionFrame = 2; // 착지 직전
+                } else {
+                    this.motionFrame = 0;
+                }
             }
-            this.floatRot = 0;
         } else {
+            // 🦆 러브덕 & 🪵 통나무: S자 유속 완급 조절 곡선
+            // depth 0.0 ~ 0.55 (원경): 천천히 둥실거리며 접근 (리듬 인지 시간 부여)
+            // depth 0.55 ~ 1.0 (근경): 물살을 타고 슉! 시원하게 가속 (타격감)
+            const speedCurve = this.depth < 0.55 ? 0.85 : (1.0 + (this.depth - 0.55) * 3.5);
+            const streamFactor = Math.max(0.9, (stone.vy || 14) / 14);
+            this.depth += this.baseSpeed * speedCurve * streamFactor;
+
+            const waterCurve = Math.pow(this.depth, 2.0); // 자연스러운 원근 깊이감
+            this.scale = 0.35 + waterCurve * 0.75;
+            this.currentY = this.waterStartY + (this.waterTargetY - this.waterStartY) * waterCurve;
             this.currentX = CX + (this.laneX - CX) * (0.35 + waterCurve * 0.65);
-            this.bobCycle += 0.12;
-            this.floatY = Math.sin(this.bobCycle) * (this.type === 'WOOD' ? 2.0 : 3.5) * this.scale;
-            this.floatRot = Math.sin(this.bobCycle * 0.6) * 0.06;
+
+            this.bobCycle += 0.09;
+            this.floatY = Math.sin(this.bobCycle) * (this.type === 'WOOD' ? 2.5 : 4.0) * this.scale;
+            this.floatRot = Math.sin(this.bobCycle * 0.7) * 0.05;
         }
 
-        if (this.depth > 1.25 && !this.isHit && !this.isMissed) {
+        // 화면 아래로 지나갔을 때 미스 처리
+        if (this.depth > 1.22 && !this.isHit && !this.isMissed) {
             this.isMissed = true;
             onRhythmMiss(this);
         }
@@ -1638,21 +1671,21 @@ class RhythmTarget {
 
         const baseW = this.type === 'WOOD' ? 84 : 70;
         const baseH = this.type === 'WOOD' ? 52 : 70;
-        const w = baseW * Math.max(0.45, this.scale);
-        const h = baseH * Math.max(0.45, this.scale);
+        const w = baseW * Math.max(0.40, this.scale);
+        const h = baseH * Math.max(0.40, this.scale);
 
         ctx.save();
 
-        // 수면 그림자
+        // 1. 수면 그림자 (원근감 앵커)
         const shadowScale = (this.type === 'FROG' && this.floatY < 0)
-            ? Math.max(0.35, 1.0 - Math.abs(this.floatY) / 50)
+            ? Math.max(0.35, 1.0 - Math.abs(this.floatY) / 60)
             : 1.0;
         ctx.beginPath();
         ctx.ellipse(this.currentX, this.currentY + (h * 0.25), (w * 0.48) * shadowScale, (h * 0.18) * shadowScale, 0, 0, Math.PI * 2);
         ctx.fillStyle = 'rgba(0, 15, 30, 0.55)';
         ctx.fill();
 
-        // 수면 찰랑임 링
+        // 2. 수면 찰랑임 링
         if (this.type !== 'FROG' || this.floatY >= 0) {
             ctx.beginPath();
             ctx.ellipse(this.currentX, this.currentY + (h * 0.25), w * 0.55, h * 0.22, 0, 0, Math.PI * 2);
@@ -1661,7 +1694,7 @@ class RhythmTarget {
             ctx.stroke();
         }
 
-        // 🌟 [핵심] 더미 코드 완전 제거 -> 순정 WebP 이미지 직접 렌더링
+        // 3. 에셋 본체 렌더링
         ctx.translate(this.currentX, this.currentY + (this.floatY || 0));
         if (this.floatRot) ctx.rotate(this.floatRot);
 
@@ -1677,7 +1710,6 @@ class RhythmTarget {
                     ctx.drawImage(woodImg, -w / 2, -h / 2, w, h);
                 }
             } else {
-                // 🦆 러브덕: lloverduck.webp / rloverduck.webp 방향별 렌더링
                 const duckImg = ASSETS_STREAM[`DUCK_${this.dirKey}`];
                 if (duckImg && duckImg.complete && duckImg.naturalWidth > 0) {
                     ctx.drawImage(duckImg, -w / 2, -h / 2, w, h);
@@ -1685,14 +1717,14 @@ class RhythmTarget {
             }
         } catch (e) { }
 
-        // 판정 가이드 링
+        // 4. 골든 판정 가이드 링 (골든 타임 강조)
         if (this.depth >= 0.88 && this.depth <= 1.12) {
             ctx.beginPath();
             ctx.ellipse(0, h * 0.25, w * 0.65, h * 0.25, 0, 0, Math.PI * 2);
             ctx.strokeStyle = this.type === 'WOOD' ? '#ff3333' : (this.type === 'FROG' ? '#00ff66' : '#ffea00');
             ctx.lineWidth = 2.5;
             ctx.shadowColor = ctx.strokeStyle;
-            ctx.shadowBlur = 12;
+            ctx.shadowBlur = 14;
             ctx.stroke();
         }
 
