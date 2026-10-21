@@ -758,31 +758,53 @@ button, .action-confirm-btn, #main-btn, #shop-btn, #intro-start-btn, #intro-info
 }
 
 /* ===================================================
-   🔤 Google Fonts: Black Han Sans & 텍스트 가독성 최적화
+   🔤 웹폰트: Pretendard & 텍스트 가독성 최적화
    =================================================== */
 
 /* 1. 게임 전체 기본 폰트 적용 */
 body, button, input, select, textarea, div, p, span {
-    font-family: 'Black Han Sans', sans-serif !important;
+    font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif !important;
 }
 
-/* 2. 상단 점수 및 안내 텍스트 가독성 최적화 */
+/* 2. 시작 화면 & 로비 메인 버튼 폰트 사이즈 확대 및 굵기 설정 */
+#intro-start-btn,
+#main-btn,
+.primary-btn {
+    font-size: 20px !important; /* 기존 14~16px -> 20px로 확대 */
+    font-weight: 800 !important; /* 묵직하지만 뭉개지지 않는 ExtraBold */
+    letter-spacing: -0.2px;
+}
+
+#intro-info-btn,
+#shop-btn {
+    font-size: 16px !important; /* 보조 버튼도 16px로 시원하게 확대 */
+    font-weight: 700 !important;
+}
+
+/* 3. 결과 모달 및 상점 모달 버튼 */
+#result-modal button,
+#shop-modal button {
+    font-size: 18px !important;
+    font-weight: 800 !important;
+}
+
+/* 4. 상단 HUD & 인게임 점수 */
 #score-display {
-    font-family: 'Black Han Sans', sans-serif !important;
+    font-weight: 900 !important;
+    font-size: 26px !important;
     letter-spacing: 0.5px;
     text-shadow: 0 0 12px rgba(0, 0, 0, 0.9), 0 2px 4px #000;
 }
 
 #message {
-    font-family: 'Black Han Sans', sans-serif !important;
-    font-size: 16px;
+    font-weight: 700 !important;
+    font-size: 16px !important;
     letter-spacing: -0.3px;
     text-shadow: 0 0 8px rgba(0, 0, 0, 0.8), 0 2px 4px #000;
 }
 
-/* 3. 중앙 연출 텍스트 (기존 36~42px -> 26px로 축소하여 착수 지점 시야 확보) */
+/* 5. 인게임 연출 텍스트 (PERFECT, CATCH 등) */
 .dramatic-text {
-    font-family: 'Black Han Sans', sans-serif !important;
     font-size: 26px !important; 
     line-height: 1.2;
     letter-spacing: 0px;
@@ -791,10 +813,12 @@ body, button, input, select, textarea, div, p, span {
     z-index: 100;
 }
 
-/* 4. PERFECT/GOOD 판정 텍스트 크기 조절 */
 .effect-text {
-    font-family: 'Black Han Sans', sans-serif !important;
     font-size: 22px !important;
     letter-spacing: 0.5px;
     text-shadow: 0 0 8px #000, 0 2px 4px #000;
+}
+
+.dramatic-text, .effect-text {
+    font-weight: 900 !important;
 }
