@@ -211,6 +211,57 @@ button, .action-confirm-btn, #main-btn, #shop-btn, #intro-start-btn, #intro-info
     font-family: Impact, "Arial Black", sans-serif;
 }
 
+/* ===================================================
+   ⚾ 야구 전광판 스타일 스트라이크 HUD
+   =================================================== */
+.strike-board {
+    position: absolute;
+    left: 18px;
+    top: 22%; /* 메시지/수평선보다 살짝 위, 개구리 도약 경로와 겹치지 않는 위치 */
+    display: none; /* 비행 중에만 표시 */
+    align-items: center;
+    gap: 8px;
+    background: rgba(10, 15, 25, 0.65);
+    border: 1px solid rgba(255, 60, 60, 0.35);
+    border-radius: 20px;
+    padding: 4px 10px;
+    backdrop-filter: blur(4px);
+    z-index: 85;
+    pointer-events: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+.strike-label {
+    font-size: 13px;
+    font-weight: 900;
+    color: #ff4d4d;
+    font-family: 'GmarketSans', sans-serif;
+    letter-spacing: 0.5px;
+}
+
+.strike-dots {
+    display: flex;
+    gap: 6px;
+}
+
+/* 기본 꺼진 상태의 원 */
+.strike-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #1c2230;
+    border: 1.5px solid #444f66;
+    transition: all 0.18s cubic-bezier(0.17, 0.89, 0.32, 1.25);
+}
+
+/* 🌟 스트라이크 시 켜지는 빨간 원 (네온 레드 발광) */
+.strike-dot.active {
+    background: #ff2a2a;
+    border-color: #ff8888;
+    box-shadow: 0 0 10px #ff2a2a, 0 0 16px rgba(255, 42, 42, 0.8);
+    transform: scale(1.15);
+}
+
 /* ============================
    Bounce 판정 텍스트 연출
 ============================ */

@@ -1078,6 +1078,10 @@ function triggerLaunch(dy, dx) {
     document.getElementById('score-display').innerText = 'BOUNCE: 0';
     try { SoundManager.playLaunch(swipeSpeed); } catch (e) { }
 
+    // 스트라이크 HUD 초기화 및 표시
+    resetStrikes();
+    showStrikeBoard();
+
     // 고스트 클릭 차단 (220ms 가드)
     launchCoolDownUntil = Date.now() + 220;
 
@@ -1281,27 +1285,43 @@ function registerBounceTap(e) {
         }
     }
 
-    // 화면을 탭했을 때, 유효 범위(0.28) 안에 타겟이 있는 경우에만 타격 성공!
-    if (closest && minDiff <= 0.28) {
+    // 🌟 1. 정상 타격 성공 (골든 링 판정선 0.20 이내)
+    if (closest && minDiff <= 0.20) {
         closest.isHit = true;
 
+        // 🪵 통나무 탭 = One-Shot 즉사
         if (closest.type === 'WOOD') {
-            comboCount = 0;
-            stone.vy = Math.max(2, stone.vy * 0.5);
-            stone.remainingBudget = Math.max(1, stone.remainingBudget - 3);
-            spawnDramaticText('🪵 쿵! 통나무 충돌!', 'neon-red');
+            spawnDramaticText('🪵 쾅! 통나무 충돌 침수!', 'neon-red');
             haptic('error');
             triggerShake('heavy');
+            triggerWaterSink();
             return;
         }
 
-        const rating = minDiff <= 0.12 ? 'PERFECT' : 'GOOD';
+        // ❌ [회복 로직 영구 삭제] 타겟을 퍼펙트로 쳐도 스트라이크는 절대 차감되지 않음!
+        
+        const rating = minDiff <= 0.08 ? 'PERFECT' : 'GOOD';
         hasTappedBounce = true;
         onRhythmHit(closest, rating);
-    } else {
-        // 허공 탭 시 콤보만 초기화
+    } 
+    // 🌟 2. 헛손질 / 타이밍 미스 -> 빨간 불 누적 (누적 3회 즉시 침수)
+    else {
+        strikeCount++;
         comboCount = 0;
-        haptic('light');
+        updateStrikeUI(); // 🔴 빨간 원 누적 점등
+        haptic('medium');
+
+        if (strikeCount >= 3) {
+            // 3회 헛손질 누적: 삼진 아웃으로 즉시 침수!
+            spawnDramaticText('❌ 3 STRIKE OUT!', 'neon-red');
+            triggerShake('heavy');
+            setTimeout(() => {
+                triggerWaterSink(); // 예외 없이 침수
+            }, 250);
+        } else {
+            // 1~2 스트라이크 경고
+            spawnDramaticText(`STRIKE ${strikeCount}!`, 'neon-red');
+        }
     }
 }
 
@@ -1412,6 +1432,51 @@ function spawnComboTextWithIcon(iconSrc, text, cls = 'neon-lime') {
         d.style.opacity = '0';
         setTimeout(() => d.remove(), 300);
     }, 750);
+}
+
+// ===================================================
+//  ⚾ 야구 스타일 스트라이크 인디케이터 제어 함수
+// ===================================================
+let strikeCount = 0;
+
+function updateStrikeUI() {
+    const sb = document.getElementById('strike-board');
+    if (sb) sb.style.display = 'flex';
+    for (let i = 1; i <= 3; i++) {
+        const dot = document.getElementById(`s-dot-${i}`);
+        if (dot) {
+            if (i <= strikeCount) {
+                dot.classList.add('active');
+            } else {
+                dot.classList.remove('active');
+            }
+        }
+    }
+}
+
+function showStrikeBoard() {
+    const sb = document.getElementById('strike-board');
+    if (sb) sb.style.display = 'flex';
+}
+
+function hideStrikeBoard() {
+    const sb = document.getElementById('strike-board');
+    if (sb) sb.style.display = 'none';
+}
+
+function setStrikeCount(count) {
+    strikeCount = Math.max(0, Math.min(3, count));
+    updateStrikeUI();
+}
+
+function addStrike() {
+    setStrikeCount(strikeCount + 1);
+    return strikeCount;
+}
+
+function resetStrikes() {
+    strikeCount = 0;
+    updateStrikeUI();
 }
 
 function triggerWaterMiss() {
@@ -1953,6 +2018,7 @@ async function endGame() {
     document.getElementById('game-container').removeEventListener('mousedown', registerBounceTap);
     document.getElementById('game-container').removeEventListener('touchstart', registerBounceTap);
     document.getElementById('ingame-stone').style.display = 'none';
+    hideStrikeBoard();
 
     const earnedSP = Math.round(((bounceCount * 100) + (perfectCount * 150)) * selectedStone.mult);
     document.getElementById('res-stone-name').innerText = t(selectedStone.nameKey);
