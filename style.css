@@ -1,3 +1,51 @@
+/* ===================================================
+   🔤 로컬 웹폰트 정의: Gmarket Sans (Light, Medium, Bold)
+   =================================================== */
+@font-face {
+    font-family: 'GmarketSans';
+    src: url('fonts/GmarketSansLight.woff2') format('woff2'),
+         url('fonts/GmarketSansLight.woff') format('woff');
+    font-weight: 300;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'GmarketSans';
+    src: url('fonts/GmarketSansMedium.woff2') format('woff2'),
+         url('fonts/GmarketSansMedium.woff') format('woff');
+    font-weight: 500;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'GmarketSans';
+    src: url('fonts/GmarketSansBold.woff2') format('woff2'),
+         url('fonts/GmarketSansBold.woff') format('woff');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'GmarketSans';
+    src: url('fonts/GmarketSansBold.woff2') format('woff2'),
+         url('fonts/GmarketSansBold.woff') format('woff');
+    font-weight: 800;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'GmarketSans';
+    src: url('fonts/GmarketSansBold.woff2') format('woff2'),
+         url('fonts/GmarketSansBold.woff') format('woff');
+    font-weight: 900;
+    font-style: normal;
+    font-display: swap;
+}
+
 /* ============================
    CSS 변수 & 글로벌 리셋
 ============================ */
@@ -761,8 +809,8 @@ button, .action-confirm-btn, #main-btn, #shop-btn, #intro-start-btn, #intro-info
    🔤 웹폰트: Gmarket Sans & 텍스트 가독성 최적화
    =================================================== */
 
-/* 1. 게임 전체 기본 폰트 적용 */
-body, button, input, select, textarea, div, p, span {
+/* 1. 게임 전체 기본 폰트 적용 (제목, 버튼, 라벨 등 모든 UI 요소 통일) */
+body, button, input, select, textarea, div, p, span, h1, h2, h3, h4, h5, h6, label {
     font-family: 'GmarketSans', sans-serif !important;
 }
 

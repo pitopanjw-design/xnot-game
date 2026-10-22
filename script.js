@@ -1372,7 +1372,7 @@ function triggerWaterMiss() {
         "🐟<br>축하합니다!<br>물고기 밥 주기 성공!",
         "🥱<br>혹시 졸면서 던지셨나요?<br>(퐁당)"
     ];
-    trollBox.innerHTML = `<p style="color:#fff;font-size:16px;font-weight:900;line-height:1.5;margin:0;font-family:'Impact',sans-serif;text-shadow:0 2px 4px #000;">${roastMsgs[Math.floor(Math.random() * roastMsgs.length)]}</p>`;
+    trollBox.innerHTML = `<p style="color:#fff;font-size:16px;font-weight:900;line-height:1.5;margin:0;font-family:'GmarketSans',sans-serif;text-shadow:0 2px 4px #000;">${roastMsgs[Math.floor(Math.random() * roastMsgs.length)]}</p>`;
     document.getElementById('game-container').appendChild(trollBox);
 
     setTimeout(() => {
@@ -1854,7 +1854,8 @@ function spawnBounceMarker(x, y, count) {
         border-radius: 20px;
         padding: 3px 10px;
         font-size: 13px;
-        font-family: 'Black Han Sans', sans-serif; /* 폰트 통일 */
+        font-family: 'GmarketSans', sans-serif; /* 폰트 통일 */
+        font-weight: 700;
         z-index: 70;
         pointer-events: none;
         white-space: nowrap;
@@ -2062,7 +2063,7 @@ function injectInviteUI() {
 
     const modalOverlay = document.createElement('div');
     modalOverlay.id = "invite-modal-overlay";
-    modalOverlay.style.cssText = "display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 2000; justify-content: center; align-items: center; font-family: sans-serif;";
+    modalOverlay.style.cssText = "display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 2000; justify-content: center; align-items: center; font-family: 'GmarketSans', sans-serif;";
 
     modalOverlay.innerHTML = `
         <div style="background: #222; border: 2px solid #0088cc; border-radius: 15px; padding: 25px; width: 85%; max-width: 360px; text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.5); position: relative; color: white;">
