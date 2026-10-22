@@ -1305,19 +1305,57 @@ function registerBounceTap(e) {
     }
 }
 
+// ===================================================================
+//  콤보 팝업 & 메시지 가독성 완전 정상화 패치
+// ===================================================================
+
+let safeMsgTimer = null;
+
+// 1. 통나무 회피 SAFE 메시지: 1.2초 후 자동 제거
+function onRhythmMiss(target) {
+    if (target.type === 'WOOD') {
+        const msg = document.getElementById('message');
+        if (msg) {
+            msg.innerText = "🪵 통나무 회피 SAFE!";
+            if (safeMsgTimer) clearTimeout(safeMsgTimer);
+            safeMsgTimer = setTimeout(() => {
+                if (currentStatus === 'FLYING' && !isDead) {
+                    msg.innerText = ""; // 1.2초 뒤 깔끔하게 제거
+                }
+            }, 1200);
+        }
+        return;
+    }
+
+    // 통나무가 아닌 오리/개구리를 놓쳤을 때만 콤보 브레이크
+    if (comboCount > 0) {
+        comboCount = 0;
+        spawnDramaticText('COMBO BREAK...', 'neon-red');
+    }
+}
+
+// 2. 콤보 히트 처리: 신규 WebP 아이콘 적용 및 콤보 누적 정상화
 function onRhythmHit(target, rating) {
-    comboCount++;
+    comboCount++; // 콤보 정상 누적 (1 -> 2 -> 3...)
     if (typeof maxCombo === 'undefined' || comboCount > maxCombo) maxCombo = comboCount;
 
     const ex = STONE_FIXED_X;
 
-    // 판정 글씨는 상단 수평선 하늘 영역에 분리 출력
-    spawnRatingText(ex, HORIZON_Y - 30, rating);
-    spawnDramaticText(
-        target.type === 'DUCK' ? `🦆 CATCH! ${comboCount} COMBO` : `🐸 LEAP! ${comboCount} COMBO`,
-        comboCount >= 5 ? 'neon-gold' : 'neon-lime'
-    );
+    // A. PERFECT / GOOD 판정 텍스트 (상단 하늘 분리)
+    spawnRatingText(ex, HORIZON_Y - 45, rating);
 
+    // B. 신규 WebP 미니 아이콘이 포함된 깔끔한 콤보 연출
+    const assetImgUrl = target.type === 'DUCK' 
+        ? 'images/lloverduck.webp' 
+        : 'images/lfrog_01.webp';
+    
+    const actionText = target.type === 'DUCK' ? 'CATCH!' : 'LEAP!';
+    const comboColor = comboCount >= 5 ? 'neon-gold' : 'neon-lime';
+
+    // 더미 이미지를 없애고 신규 WebP 태그를 직접 삽입
+    spawnComboTextWithIcon(assetImgUrl, `${actionText} ${comboCount} COMBO`, comboColor);
+
+    // C. 버짓 및 비거리 보너스
     const comboBonus = Math.min(8, Math.floor(comboCount / 2));
     stone.remainingBudget += (rating === 'PERFECT' ? 3 : 2) + comboBonus;
     stone.vy = Math.min(48, Math.max(stone.vy, 22) * 1.12 + 1.2);
@@ -1337,18 +1375,43 @@ function onRhythmHit(target, rating) {
     spawnBounceMarker(ex, STONE_FIXED_Y, bounceCount);
 }
 
-function onRhythmMiss(target) {
-    if (target.type === 'WOOD') {
-        // 거대한 중앙 텍스트 대신 상단 메시지로 깔끔하게 출력
-        const msg = document.getElementById('message');
-        if (msg) msg.innerText = "🪵 통나무 회피 SAFE!";
-        return;
-    }
+// 3. 신규 WebP 미니 아이콘을 띄워주는 전용 콤보 연출 함수
+function spawnComboTextWithIcon(iconSrc, text, cls = 'neon-lime') {
+    const d = document.createElement('div');
+    d.className = `dramatic-text ${cls}`;
+    d.style.cssText = `
+        position: absolute;
+        top: 28%;
+        left: 50%;
+        transform: translate(-50%, -50%) scale(0.85);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        z-index: 120;
+        pointer-events: none;
+        white-space: nowrap;
+    `;
+    
+    d.innerHTML = `
+        <img src="${iconSrc}" style="width: 32px; height: 32px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6));">
+        <span>${text}</span>
+    `;
 
-    if (comboCount > 0) {
-        spawnDramaticText('COMBO BREAK...', 'neon-red');
-        comboCount = 0;
-    }
+    document.getElementById('game-container').appendChild(d);
+
+    // 부드러운 팝업 후 소멸
+    requestAnimationFrame(() => {
+        d.style.transition = 'transform 0.2s cubic-bezier(0.17, 0.89, 0.32, 1.25), opacity 0.3s ease';
+        d.style.transform = 'translate(-50%, -50%) scale(1.05)';
+        d.style.opacity = '1';
+    });
+
+    setTimeout(() => {
+        d.style.transform = 'translate(-50%, -70%) scale(0.9)';
+        d.style.opacity = '0';
+        setTimeout(() => d.remove(), 300);
+    }, 750);
 }
 
 function triggerWaterMiss() {
