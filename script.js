@@ -1267,14 +1267,29 @@ function processBounce(rating, isAuto = false) {
     spawnBounceMarker(ex, ey, bounceCount);
 }
 
-// 2. 유저의 명시적인 화면 터치 시에만 타겟 타격 및 콤보 허용
+// ===================================================================
+//  🎯 1타 1판정 보장 & 스트라이크 누수 방지
+// ===================================================================
+
+let isProcessingTap = false;
+
 function registerBounceTap(e) {
+    if (e) {
+        if (e.cancelable) e.preventDefault();
+        e.stopPropagation();
+    }
     if (currentStatus !== 'FLYING' || isDead) return;
     if (Date.now() < launchCoolDownUntil) return;
+
+    // 🌟 모바일 중복 이벤트(touchstart + mousedown) 완전 차단
+    if (isProcessingTap) return;
+    isProcessingTap = true;
+    requestAnimationFrame(() => { isProcessingTap = false; });
 
     let closest = null;
     let minDiff = 999;
 
+    // 화면 내 유효 타겟 탐색
     for (let t of rhythmTargets) {
         if (!t.isHit && !t.isMissed) {
             const diff = Math.abs(t.progress - 1.0);
@@ -1285,11 +1300,11 @@ function registerBounceTap(e) {
         }
     }
 
-    // 🌟 1. 정상 타격 성공 (골든 링 판정선 0.20 이내)
-    if (closest && minDiff <= 0.20) {
-        closest.isHit = true;
+    // 🌟 1. 정상 타격 성공 (판정 범위 0.22)
+    if (closest && minDiff <= 0.22) {
+        closest.isHit = true; // 소비 완료
 
-        // 🪵 통나무 탭 = One-Shot 즉사
+        // 🪵 통나무 탭 = 즉사
         if (closest.type === 'WOOD') {
             spawnDramaticText('🪵 쾅! 통나무 충돌 침수!', 'neon-red');
             haptic('error');
@@ -1298,28 +1313,23 @@ function registerBounceTap(e) {
             return;
         }
 
-        // ❌ [회복 로직 영구 삭제] 타겟을 퍼펙트로 쳐도 스트라이크는 절대 차감되지 않음!
-        
-        const rating = minDiff <= 0.08 ? 'PERFECT' : 'GOOD';
+        // 정상 타격 시에는 스트라이크가 절대 오르지 않음!
+        const rating = minDiff <= 0.09 ? 'PERFECT' : 'GOOD';
         hasTappedBounce = true;
         onRhythmHit(closest, rating);
     } 
-    // 🌟 2. 헛손질 / 타이밍 미스 -> 빨간 불 누적 (누적 3회 즉시 침수)
+    // 🌟 2. 타겟이 없는 허공 탭만 정확히 스트라이크 증가
     else {
         strikeCount++;
         comboCount = 0;
-        updateStrikeUI(); // 🔴 빨간 원 누적 점등
+        updateStrikeUI(); // 🔴 빨간 원 누적
         haptic('medium');
 
         if (strikeCount >= 3) {
-            // 3회 헛손질 누적: 삼진 아웃으로 즉시 침수!
             spawnDramaticText('❌ 3 STRIKE OUT!', 'neon-red');
             triggerShake('heavy');
-            setTimeout(() => {
-                triggerWaterSink(); // 예외 없이 침수
-            }, 250);
+            setTimeout(() => { triggerWaterSink(); }, 250);
         } else {
-            // 1~2 스트라이크 경고
             spawnDramaticText(`STRIKE ${strikeCount}!`, 'neon-red');
         }
     }
@@ -1696,7 +1706,7 @@ function drawFxCanvas() {
 // ===========================================================
 class RhythmTarget {
     constructor(type = 'DUCK') {
-        this.type = type; // 'DUCK' | 'FROG' | 'WOOD'
+        this.type = type;
         this.isHit = false;
         this.isMissed = false;
         this.depth = 0.0;
@@ -1704,27 +1714,26 @@ class RhythmTarget {
         this.isFromLeft = Math.random() < 0.5;
         this.dirKey = this.isFromLeft ? 'L' : 'R';
 
-        this.waterStartY = HORIZON_Y + 10;
-        this.waterTargetY = STONE_FIXED_Y + 15;
+        // 🌟 [수정] 산자락 허공이 아닌, 실제 잔잔한 강물 수평선 안쪽에서 스폰
+        this.waterStartY = (HORIZON_Y || (H * 0.52)) + 25; 
+        this.waterTargetY = STONE_FIXED_Y + 10;
 
         if (this.type === 'FROG') {
-            // 🐸 개구리: 수풀 가장자리 배치 & 웅크리기 대기 시간(약 1.0~1.4초) 부여
             this.startX = this.isFromLeft ? (W * 0.08) : (W * 0.92);
             this.targetX = STONE_FIXED_X + (this.isFromLeft ? -20 : 20);
-            this.state = 'WAITING'; // 'WAITING' (웅크림 대기) -> 'JUMPING' (기습 도약)
-            this.waitDuration = 60 + Math.floor(Math.random() * 25); // 약 1.0~1.4초 동안 눈치보기
+            this.state = 'WAITING';
+            this.waitDuration = 50 + Math.floor(Math.random() * 20);
             this.waitTimer = 0;
             this.jumpProgress = 0.0;
-            this.motionFrame = 0; // 01번 웅크린 모션 유지
+            this.motionFrame = 0;
         } else if (this.type === 'WOOD') {
-            // 🪵 통나무: 물살에 떠밀리며 묵직하게 천천히 표류
-            this.laneX = CX + (Math.random() - 0.5) * (W * 0.35);
-            this.baseSpeed = 0.009; 
+            this.laneX = CX + (Math.random() - 0.5) * (W * 0.30);
+            this.baseSpeed = 0.013;
             this.bobCycle = Math.random() * Math.PI * 2;
         } else {
-            // 🦆 러브덕: 완급 조절 (원경에서는 느긋하게, 근경에서는 유속 타고 가속)
+            // 🦆 러브덕
             this.laneX = CX + (this.isFromLeft ? -45 : 45);
-            this.baseSpeed = 0.012; 
+            this.baseSpeed = 0.012;
             this.bobCycle = Math.random() * Math.PI * 2;
         }
     }
@@ -1733,24 +1742,20 @@ class RhythmTarget {
 
     update() {
         if (this.type === 'FROG') {
-            // 🐸 개구리 2단계 상태 머신: [대기] -> [도약]
             if (this.state === 'WAITING') {
                 this.waitTimer++;
-                // 수풀 가장자리에서 숨 고르기 미세 호흡 (들썩임)
                 this.floatY = Math.sin(this.waitTimer * 0.15) * 2;
-                this.motionFrame = 0; // 웅크린 자세 고정
+                this.motionFrame = 0;
                 this.currentX = this.startX;
-                this.currentY = this.waterStartY + (this.waterTargetY - this.waterStartY) * 0.35; // 중경 수풀 라인
-                this.scale = 0.55;
+                this.currentY = this.waterStartY + (this.waterTargetY - this.waterStartY) * 0.35;
+                this.scale = 0.45; // 웅크릴 때의 아담한 크기
 
-                // 대기 시간 종료 시 폭발적인 도약 단계로 전환!
                 if (this.waitTimer >= this.waitDuration) {
                     this.state = 'JUMPING';
                     this.depth = 0.35;
                 }
                 return;
             } else {
-                // 도약 개시: 돌 앞으로 0.6초 만에 포물선으로 펄쩍 뛰어듬!
                 this.jumpProgress += 0.038;
                 this.depth = 0.35 + (this.jumpProgress * 0.75);
 
@@ -1760,37 +1765,36 @@ class RhythmTarget {
                 this.currentY = (this.waterStartY + (this.waterTargetY - this.waterStartY) * 0.35) 
                                 + (this.waterTargetY - (this.waterStartY + (this.waterTargetY - this.waterStartY) * 0.35)) * this.jumpProgress;
                 
-                this.floatY = -jumpCurve * 55; // 시원하게 공중으로 도약
-                this.scale = 0.55 + (this.jumpProgress * 0.5);
+                this.floatY = -jumpCurve * 50;
+                // 도약하며 시원하게 커짐 (0.45 -> 1.05)
+                this.scale = 0.45 + (this.jumpProgress * 0.6);
 
-                // 모션 프레임 정밀 제어 (0:웅크림 -> 1:공중도약 -> 2:수면착지)
                 if (jumpCurve > 0.4 && this.jumpProgress < 0.75) {
-                    this.motionFrame = 1; // 공중 도약
+                    this.motionFrame = 1;
                 } else if (this.jumpProgress >= 0.75) {
-                    this.motionFrame = 2; // 착지 직전
+                    this.motionFrame = 2;
                 } else {
                     this.motionFrame = 0;
                 }
             }
         } else {
-            // 🦆 러브덕 & 🪵 통나무: S자 유속 완급 조절 곡선
-            // depth 0.0 ~ 0.55 (원경): 천천히 둥실거리며 접근 (리듬 인지 시간 부여)
-            // depth 0.55 ~ 1.0 (근경): 물살을 타고 슉! 시원하게 가속 (타격감)
-            const speedCurve = this.depth < 0.55 ? 0.85 : (1.0 + (this.depth - 0.55) * 3.5);
+            // 🦆 러브덕 & 🪵 통나무
+            const speedCurve = this.depth < 0.55 ? 0.85 : (1.0 + (this.depth - 0.55) * 3.2);
             const streamFactor = Math.max(0.9, (stone.vy || 14) / 14);
             this.depth += this.baseSpeed * speedCurve * streamFactor;
 
-            const waterCurve = Math.pow(this.depth, 2.0); // 자연스러운 원근 깊이감
-            this.scale = 0.35 + waterCurve * 0.75;
+            // 🌟 [핵심] 원근감 곡선: 스폰 시 0.22로 작았다가 돌에 도달하면 1.0으로 웅장하게 확대
+            const waterCurve = Math.pow(this.depth, 2.2); 
+            this.scale = 0.22 + (waterCurve * 0.82); // 0.22 -> 1.04로 자연스러운 원근감!
+
             this.currentY = this.waterStartY + (this.waterTargetY - this.waterStartY) * waterCurve;
-            this.currentX = CX + (this.laneX - CX) * (0.35 + waterCurve * 0.65);
+            this.currentX = CX + (this.laneX - CX) * (0.30 + waterCurve * 0.70);
 
             this.bobCycle += 0.09;
             this.floatY = Math.sin(this.bobCycle) * (this.type === 'WOOD' ? 2.5 : 4.0) * this.scale;
             this.floatRot = Math.sin(this.bobCycle * 0.7) * 0.05;
         }
 
-        // 화면 아래로 지나갔을 때 미스 처리
         if (this.depth > 1.22 && !this.isHit && !this.isMissed) {
             this.isMissed = true;
             onRhythmMiss(this);
@@ -1800,14 +1804,15 @@ class RhythmTarget {
     draw(ctx) {
         if (this.isHit || this.depth > 1.35) return;
 
-        const baseW = this.type === 'WOOD' ? 84 : 70;
-        const baseH = this.type === 'WOOD' ? 52 : 70;
-        const w = baseW * Math.max(0.40, this.scale);
-        const h = baseH * Math.max(0.40, this.scale);
+        // 🌟 스케일 적용: 원경에서는 작고, 근경에서 커짐
+        const baseW = this.type === 'WOOD' ? 88 : 74;
+        const baseH = this.type === 'WOOD' ? 54 : 74;
+        const w = baseW * this.scale;
+        const h = baseH * this.scale;
 
         ctx.save();
 
-        // 1. 수면 그림자 (원근감 앵커)
+        // 1. 수면 그림자
         const shadowScale = (this.type === 'FROG' && this.floatY < 0)
             ? Math.max(0.35, 1.0 - Math.abs(this.floatY) / 60)
             : 1.0;
@@ -1816,16 +1821,16 @@ class RhythmTarget {
         ctx.fillStyle = 'rgba(0, 15, 30, 0.55)';
         ctx.fill();
 
-        // 2. 수면 찰랑임 링
+        // 2. 수면 찰랑임
         if (this.type !== 'FROG' || this.floatY >= 0) {
             ctx.beginPath();
             ctx.ellipse(this.currentX, this.currentY + (h * 0.25), w * 0.55, h * 0.22, 0, 0, Math.PI * 2);
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-            ctx.lineWidth = 1.5;
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+            ctx.lineWidth = 1.2 * Math.max(0.5, this.scale);
             ctx.stroke();
         }
 
-        // 3. 에셋 본체 렌더링
+        // 3. 에셋 렌더링
         ctx.translate(this.currentX, this.currentY + (this.floatY || 0));
         if (this.floatRot) ctx.rotate(this.floatRot);
 
@@ -1848,14 +1853,14 @@ class RhythmTarget {
             }
         } catch (e) { }
 
-        // 4. 골든 판정 가이드 링 (골든 타임 강조)
+        // 4. 골든 판정 가이드 링 (골든 타임)
         if (this.depth >= 0.88 && this.depth <= 1.12) {
             ctx.beginPath();
             ctx.ellipse(0, h * 0.25, w * 0.65, h * 0.25, 0, 0, Math.PI * 2);
             ctx.strokeStyle = this.type === 'WOOD' ? '#ff3333' : (this.type === 'FROG' ? '#00ff66' : '#ffea00');
             ctx.lineWidth = 2.5;
             ctx.shadowColor = ctx.strokeStyle;
-            ctx.shadowBlur = 14;
+            ctx.shadowBlur = 12;
             ctx.stroke();
         }
 
