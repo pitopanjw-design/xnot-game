@@ -490,9 +490,12 @@ async function loadData() {
             if (parsed.upgrades !== undefined) upgrades = Object.assign({ weight: 0, elasticity: 0, spin: 0, perfectZone: 0 }, parsed.upgrades); 
             if (parsed.walletAddress !== undefined) userWalletAddress = parsed.walletAddress;
             
-            let restoredHearts = (parsed.hearts !== undefined) ? parsed.hearts : 5;
-            if (typeof restoredHearts !== 'number' || restoredHearts <= 0) restoredHearts = 5;
-            playerHearts = restoredHearts;
+            // 🌟 [수정] 0인 경우에도 5로 초기화하지 않고 실제 저장된 0을 온전히 인정!
+            if (typeof parsed.hearts === 'number' && !isNaN(parsed.hearts)) {
+                playerHearts = Math.max(0, parsed.hearts);
+            } else {
+                playerHearts = 5; // 데이터가 아예 없는 신규 유저만 5개 지급
+            }
         } catch (e) { }
     }
 
@@ -516,13 +519,17 @@ async function loadData() {
             if (error && error.code === 'PGRST116') {
                 await supabaseClient.from('xnot_users').insert([{
                     user_id: String(userId), username: String(tgUsername),
-                    high_score: parseInt(playerSP) || 0, hearts: parseInt(currentHearts) || 5,
+                    high_score: parseInt(playerSP) || 0, hearts: parseInt(currentHearts),
                     last_saved_time: Date.now()
                 }]);
             } else if (cloudUser) {
                 const cloudScore = parseInt(cloudUser.high_score);
                 if (!isNaN(cloudScore) && cloudScore > playerSP) playerSP = cloudScore;
-                if (typeof cloudUser.hearts === 'number' && cloudUser.hearts > 0 && currentStatus === 'PRE_SPIN') playerHearts = cloudUser.hearts;
+                
+                // 🌟 [수정] 클라우드에 저장된 하트가 0개여도 0개 그대로 동기화
+                if (typeof cloudUser.hearts === 'number' && currentStatus === 'PRE_SPIN') {
+                    playerHearts = Math.max(0, cloudUser.hearts);
+                }
                 if (currentStatus === 'PRE_SPIN' && typeof updateAssetUI === 'function') updateAssetUI();
             }
         } catch (err) { }
@@ -1082,15 +1089,18 @@ function triggerLaunch(dy, dx) {
     resetStrikes();
     showStrikeBoard();
 
-    // 고스트 클릭 차단 (220ms 가드)
-    launchCoolDownUntil = Date.now() + 220;
+    // 고스트 클릭 차단 (350ms로 안전 마진 확대)
+    launchCoolDownUntil = Date.now() + 350;
 
     const gc = document.getElementById('game-container');
     if (gc) {
-        gc.removeEventListener('mousedown', registerBounceTap);
+        gc.removeEventListener('pointerdown', registerBounceTap);
         gc.removeEventListener('touchstart', registerBounceTap);
+        gc.removeEventListener('mousedown', registerBounceTap);
+        
+        // 🌟 pointerdown 하나로 통일하거나 touchstart에 passive: false 적용
+        gc.addEventListener('touchstart', registerBounceTap, { passive: false });
         gc.addEventListener('mousedown', registerBounceTap);
-        gc.addEventListener('touchstart', registerBounceTap, { passive: true });
     }
 
     if (isSuperLaunch) {
@@ -1271,7 +1281,7 @@ function processBounce(rating, isAuto = false) {
 //  🎯 1타 1판정 보장 & 스트라이크 누수 방지
 // ===================================================================
 
-let isProcessingTap = false;
+let tapLockUntil = 0; // 타임스탬프 기반 절대 락
 
 function registerBounceTap(e) {
     if (e) {
@@ -1279,17 +1289,17 @@ function registerBounceTap(e) {
         e.stopPropagation();
     }
     if (currentStatus !== 'FLYING' || isDead) return;
-    if (Date.now() < launchCoolDownUntil) return;
+    
+    const now = Date.now();
+    if (now < launchCoolDownUntil) return; // 발사 직후 쿨다운
 
-    // 🌟 모바일 중복 이벤트(touchstart + mousedown) 완전 차단
-    if (isProcessingTap) return;
-    isProcessingTap = true;
-    requestAnimationFrame(() => { isProcessingTap = false; });
+    // 🌟 모바일 중복 이벤트(터치+마우스 연달아 들어옴) 완전 차단 (140ms 타임스탬프 락)
+    if (now < tapLockUntil) return;
+    tapLockUntil = now + 140;
 
     let closest = null;
     let minDiff = 999;
 
-    // 화면 내 유효 타겟 탐색
     for (let t of rhythmTargets) {
         if (!t.isHit && !t.isMissed) {
             const diff = Math.abs(t.progress - 1.0);
@@ -1302,9 +1312,8 @@ function registerBounceTap(e) {
 
     // 🌟 1. 정상 타격 성공 (판정 범위 0.22)
     if (closest && minDiff <= 0.22) {
-        closest.isHit = true; // 소비 완료
+        closest.isHit = true; // 타겟 즉시 소비
 
-        // 🪵 통나무 탭 = 즉사
         if (closest.type === 'WOOD') {
             spawnDramaticText('🪵 쾅! 통나무 충돌 침수!', 'neon-red');
             haptic('error');
@@ -1313,16 +1322,15 @@ function registerBounceTap(e) {
             return;
         }
 
-        // 정상 타격 시에는 스트라이크가 절대 오르지 않음!
         const rating = minDiff <= 0.09 ? 'PERFECT' : 'GOOD';
         hasTappedBounce = true;
         onRhythmHit(closest, rating);
     } 
-    // 🌟 2. 타겟이 없는 허공 탭만 정확히 스트라이크 증가
+    // 🌟 2. 타겟이 없는 진짜 허공 탭일 때만 스트라이크 증가
     else {
         strikeCount++;
         comboCount = 0;
-        updateStrikeUI(); // 🔴 빨간 원 누적
+        updateStrikeUI();
         haptic('medium');
 
         if (strikeCount >= 3) {
@@ -2020,6 +2028,7 @@ async function endGame() {
     fxCtx.clearRect(0, 0, W, H);
     particles = []; wakes = [];
 
+    document.getElementById('game-container').removeEventListener('pointerdown', registerBounceTap);
     document.getElementById('game-container').removeEventListener('mousedown', registerBounceTap);
     document.getElementById('game-container').removeEventListener('touchstart', registerBounceTap);
     document.getElementById('ingame-stone').style.display = 'none';
