@@ -1315,10 +1315,19 @@ function registerBounceTap(e) {
         closest.isHit = true; // 타겟 즉시 소비
 
         if (closest.type === 'WOOD') {
-            spawnDramaticText('🪵 쾅! 통나무 충돌 침수!', 'neon-red');
+            // 1. 상단 안내 문구 즉시 변경
+            const msg = document.getElementById('message');
+            if (msg) msg.innerText = "🪵 쾅! 통나무 충돌 침수!";
+
+            // 2. 화면 중앙 텍스트 강조
+            spawnDramaticText('🪵 통나무 충돌 침수!', 'neon-red');
             haptic('error');
             triggerShake('heavy');
-            triggerWaterSink();
+
+            // 3. 메시지를 읽을 수 있도록 약간의 여유를 두고 침수 처리
+            setTimeout(() => {
+                triggerWaterSink(true); // 통나무 충돌 플래그 전달
+            }, 150);
             return;
         }
 
@@ -1527,7 +1536,7 @@ function triggerWaterMiss() {
     }, 1000);
 }
 
-function triggerWaterSink() {
+function triggerWaterSink(isWoodHit = false) {
     if (isDead) return;
     isDead = true;
     stone.vz = -1.2;
@@ -1535,13 +1544,19 @@ function triggerWaterSink() {
     const ex = STONE_FIXED_X, ey = STONE_FIXED_Y;
     spawnRipple(ex, ey); 
     createParticles(ex, ey, false, true, 16);
-    document.getElementById('message').innerText = t('sinkMsg'); 
+    
+    // 🌟 통나무 충돌이 아닐 때만 기본 "동력을 잃어 가라앉았습니다" 메시지 출력
+    if (!isWoodHit) {
+        document.getElementById('message').innerText = t('sinkMsg');
+    }
+    
     haptic('error'); 
     SoundManager.playSink();
 
+    // 유저가 충돌 상황을 인지할 수 있도록 딜레이 확보 (1.1초)
     setTimeout(() => {
         endGame();
-    }, 800);
+    }, 1100);
 }
 
 function triggerWake(x, y, scale) { wakes.push({ x, y, vxL: -W * 0.015 * scale, vxR: W * 0.015 * scale, vy: H * 0.022 * scale, width: 9 * scale, alpha: 1, xL: x, xR: x }); }
