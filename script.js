@@ -1942,8 +1942,8 @@ class RhythmTarget {
         this.isFromLeft = Math.random() < 0.5;
         this.dirKey = this.isFromLeft ? 'L' : 'R';
 
-        // 🌟 산과 강물이 만나는 실제 시각적 수면 경계선 (화면 높이의 54%)
-        this.waterStartY = Math.round(H * 0.54); 
+        // 🌟 산자락과 강물이 만나는 정확한 원경 수평선 경계 (H * 0.45)
+        this.waterStartY = Math.round(H * 0.45);
         this.waterTargetY = STONE_FIXED_Y + 10;
 
         if (this.type === 'FROG') {
@@ -2008,16 +2008,23 @@ class RhythmTarget {
         } else {
             // 🦆 러브덕 & 🪵 통나무
             const speedCurve = this.depth < 0.55 ? 0.85 : (1.0 + (this.depth - 0.55) * 3.2);
-            // 돌 속도가 떨어져도 타겟 접근 리듬 템포는 항상 일정하게 유지 (최소 1.15 보장)
             const streamFactor = Math.max(1.15, (stone.vy || 14) / 13);
             this.depth += this.baseSpeed * speedCurve * streamFactor;
 
-            // 🌟 [핵심] 지수를 1.8로 조정하여 수평선 수면에서 곧바로 물길을 타고 전진
-            const waterCurve = Math.pow(this.depth, 1.8); 
-            this.scale = 0.22 + (waterCurve * 0.82); // 0.22 -> 1.04로 자연스러운 원근감!
-
+            // 🌟 1. 수평선(H*0.45)에서 돌 앞(waterTargetY)까지 자연스러운 하강 곡선
+            const waterCurve = Math.pow(this.depth, 1.4);
             this.currentY = this.waterStartY + (this.waterTargetY - this.waterStartY) * waterCurve;
             this.currentX = CX + (this.laneX - CX) * (0.30 + waterCurve * 0.70);
+
+            // 🌟 2. 강 중간(depth 0.55)에서 이미 100% 본래 크기 완성!
+            if (this.depth <= 0.55) {
+                // 0.0 ~ 0.55 구간: 0.25에서 1.0으로 선명하게 커짐
+                const growProgress = this.depth / 0.55;
+                this.scale = 0.25 + (growProgress * 0.75);
+            } else {
+                // 강 중간 이후 ~ 돌 앞: 1.0 본래 크기 유지
+                this.scale = 1.0;
+            }
 
             this.bobCycle += 0.09;
             this.floatY = Math.sin(this.bobCycle) * (this.type === 'WOOD' ? 2.5 : 4.0) * this.scale;
