@@ -239,9 +239,9 @@ const STONES = [
     {
         id: 0, nameKey: 'stone0', name: '납작한 슬레이트', rarity: 'Ordinary', color: '#94a3b8',
         img: 'images/stone_slate.png', w: 150, h: 69, mult: 1.5,
-        budgetRange: [12, 16],
+        budgetRange: [10, 13],
         physics: { 
-            vzDecay: 0.87, vyDecay: 0.965, baseVz: 1.0, friction: 0.995, critChance: 0.001, critMult: 1.1,
+            vzDecay: 0.87, vyDecay: 0.965, baseVz: 1.0, friction: 0.988, critChance: 0.001, critMult: 1.1,
             bounceHeightBase: 1.8 
         }
     },
@@ -1206,7 +1206,7 @@ function updatePhysics() {
     layerProgress += stone.vy * 0.00009;
 
     const wm = 1 + (upgrades.weight * 0.0008);
-    stone.vy *= Math.min(0.996, 0.988 * wm);
+    stone.vy = Math.max(16, stone.vy * Math.min(0.996, 0.988 * wm));
     stone.vx *= 0.98;
 
     // 수면 충돌 바운스
@@ -1261,7 +1261,7 @@ function processBounce(rating, isAuto = false) {
         triggerShake('medium');
     } else if (rating === 'GOOD') {
         stone.remainingBudget--;
-        stone.vy *= 0.97;
+        stone.vy = Math.max(16, stone.vy * 0.985);
         stone.z = 0.8;
         const decayFact = Math.max(0.5, stone.remainingBudget / Math.max(1, stone.totalBudget));
         stone.vz = Math.max(1.6, stoneBaseHeight * 1.1 * em * decayFact);
@@ -1818,7 +1818,8 @@ class RhythmTarget {
         } else {
             // 🦆 러브덕 & 🪵 통나무
             const speedCurve = this.depth < 0.55 ? 0.85 : (1.0 + (this.depth - 0.55) * 3.2);
-            const streamFactor = Math.max(0.9, (stone.vy || 14) / 14);
+            // 돌 속도가 떨어져도 타겟 접근 리듬 템포는 항상 일정하게 유지 (최소 1.15 보장)
+            const streamFactor = Math.max(1.15, (stone.vy || 14) / 13);
             this.depth += this.baseSpeed * speedCurve * streamFactor;
 
             // 🌟 [핵심] 원근감 곡선: 스폰 시 0.22로 작았다가 돌에 도달하면 1.0으로 웅장하게 확대
