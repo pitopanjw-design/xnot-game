@@ -1942,8 +1942,8 @@ class RhythmTarget {
         this.isFromLeft = Math.random() < 0.5;
         this.dirKey = this.isFromLeft ? 'L' : 'R';
 
-        // 🌟 산자락과 강물이 만나는 정확한 원경 수평선 경계 (H * 0.45)
-        this.waterStartY = Math.round(H * 0.45);
+        // 🌟 산맥이 끝나고 잔잔한 호수가 시작되는 정확한 수평선 경계
+        this.waterStartY = Math.round(H * 0.485);
         this.waterTargetY = STONE_FIXED_Y + 10;
 
         if (this.type === 'FROG') {
@@ -2007,28 +2007,22 @@ class RhythmTarget {
             }
         } else {
             // 🦆 러브덕 & 🪵 통나무
-            const speedCurve = this.depth < 0.55 ? 0.85 : (1.0 + (this.depth - 0.55) * 3.2);
+            const speedCurve = this.depth < 0.55 ? 0.9 : (1.0 + (this.depth - 0.55) * 2.8);
             const streamFactor = Math.max(1.15, (stone.vy || 14) / 13);
             this.depth += this.baseSpeed * speedCurve * streamFactor;
 
-            // 🌟 1. 수평선(H*0.45)에서 돌 앞(waterTargetY)까지 자연스러운 하강 곡선
-            const waterCurve = Math.pow(this.depth, 1.4);
+            // 🌟 수면 투영 곡선 (수면을 미끄러지듯 자연스럽게 하강)
+            const waterCurve = Math.pow(this.depth, 1.6);
             this.currentY = this.waterStartY + (this.waterTargetY - this.waterStartY) * waterCurve;
-            this.currentX = CX + (this.laneX - CX) * (0.30 + waterCurve * 0.70);
+            this.currentX = CX + (this.laneX - CX) * (0.25 + waterCurve * 0.75);
 
-            // 🌟 2. 강 중간(depth 0.55)에서 이미 100% 본래 크기 완성!
-            if (this.depth <= 0.55) {
-                // 0.0 ~ 0.55 구간: 0.25에서 1.0으로 선명하게 커짐
-                const growProgress = this.depth / 0.55;
-                this.scale = 0.25 + (growProgress * 0.75);
-            } else {
-                // 강 중간 이후 ~ 돌 앞: 1.0 본래 크기 유지
-                this.scale = 1.0;
-            }
+            // 🌟 [핵심] 첫 스폰 50%(0.5) -> 돌 도착 시 100%(1.0)로 점진적 확대
+            this.scale = 0.50 + (Math.min(1.0, this.depth) * 0.50);
 
-            this.bobCycle += 0.09;
-            this.floatY = Math.sin(this.bobCycle) * (this.type === 'WOOD' ? 2.5 : 4.0) * this.scale;
-            this.floatRot = Math.sin(this.bobCycle * 0.7) * 0.05;
+            // 강물 위 둥실거리는 찰랑임 물리
+            this.bobCycle += 0.08;
+            this.floatY = Math.sin(this.bobCycle) * (this.type === 'WOOD' ? 2.0 : 3.5) * this.scale;
+            this.floatRot = Math.sin(this.bobCycle * 0.6) * 0.04;
         }
 
         if (this.depth > 1.22 && !this.isHit && !this.isMissed) {
@@ -2048,23 +2042,18 @@ class RhythmTarget {
 
         ctx.save();
 
-        // 1. 수면 그림자
-        const shadowScale = (this.type === 'FROG' && this.floatY < 0)
-            ? Math.max(0.35, 1.0 - Math.abs(this.floatY) / 60)
-            : 1.0;
+        // 1. 강물 수면 그림자 (짙은 다크 네이비로 수면 접지력 확보)
         ctx.beginPath();
-        ctx.ellipse(this.currentX, this.currentY + (h * 0.25), (w * 0.48) * shadowScale, (h * 0.18) * shadowScale, 0, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(0, 15, 30, 0.55)';
+        ctx.ellipse(this.currentX, this.currentY + (h * 0.28), w * 0.45, h * 0.16, 0, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0, 15, 35, 0.65)';
         ctx.fill();
 
-        // 2. 수면 찰랑임
-        if (this.type !== 'FROG' || this.floatY >= 0) {
-            ctx.beginPath();
-            ctx.ellipse(this.currentX, this.currentY + (h * 0.25), w * 0.55, h * 0.22, 0, 0, Math.PI * 2);
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
-            ctx.lineWidth = 1.2 * Math.max(0.5, this.scale);
-            ctx.stroke();
-        }
+        // 2. 강물 찰랑임 물결 (타겟이 물에 잠겨 떠내려오는 효과)
+        ctx.beginPath();
+        ctx.ellipse(this.currentX, this.currentY + (h * 0.28), w * 0.55, h * 0.19, 0, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
+        ctx.lineWidth = 1.8 * this.scale;
+        ctx.stroke();
 
         // 3. 에셋 렌더링
         ctx.translate(this.currentX, this.currentY + (this.floatY || 0));
