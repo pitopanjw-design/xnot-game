@@ -1163,11 +1163,11 @@ function triggerLaunch(dy, dx) {
     comboCount = 0;
     rhythmTargets = [];
 
-    // 첫 마중 오리 타겟 배치
+    // 🌟 첫 타겟도 실제 수평선(depth = 0.0)에서 작게 태어나 다가오도록 수정
     const firstDuck = new RhythmTarget('DUCK');
-    firstDuck.depth = 0.45;
+    firstDuck.depth = 0.0;
     rhythmTargets.push(firstDuck);
-    nextSpawnTime = Date.now() + 500;
+    nextSpawnTime = Date.now() + 650;
 
     currentGravity = 0.17;
     currentPeakZ = Math.max(10.0, stone.z);
@@ -1942,8 +1942,8 @@ class RhythmTarget {
         this.isFromLeft = Math.random() < 0.5;
         this.dirKey = this.isFromLeft ? 'L' : 'R';
 
-        // 🌟 [수정] 산자락 허공이 아닌, 실제 잔잔한 강물 수평선 안쪽에서 스폰
-        this.waterStartY = (HORIZON_Y || (H * 0.52)) + 25; 
+        // 🌟 산과 강물이 만나는 실제 시각적 수면 경계선 (화면 높이의 54%)
+        this.waterStartY = Math.round(H * 0.54); 
         this.waterTargetY = STONE_FIXED_Y + 10;
 
         if (this.type === 'FROG') {
@@ -2012,8 +2012,8 @@ class RhythmTarget {
             const streamFactor = Math.max(1.15, (stone.vy || 14) / 13);
             this.depth += this.baseSpeed * speedCurve * streamFactor;
 
-            // 🌟 [핵심] 원근감 곡선: 스폰 시 0.22로 작았다가 돌에 도달하면 1.0으로 웅장하게 확대
-            const waterCurve = Math.pow(this.depth, 2.2); 
+            // 🌟 [핵심] 지수를 1.8로 조정하여 수평선 수면에서 곧바로 물길을 타고 전진
+            const waterCurve = Math.pow(this.depth, 1.8); 
             this.scale = 0.22 + (waterCurve * 0.82); // 0.22 -> 1.04로 자연스러운 원근감!
 
             this.currentY = this.waterStartY + (this.waterTargetY - this.waterStartY) * waterCurve;
