@@ -122,6 +122,10 @@ const SoundManager = {
             this._play(140, 'sawtooth', 0.25, 0.6, 60);
         }, 120);
     },
+    playStrikeWarning() {
+        this.resume();
+        this._play(220, 'sawtooth', 0.1, 0.35, 140);
+    },
     playUpgrade() { this.resume(); this._play(523, 'sine', 0.12, 0.15); setTimeout(() => this._play(659, 'sine', 0.18, 0.15), 100); },
     playFanfare() {
         this.resume();
@@ -142,11 +146,12 @@ const SoundManager = {
 function toggleMute(e) { e?.preventDefault(); SoundManager.resume(); SoundManager.setMute(!SoundManager.isMuted); haptic('light'); }
 
 // ===========================================================
-//  🌐 다국어 사전 (i18n Localization)
+//  🌐 글로벌 6개 국어 지원 사전 (i18n Localization)
+//  지원: 한국어(ko), 영어(en), 러시아어(ru), 인도네시아어(id), 베트남어(vi), 스페인어(es)
 // ===========================================================
 const i18n = {
     ko: {
-        introTitle: 'XNOT 물수제비 채굴', introDesc: 'XNOT 물수제비 채굴은 차세대 디지털 자산인 XNOT 코인을 강물 위 물수제비의 탄성을 이용해 채굴하는 하이퍼 캐주얼 광산 게임입니다. 돌을 튕겨 최적의 탄성을 얻고 SP를 채굴하세요!',
+        introTitle: 'XNOT 물수제비 채굴', introDesc: 'XNOT 물수제비 채굴은 강물 위 물수제비의 탄성을 이용해 XNOT 코인을 채굴하는 하이퍼 캐주얼 게임입니다. 돌을 튕겨 최적의 탄성을 얻고 SP를 채굴하세요!',
         introStartBtn: '게임 시작 ⛏️', introInfoBtn: '게임 소개 ℹ️', introInfoTitle: '게임 소개',
         lobbyTitle: '룰렛을 터치하여 돌을 뽑으세요', spinBtn: '룰렛 돌리기', spinningBtn: '돌 추첨 중... 🎰', shopBtn: '⚙️ 돌 능력 강화 상점',
         stoneReady: '돌 준비 완료!', launchBtn: '돌 던지기 (하트 1 소모)', wheelTouch: '돌 뽑기 터치!',
@@ -156,16 +161,24 @@ const i18n = {
         stone3: 'XNOT 황금 운석', stone3Desc: '50% 확률로 타 특성 복제, 1/200만 확률로 은하 활공',
         ready: 'READY', prepareMsg: '돌을 잡고 위로 빠르게 던지세요!', swipeGuide: '▲ 위로 빠르게 쓸어올리세요! ▲',
         heartsLack: '하트 부족! 에너지를 충전하세요.', watchAd: '❤️ 유튜브 시청하고 하트 완충',
-        adTitle: '유튜브 광고 시청 중...', adDesc: '하트를 충전하기 위해 대표님 채널 영상을 시청하고 있습니다.', adComplete: '시청 완료 시 하트 5개가 완충됩니다.',
+        adTitle: '유튜브 광고 시청 중...', adDesc: '하트를 충전하기 위해 채널 영상을 시청하고 있습니다.', adComplete: '시청 완료 시 하트 5개가 완충됩니다.',
         perfectTiming: '완벽한 타이밍과 각도!', goodTiming: '좋은 타이밍!', badTiming: '조금 어긋난 타이밍...',
         missMsg: '타이밍을 놓쳐 돌이 수면에 가라앉았습니다.', sinkMsg: '동력을 잃어 가라앉았습니다.',
         resTitle: '물수제비 결과', resStone: '🪨 선택한 돌', resBounces: '🎯 튕김 횟수', resPerfects: '⭐ Perfect 횟수', resEarned: '💎 획득 SP', resConfirm: '확인',
         perfect: 'PERFECT', bouncesUnit: '회',
         lightningLaunch: '초광속 발사!', fastLaunch: '쾌속 발사!', normalLaunch: '일반 발사', speedText: '속도', upgradeSuccess: '속성 강화 성공!',
-        shopPerfectZone: '🎯 퍼펙트 존 확장', currentVal: '현재', levelText: 'Lv.'
+        shopPerfectZone: '🎯 퍼펙트 존 확장', currentVal: '현재', levelText: 'Lv.',
+        greenLaunch: '👍 안정적인 그린 발사', missLaunch: '❌ MISS! 투척 실패', hyperLaunch: '⚡ 하이퍼 드라이브 발사! ⚡',
+        woodSafe: '🪵 통나무 회피 SAFE!', woodCrashTitle: '🪵 통나무 충돌!', woodCrashAlert: '🪵 콰앙!<br>통나무 충돌 침수!',
+        strikeWarn: '⚠️ 헛손질! STRIKE ({count}/3)', strikeWarnAlert: '⚠️ STRIKE {count}!<br><span style="font-size:16px;color:#ffaaaa;">(3회 누적 시 아웃)</span>',
+        strikeOutAlert: '❌ 3 STRIKE OUT!<br><span style="font-size:20px;color:#fff;">침수됩니다!</span>',
+        bounceMarkerUnit: '+{count} 튀김!', inviteBtnText: '✉️ 친구 초대', inviteModalTitle: '✉️ 친구 초대하고 보너스 받기',
+        inviteModalDesc: '친구를 초대하면 XNOT 채굴 동력 버프를 실시간으로 획득합니다!', inviteTgBtn: '텔레그램 초대', inviteCopyBtn: '링크 복사',
+        inviteCopied: '초대 링크 복사 완료!', inviteShareText: '🪨 [XNOT 물수제비] 나랑 같이 돌 튕기고 코인 채굴하자! 🚀',
+        roast1: '🦭<br>물수제비가 아니라<br>그냥 돌덩이 투척인 줄!', roast2: '🐟<br>축하합니다!<br>물고기 밥 주기 성공!', roast3: '🥱<br>혹시 졸면서 던지셨나요?<br>(퐁당)'
     },
     en: {
-        introTitle: 'XNOT Stone Skipper', introDesc: 'XNOT Stone Skipper is a hyper-casual mining game where you mine XNOT Coin using the elasticity of skipping stones. Bounce stones to mine SP!',
+        introTitle: 'XNOT Stone Skipper', introDesc: 'XNOT Stone Skipper is a hyper-casual mining game where you mine XNOT Coin using skipping stone elasticity. Bounce stones to mine SP!',
         introStartBtn: 'Start Game ⛏️', introInfoBtn: 'Game Info ℹ️', introInfoTitle: 'Game Info',
         lobbyTitle: 'Touch the wheel to pick a stone', spinBtn: 'SPIN WHEEL', spinningBtn: 'SPINNING... 🎰', shopBtn: '⚙️ Upgrade Properties',
         stoneReady: 'STONE READY!', launchBtn: 'LAUNCH STONE (Cost 1 ❤️)', wheelTouch: 'Touch to Spin!',
@@ -181,15 +194,138 @@ const i18n = {
         resTitle: 'Skip Results', resStone: '🪨 Selected Stone', resBounces: '🎯 Bounces', resPerfects: '⭐ Perfects', resEarned: '💎 Earned SP', resConfirm: 'Confirm',
         perfect: 'PERFECT', bouncesUnit: 'times',
         lightningLaunch: 'Lightning Launch!', fastLaunch: 'Fast Launch!', normalLaunch: 'Normal Launch', speedText: 'Speed', upgradeSuccess: 'Upgrade Success!',
-        shopPerfectZone: '🎯 Perfect Zone Exp.', currentVal: 'Current', levelText: 'Lv.'
+        shopPerfectZone: '🎯 Perfect Zone Exp.', currentVal: 'Current', levelText: 'Lv.',
+        greenLaunch: '👍 Stable Green Launch', missLaunch: '❌ MISS! Launch Failed', hyperLaunch: '⚡ HYPER DRIVE LAUNCH! ⚡',
+        woodSafe: '🪵 Log Evaded SAFE!', woodCrashTitle: '🪵 Log Collision!', woodCrashAlert: '🪵 CRASH!<br>Sank by Log!',
+        strikeWarn: '⚠️ Missed! STRIKE ({count}/3)', strikeWarnAlert: '⚠️ STRIKE {count}!<br><span style="font-size:16px;color:#ffaaaa;">(3 Strikes = OUT)</span>',
+        strikeOutAlert: '❌ 3 STRIKE OUT!<br><span style="font-size:20px;color:#fff;">Sinking!</span>',
+        bounceMarkerUnit: '+{count} Skips!', inviteBtnText: '✉️ Invite Friends', inviteModalTitle: '✉️ Invite & Get Boost',
+        inviteModalDesc: 'Invite friends to gain instant XNOT mining power buffs!', inviteTgBtn: 'Invite on TG', inviteCopyBtn: 'Copy Link',
+        inviteCopied: 'Invite link copied!', inviteShareText: '🪨 [XNOT Stone Skipper] Join me to skip stones and mine coins! 🚀',
+        roast1: '🦭<br>Are you skipping stones<br>or just dropping rocks?', roast2: '🐟<br>Congrats!<br>Successfully fed the fish!', roast3: '🥱<br>Did you throw it while sleeping?<br>(Splash)'
+    },
+    ru: {
+        introTitle: 'XNOT Блинчики на воде', introDesc: 'XNOT Stone Skipper — гиперказуальная игра, где вы добываете монеты XNOT, пуская блинчики по воде. Запускайте камни и добывайте SP!',
+        introStartBtn: 'Играть ⛏️', introInfoBtn: 'Об игре ℹ️', introInfoTitle: 'Об игре',
+        lobbyTitle: 'Коснитесь рулетки для выбора камня', spinBtn: 'КРУТИТЬ РУЛЕТКУ', spinningBtn: 'ВЫБОР КАМНЯ... 🎰', shopBtn: '⚙️ Улучшение камней',
+        stoneReady: 'КАМЕНЬ ГОТОВ!', launchBtn: 'ЗАПУСТИТЬ КАМЕНЬ (1 ❤️)', wheelTouch: 'Коснитесь рулетки!',
+        stone0: 'Плоский сланец', stone0Desc: 'Стабильный угол, рекордное число отскоков (Джекпот: 0.1%)',
+        stone1: 'Речная галька', stone1Desc: 'Сбалансированный базовый камень (Джекпот: 2%)',
+        stone2: 'Тяжелый базальт', stone2Desc: 'Тяжелый, но 2.5% шанс на взрывную инерцию',
+        stone3: 'Золотой метеорит', stone3Desc: '50% копирует чужие свойства, 1 к 2 млн — полет в космос',
+        ready: 'ГОТОВ', prepareMsg: 'Зажмите камень и смахните вверх!', swipeGuide: '▲ СМАХНИТЕ БЫСТРО ВВЕРХ! ▲',
+        heartsLack: 'Нет жизней! Пополните энергию.', watchAd: '❤️ Смотреть YouTube (+5 ❤️)',
+        adTitle: 'Просмотр видео...', adDesc: 'Просмотр видео для пополнения энергии.', adComplete: 'Будет начислено 5 сердец.',
+        perfectTiming: 'Идеальный тайминг и угол!', goodTiming: 'Отличный тайминг!', badTiming: 'Немного мимо...',
+        missMsg: 'Камень потерял равновесие и утонул.', sinkMsg: 'Инерция иссякла, камень утонул.',
+        resTitle: 'Результаты броска', resStone: '🪨 Выбранный камень', resBounces: '🎯 Отскоки', resPerfects: '⭐ Идеально', resEarned: '💎 Получено SP', resConfirm: 'Отлично',
+        perfect: 'ИДЕАЛЬНО', bouncesUnit: 'раз',
+        lightningLaunch: 'Молниеносный бросок!', fastLaunch: 'Быстрый бросок!', normalLaunch: 'Обычный бросок', speedText: 'Скорость', upgradeSuccess: 'Улучшено!',
+        shopPerfectZone: '🎯 Зона Perfect', currentVal: 'Текущий', levelText: 'Ур.',
+        greenLaunch: '👍 Стабильный бросок', missLaunch: '❌ МИМО! Ошибка броска', hyperLaunch: '⚡ ГИПЕРДРАЙВ ЗАПУСК! ⚡',
+        woodSafe: '🪵 Бревно обойдено: SAFE!', woodCrashTitle: '🪵 Удар о бревно!', woodCrashAlert: '🪵 БУМ!<br>Камень утонул!',
+        strikeWarn: '⚠️ Промах! СТРАЙК ({count}/3)', strikeWarnAlert: '⚠️ СТРАЙК {count}!<br><span style="font-size:16px;color:#ffaaaa;">(3 страйка = АУТ)</span>',
+        strikeOutAlert: '❌ 3 СТРАЙКА! АУТ!<br><span style="font-size:20px;color:#fff;">Камень тонет!</span>',
+        bounceMarkerUnit: '+{count} прыжков!', inviteBtnText: '✉️ Пригласить', inviteModalTitle: '✉️ Зови друзей и получай бафф',
+        inviteModalDesc: 'Приглашайте друзей и получайте бонус к добыче XNOT!', inviteTgBtn: 'Позвать в TG', inviteCopyBtn: 'Скопировать ссылку',
+        inviteCopied: 'Ссылка скопирована!', inviteShareText: '🪨 [XNOT Stone Skipper] Запускай камни по воде и майни крипту вместе со мной! 🚀',
+        roast1: '🦭<br>Ты блинчики пускаешь<br>или просто камни топишь?', roast2: '🐟<br>Поздравляем!<br>Рыбки сыты!', roast3: '🥱<br>Ты бросал с закрытыми глазами?<br>(Бульк)'
+    },
+    id: {
+        introTitle: 'XNOT Lempar Batu', introDesc: 'XNOT Stone Skipper adalah game santai menambang koin XNOT dengan pantulan batu di sungai. Pantulkan batu dan tambang SP!',
+        introStartBtn: 'Mulai Game ⛏️', introInfoBtn: 'Info Game ℹ️', introInfoTitle: 'Info Game',
+        lobbyTitle: 'Sentuh roda untuk memilih batu', spinBtn: 'PUTAR RODA', spinningBtn: 'MEMILIH... 🎰', shopBtn: '⚙️ Toko Upgrade',
+        stoneReady: 'BATU SIAP!', launchBtn: 'LEMPAR BATU (Biaya 1 ❤️)', wheelTouch: 'Sentuh untuk Putar!',
+        stone0: 'Batu Pipih', stone0Desc: 'Sudut stabil, rata-rata pantulan tertinggi (Jackpot: 0.1%)',
+        stone1: 'Kerikil Sungai', stone1Desc: 'Batu standar seimbang untuk pemula (Jackpot: 2%)',
+        stone2: 'Batu Basalt', stone2Desc: 'Berat, tetapi ada peluang 2.5% inersia meledak',
+        stone3: 'Meteor Emas', stone3Desc: '50% tiru skill lain, 1/2jt peluang terbang galaksi',
+        ready: 'SIAP', prepareMsg: 'Pegang batu lalu geser ke atas cepat!', swipeGuide: '▲ GESER KE ATAS CEPAT! ▲',
+        heartsLack: 'Energi habis! Isi ulang sekarang.', watchAd: '❤️ Nonton YouTube (Isi Penuh)',
+        adTitle: 'Menonton Video...', adDesc: 'Menonton video untuk mengisi energi hati.', adComplete: '5 hati akan diisi penuh.',
+        perfectTiming: 'Sudut dan waktu sempurna!', goodTiming: 'Waktu yang bagus!', badTiming: 'Kurang pas...',
+        missMsg: 'Salah waktu, batu tenggelam.', sinkMsg: 'Kehabisan daya, batu tenggelam.',
+        resTitle: 'Hasil Lemparan', resStone: '🪨 Batu Pilihan', resBounces: '🎯 Pantulan', resPerfects: '⭐ Perfect', resEarned: '💎 SP Diperoleh', resConfirm: 'OK',
+        perfect: 'PERFECT', bouncesUnit: 'kali',
+        lightningLaunch: 'Lemparan Kilat!', fastLaunch: 'Lemparan Cepat!', normalLaunch: 'Lemparan Biasa', speedText: 'Kecepatan', upgradeSuccess: 'Upgrade Berhasil!',
+        shopPerfectZone: '🎯 Zona Perfect', currentVal: 'Saat Ini', levelText: 'Lv.',
+        greenLaunch: '👍 Lemparan Hijau Stabil', missLaunch: '❌ MELESET! Gagal Lempar', hyperLaunch: '⚡ HYPER DRIVE LAUNCH! ⚡',
+        woodSafe: '🪵 Lolos dari Kayu: SAFE!', woodCrashTitle: '🪵 Tabrakan Kayu!', woodCrashAlert: '🪵 BRUK!<br>Tenggelam Menabrak Kayu!',
+        strikeWarn: '⚠️ Meleset! STRIKE ({count}/3)', strikeWarnAlert: '⚠️ STRIKE {count}!<br><span style="font-size:16px;color:#ffaaaa;">(3 Strike = KELUAR)</span>',
+        strikeOutAlert: '❌ 3 STRIKE OUT!<br><span style="font-size:20px;color:#fff;">Tenggelam!</span>',
+        bounceMarkerUnit: '+{count} Pantulan!', inviteBtnText: '✉️ Undang Teman', inviteModalTitle: '✉️ Undang Teman & Dapatkan Bonus',
+        inviteModalDesc: 'Undang teman untuk meningkatkan daya tambang XNOT!', inviteTgBtn: 'Undang di TG', inviteCopyBtn: 'Salin Tautan',
+        inviteCopied: 'Tautan berhasil disalin!', inviteShareText: '🪨 [XNOT Stone Skipper] Ayo lempar batu di sungai dan tambang koin bersama! 🚀',
+        roast1: '🦭<br>Ini lempar batu pantul<br>atau cuma buang batu?', roast2: '🐟<br>Selamat!<br>Sukses kasih makan ikan!', roast3: '🥱<br>Lempar sambil tidur ya?<br>(Cebur)'
+    },
+    vi: {
+        introTitle: 'XNOT Lướt Đá Trên Nước', introDesc: 'XNOT Stone Skipper là game đào coin XNOT bằng cách ném đá lướt trên mặt nước. Ném đá đạt độ nảy tốt nhất để đào SP!',
+        introStartBtn: 'Bắt đầu ⛏️', introInfoBtn: 'Thông tin ℹ️', introInfoTitle: 'Giới thiệu',
+        lobbyTitle: 'Chạm vòng quay để chọn đá', spinBtn: 'QUAY VÒNG', spinningBtn: 'ĐANG CHỌN... 🎰', shopBtn: '⚙️ Nâng cấp đá',
+        stoneReady: 'ĐÁ ĐÃ SẴN SÀNG!', launchBtn: 'NÉM ĐÁ (Tốn 1 ❤️)', wheelTouch: 'Chạm để quay!',
+        stone0: 'Đá Phiến Dẹt', stone0Desc: 'Góc ném ổn định, số lần nảy cao nhất (Nổ hũ: 0.1%)',
+        stone1: 'Sỏi Bờ Suối', stone1Desc: 'Đá cơ bản cân bằng cho người mới (Nổ hũ: 2%)',
+        stone2: 'Đá Basalt Nặng', stone2Desc: 'Nặng nhưng có 2.5% kích hoạt quán tính cực đại',
+        stone3: 'Thiên Thạch Vàng', stone3Desc: '50% sao chép thuộc tính, 1/2tr bay vào vũ trụ',
+        ready: 'SẴN SÀNG', prepareMsg: 'Giữ đá và vuốt thẳng lên thật nhanh!', swipeGuide: '▲ VUỐT LÊN THẬT NHANH! ▲',
+        heartsLack: 'Hết tim! Nạp thêm năng lượng.', watchAd: '❤️ Xem YouTube để nạp đầy tim',
+        adTitle: 'Đang xem video...', adDesc: 'Xem video để hồi phục năng lượng.', adComplete: 'Hồi phục 5 tim sau khi xem xong.',
+        perfectTiming: 'Góc và thời điểm hoàn hảo!', goodTiming: 'Thời điểm rất tốt!', badTiming: 'Hơi lệch một chút...',
+        missMsg: 'Lệch nhịp, đá đã chìm nghỉm.', sinkMsg: 'Mất đà, đá đã chìm xuống nước.',
+        resTitle: 'Kết Quả Lướt Đá', resStone: '🪨 Đá Đã Chọn', resBounces: '🎯 Số lần nảy', resPerfects: '⭐ Lần Perfect', resEarned: '💎 SP Nhận Được', resConfirm: 'Xác Nhận',
+        perfect: 'XUẤT SẮC', bouncesUnit: 'lần',
+        lightningLaunch: 'Ném Tia Chớp!', fastLaunch: 'Ném Cực Nhanh!', normalLaunch: 'Ném Bình Thường', speedText: 'Tốc độ', upgradeSuccess: 'Nâng Cấp Thành Công!',
+        shopPerfectZone: '🎯 Mở rộng Perfect', currentVal: 'Hiện tại', levelText: 'Cấp',
+        greenLaunch: '👍 Ném Xanh Ổn Định', missLaunch: '❌ TRƯỢT! Ném Thất Bại', hyperLaunch: '⚡ PHÓNG SIÊU TỐC! ⚡',
+        woodSafe: '🪵 Tránh Khúc Gỗ: SAFE!', woodCrashTitle: '🪵 Đâm Khúc Gỗ!', woodCrashAlert: '🪵 RẦM!<br>Đâm Vào Gỗ Chìm Nghỉm!',
+        strikeWarn: '⚠️ Trượt! STRIKE ({count}/3)', strikeWarnAlert: '⚠️ STRIKE {count}!<br><span style="font-size:16px;color:#ffaaaa;">(3 Strike = THUA)</span>',
+        strikeOutAlert: '❌ 3 STRIKE OUT!<br><span style="font-size:20px;color:#fff;">Đá đang chìm!</span>',
+        bounceMarkerUnit: '+{count} Lần Nảy!', inviteBtnText: '✉️ Mời Bạn Bè', inviteModalTitle: '✉️ Mời Bạn Nhận Thưởng',
+        inviteModalDesc: 'Mời bạn bè để nhận buff tốc độ đào XNOT tức thì!', inviteTgBtn: 'Mời qua TG', inviteCopyBtn: 'Sao Chép Link',
+        inviteCopied: 'Đã sao chép link mời!', inviteShareText: '🪨 [XNOT Stone Skipper] Cùng lướt đá trên nước và đào coin với tôi nào! 🚀',
+        roast1: '🦭<br>Bạn đang lướt đá<br>hay đang ném đá dằn biển vậy?', roast2: '🐟<br>Chúc mừng!<br>Cho cá ăn thành công!', roast3: '🥱<br>Bạn vừa ngủ gật vừa ném à?<br>(Tõm)'
+    },
+    es: {
+        introTitle: 'XNOT Salto de Piedras', introDesc: 'XNOT Stone Skipper es un juego casual donde minas monedas XNOT rebotando piedras sobre el río. ¡Haz rebotar la piedra y gana SP!',
+        introStartBtn: 'Jugar ⛏️', introInfoBtn: 'Información ℹ️', introInfoTitle: 'Información',
+        lobbyTitle: 'Toca la ruleta para elegir una piedra', spinBtn: 'GIRAR RULETA', spinningBtn: 'ELIGIENDO... 🎰', shopBtn: '⚙️ Mejorar Piedras',
+        stoneReady: '¡PIEDRA LISTA!', launchBtn: 'LANZAR PIEDRA (Cuesta 1 ❤️)', wheelTouch: '¡Toca para girar!',
+        stone0: 'Pizarra Plana', stone0Desc: 'Ángulo estable, mayor promedio de rebotes (Bote: 0.1%)',
+        stone1: 'Guijarro de Río', stone1Desc: 'Rendimiento estándar y equilibrado (Bote: 2%)',
+        stone2: 'Basalto Denso', stone2Desc: 'Pesado, pero con 2.5% de probabilidad de explosión',
+        stone3: 'Meteorito Dorado', stone3Desc: '50% copia atributos, 1 en 2M vuelo intergaláctico',
+        ready: 'LISTO', prepareMsg: '¡Sujeta la piedra y desliza rápido hacia arriba!', swipeGuide: '▲ ¡DESLIZA RÁPIDO HACIA ARRIBA! ▲',
+        heartsLack: '¡Sin energía! Recarga corazones.', watchAd: '❤️ Ver YouTube para Recargar',
+        adTitle: 'Viendo video...', adDesc: 'Viendo video para recargar energía.', adComplete: 'Se recargarán 5 corazones al finalizar.',
+        perfectTiming: '¡Ángulo y sincronización perfectos!', goodTiming: '¡Buen tiro!', badTiming: 'Un poco desviado...',
+        missMsg: 'A destiempo, la piedra se hundió.', sinkMsg: 'Sin inercia, la piedra se hundió.',
+        resTitle: 'Resultados del Tiro', resStone: '🪨 Piedra Elegida', resBounces: '🎯 Rebotes', resPerfects: '⭐ Perfectos', resEarned: '💎 SP Ganado', resConfirm: 'Aceptar',
+        perfect: 'PERFECTO', bouncesUnit: 'veces',
+        lightningLaunch: '¡Tiro Relámpago!', fastLaunch: '¡Tiro Rápido!', normalLaunch: 'Tiro Normal', speedText: 'Velocidad', upgradeSuccess: '¡Mejora Exitosa!',
+        shopPerfectZone: '🎯 Zona Perfect', currentVal: 'Actual', levelText: 'Nv.',
+        greenLaunch: '👍 Lanzamiento Verde Estable', missLaunch: '❌ ¡FALLO! Tiro Erróneo', hyperLaunch: '⚡ ¡LANZAMIENTO HIPERESPACIAL! ⚡',
+        woodSafe: '🪵 Tronco Esquivado: ¡SAFE!', woodCrashTitle: '🪵 ¡Choque con Tronco!', woodCrashAlert: '🪵 ¡CRASH!<br>¡Hundido por Tronco!',
+        strikeWarn: '⚠️ ¡Fallaste! STRIKE ({count}/3)', strikeWarnAlert: '⚠️ ¡STRIKE {count}!<br><span style="font-size:16px;color:#ffaaaa;">(3 Strikes = FUERA)</span>',
+        strikeOutAlert: '❌ ¡3 STRIKES! ¡OUT!<br><span style="font-size:20px;color:#fff;">¡Hundiéndose!</span>',
+        bounceMarkerUnit: '+{count} Rebotes!', inviteBtnText: '✉️ Invitar Amigos', inviteModalTitle: '✉️ Invita y Gana Bonos',
+        inviteModalDesc: '¡Invita amigos para ganar potenciadores de minería XNOT!', inviteTgBtn: 'Invitar en TG', inviteCopyBtn: 'Copiar Enlace',
+        inviteCopied: '¡Enlace copiado!', inviteShareText: '🪨 [XNOT Stone Skipper] ¡Salta piedras sobre el agua y mina cripto conmigo! 🚀',
+        roast1: '🦭<br>¿Estás haciendo saltar piedras<br>o solo tirando escombros?', roast2: '🐟<br>¡Felicidades!<br>¡Alimentaste a los peces!', roast3: '🥱<br>¿Tiraste dormido?<br>(Chof)'
     }
 };
 
+// 🌟 유저 텔레그램 언어 자동 감지 및 6개 국어 매핑
 let currentLang = 'en';
 function initLang() {
     let lang = 'en';
-    try { lang = (window.Telegram?.WebApp?.initDataUnsafe?.user?.language_code || navigator.language || 'en').toLowerCase().split('-')[0]; } catch (e) { }
-    currentLang = i18n[lang] ? lang : 'en';
+    try {
+        const tgLang = window.Telegram?.WebApp?.initDataUnsafe?.user?.language_code;
+        const navLang = navigator.language || navigator.userLanguage || 'en';
+        lang = (tgLang || navLang).toLowerCase().split('-')[0];
+    } catch (e) { }
+
+    const supported = ['ko', 'en', 'ru', 'id', 'vi', 'es'];
+    currentLang = supported.includes(lang) ? lang : 'en';
 }
 function t(k) { return (i18n[currentLang]?.[k]) || (i18n['en']?.[k]) || k; }
 function applyI18n() {
@@ -863,7 +999,10 @@ function startGameplay() {
     const scoreDisp = document.getElementById('score-display');
     if (scoreDisp) scoreDisp.innerText = t('ready');
     const msg = document.getElementById('message');
-    if (msg) msg.innerText = t('prepareMsg');
+    if (msg) {
+        msg.innerText = t('prepareMsg');
+        msg.style.color = '';
+    }
 
     const guide = document.getElementById('swipe-guide');
     if (guide) guide.style.display = 'block';
@@ -1351,19 +1490,68 @@ function registerBounceTap(e) {
         hasTappedBounce = true;
         onRhythmHit(closest, rating);
     } 
-    // 🌟 2. 타겟이 없는 진짜 허공 탭일 때만 스트라이크 증가
+    // 🌟 2. 타겟이 없는 진짜 허공 탭일 때 (안전 가드 적용)
     else {
+        // 이미 죽었거나 3스트라이크 이상이면 추가 입력 원천 차단
+        if (isDead || strikeCount >= 3) return;
+
         strikeCount++;
         comboCount = 0;
         updateStrikeUI();
         haptic('medium');
+        if (typeof SoundManager.playStrikeWarning === 'function') {
+            SoundManager.playStrikeWarning();
+        }
+
+        // [안전가드 1] 상단 안내창 즉시 갱신
+        const msg = document.getElementById('message');
+        if (msg) {
+            msg.style.color = '#ff3333';
+            msg.innerText = strikeCount >= 3 
+                ? "❌ 3 STRIKE OUT! 침수!" 
+                : `⚠️ 헛손질! STRIKE (${strikeCount}/3)`;
+        }
+
+        // [안전가드 2] 기존 잔여 팝업 중복 제거 (글씨 겹침 방지)
+        document.querySelectorAll('.strike-warning-alert').forEach(el => el.remove());
+
+        // [안전가드 3] 팝업 생성
+        const alertEl = document.createElement('div');
+        alertEl.className = 'strike-warning-alert';
+        alertEl.style.cssText = `
+            position: absolute !important;
+            top: 42% !important;
+            left: 50% !important;
+            transform: translate(-50%, -50%) scale(1.1) !important;
+            color: #ff3333 !important;
+            font-size: 26px !important;
+            font-weight: 900 !important;
+            text-align: center !important;
+            white-space: nowrap !important;
+            text-shadow: 0 0 12px #ff0000, 0 0 24px rgba(255, 0, 0, 0.8), 0 2px 4px #000 !important;
+            font-family: 'GmarketSans', sans-serif !important;
+            z-index: 99999 !important;
+            pointer-events: none !important;
+        `;
 
         if (strikeCount >= 3) {
-            spawnDramaticText('❌ 3 STRIKE OUT!', 'neon-red');
+            isStrikeOutPending = true;
+            alertEl.innerHTML = "❌ 3 STRIKE OUT!<br><span style='font-size:18px;color:#fff;'>침수됩니다!</span>";
+            document.getElementById('game-container').appendChild(alertEl);
+            setTimeout(() => alertEl.remove(), 1200);
+
+            // [핵심 안전가드 4] 물리 엔진 자연 바운스/반등 완전 차단
+            stone.remainingBudget = 0;
+            stone.vz = -2.0; 
             triggerShake('heavy');
-            setTimeout(() => { triggerWaterSink(); }, 250);
+            
+            setTimeout(() => { 
+                triggerWaterSink(false, true); 
+            }, 250);
         } else {
-            spawnDramaticText(`STRIKE ${strikeCount}!`, 'neon-red');
+            alertEl.innerHTML = `⚠️ STRIKE ${strikeCount}!<br><span style='font-size:16px;color:#ffaaaa;'>(3회 누적 시 아웃)</span>`;
+            document.getElementById('game-container').appendChild(alertEl);
+            setTimeout(() => alertEl.remove(), 850);
         }
     }
 }
@@ -1517,8 +1705,10 @@ function addStrike() {
     return strikeCount;
 }
 
+let isStrikeOutPending = false;
 function resetStrikes() {
     strikeCount = 0;
+    isStrikeOutPending = false;
     updateStrikeUI();
 }
 
@@ -1552,7 +1742,7 @@ function triggerWaterMiss() {
     }, 1000);
 }
 
-function triggerWaterSink(isWoodHit = false) {
+function triggerWaterSink(isWoodHit = false, isStrikeOut = false) {
     if (isDead) return;
     isDead = true;
     stone.vz = -1.2;
@@ -1561,11 +1751,11 @@ function triggerWaterSink(isWoodHit = false) {
     spawnRipple(ex, ey); 
     createParticles(ex, ey, false, true, 16);
     
-    // 통나무 충돌이 아닐 때만 일반 침수 안내 출력
-    if (!isWoodHit) {
+    // 통나무 충돌이나 스트라이크 아웃이 아닐 때만 일반 침수 안내 출력
+    if (!isWoodHit && !isStrikeOut && !isStrikeOutPending) {
         document.getElementById('message').innerText = t('sinkMsg');
-        SoundManager.playSink();
     }
+    SoundManager.playSink();
     
     haptic('error');
 
