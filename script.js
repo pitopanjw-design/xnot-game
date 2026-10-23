@@ -2204,40 +2204,53 @@ function spawnBounceMarker(x, y, count) {
     const container = document.getElementById('game-container');
     if (!container) return;
     const d = document.createElement('div');
-    const targetY = STONE_FIXED_Y - 135;
+
+    // 🌟 [핵심] 상단/좌우 타겟 진입로를 일절 가리지 않는 돌 바로 아래 착수 수면 지점
+    const targetX = STONE_FIXED_X;
+    const targetY = STONE_FIXED_Y + 45;
+
     d.style.cssText = `
         position: absolute;
-        left: ${x}px;
+        left: ${targetX}px;
         top: ${targetY}px;
-        transform: translate(-50%, -50%) scale(0.7);
-        background: rgba(10, 15, 28, 0.9);
+        transform: translate(-50%, -50%) scale(0.75);
+        background: rgba(10, 15, 28, 0.85);
         color: #d9ff00;
         border: 1.5px solid #d9ff00;
         border-radius: 20px;
         padding: 3px 10px;
         font-size: 13px;
-        font-family: 'GmarketSans', sans-serif; /* 폰트 통일 */
+        font-family: 'GmarketSans', sans-serif;
         font-weight: 700;
-        z-index: 70;
+        z-index: 60;
         pointer-events: none;
         white-space: nowrap;
         text-shadow: 0 0 4px #000;
-        box-shadow: 0 0 12px rgba(217, 255, 0, 0.4);
+        box-shadow: 0 0 10px rgba(217, 255, 0, 0.35);
         opacity: 0;
         transition: transform 0.22s cubic-bezier(0.17, 0.89, 0.32, 1.25), opacity 0.22s ease-out;
     `;
-    d.innerText = `+${count} 튀김!`;
+    
+    // 다국어 지원 키 적용
+    d.innerText = typeof t === 'function' ? t('bounceMarkerUnit').replace('{count}', count) : `+${count} 튀김!`;
     container.appendChild(d);
 
+    // 팝업 애니메이션
     requestAnimationFrame(() => {
-        d.style.opacity = '1'; d.style.transform = 'translate(-50%, -50%) scale(1.05)';
-        setTimeout(() => { d.style.transform = 'translate(-50%, -50%) scale(1.0)'; }, 120);
+        d.style.opacity = '1';
+        d.style.transform = 'translate(-50%, -50%) scale(1.05)';
+        setTimeout(() => { 
+            d.style.transform = 'translate(-50%, -50%) scale(1.0)'; 
+        }, 120);
     });
+
+    // 수면 파문과 함께 아래로 자연스럽게 페이드아웃
     setTimeout(() => {
-        d.style.transition = 'transform 0.35s ease-in, opacity 0.35s ease-in';
-        d.style.opacity = '0'; d.style.transform = 'translate(-50%, -80%) scale(0.85)';
-        setTimeout(() => d.remove(), 350);
-    }, 650);
+        d.style.transition = 'transform 0.3s ease-in, opacity 0.3s ease-in';
+        d.style.opacity = '0';
+        d.style.transform = 'translate(-50%, -20%) scale(0.85)';
+        setTimeout(() => d.remove(), 300);
+    }, 600);
 }
 
 // ===========================================================
