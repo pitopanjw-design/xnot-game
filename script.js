@@ -114,6 +114,14 @@ const SoundManager = {
         }
     },
     playSink() { this.resume(); for (let i = 0; i < 3; i++) { const d = i * 0.08; setTimeout(() => this._play(180 - i * 35, 'sine', 0.14, 0.25, 40), d * 1000); } },
+    playWoodCrash() {
+        this.resume();
+        // 둔탁하고 거친 2연타 에러 비프음 (180Hz -> 90Hz)
+        this._play(180, 'sawtooth', 0.18, 0.5, 90);
+        setTimeout(() => {
+            this._play(140, 'sawtooth', 0.25, 0.6, 60);
+        }, 120);
+    },
     playUpgrade() { this.resume(); this._play(523, 'sine', 0.12, 0.15); setTimeout(() => this._play(659, 'sine', 0.18, 0.15), 100); },
     playFanfare() {
         this.resume();
@@ -1315,19 +1323,27 @@ function registerBounceTap(e) {
         closest.isHit = true; // 타겟 즉시 소비
 
         if (closest.type === 'WOOD') {
-            // 1. 상단 안내 문구 즉시 변경
-            const msg = document.getElementById('message');
-            if (msg) msg.innerText = "🪵 쾅! 통나무 충돌 침수!";
-
-            // 2. 화면 중앙 텍스트 강조
-            spawnDramaticText('🪵 통나무 충돌 침수!', 'neon-red');
+            // 1. 강렬한 비프음 재생 및 화면 셰이크 + 햅틱
+            SoundManager.playWoodCrash();
             haptic('error');
             triggerShake('heavy');
 
-            // 3. 메시지를 읽을 수 있도록 약간의 여유를 두고 침수 처리
+            // 2. 상단 텍스트 및 화면 정중앙 거대 레드 팝업
+            const msg = document.getElementById('message');
+            if (msg) msg.innerText = "🪵 통나무 충돌!";
+
+            const crashEl = document.createElement('div');
+            crashEl.className = 'dramatic-text wood-crash-text';
+            crashEl.innerHTML = "🪵 콰앙!<br>통나무 충돌 침수!";
+            document.getElementById('game-container').appendChild(crashEl);
+
+            // 1.2초 후 팝업 제거
+            setTimeout(() => { crashEl.remove(); }, 1200);
+
+            // 3. 메시지와 비프음을 충분히 감상한 후 침수 및 결과창 진입
             setTimeout(() => {
-                triggerWaterSink(true); // 통나무 충돌 플래그 전달
-            }, 150);
+                triggerWaterSink(true);
+            }, 200);
             return;
         }
 
@@ -1545,18 +1561,17 @@ function triggerWaterSink(isWoodHit = false) {
     spawnRipple(ex, ey); 
     createParticles(ex, ey, false, true, 16);
     
-    // 🌟 통나무 충돌이 아닐 때만 기본 "동력을 잃어 가라앉았습니다" 메시지 출력
+    // 통나무 충돌이 아닐 때만 일반 침수 안내 출력
     if (!isWoodHit) {
         document.getElementById('message').innerText = t('sinkMsg');
+        SoundManager.playSink();
     }
     
-    haptic('error'); 
-    SoundManager.playSink();
+    haptic('error');
 
-    // 유저가 충돌 상황을 인지할 수 있도록 딜레이 확보 (1.1초)
     setTimeout(() => {
         endGame();
-    }, 1100);
+    }, 1200);
 }
 
 function triggerWake(x, y, scale) { wakes.push({ x, y, vxL: -W * 0.015 * scale, vxR: W * 0.015 * scale, vy: H * 0.022 * scale, width: 9 * scale, alpha: 1, xL: x, xR: x }); }

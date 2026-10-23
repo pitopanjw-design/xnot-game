@@ -921,3 +921,26 @@ body, button, input, select, textarea, div, p, span, h1, h2, h3, h4, h5, h6, lab
 .dramatic-text, .effect-text {
     font-weight: 900 !important;
 }
+
+/* 통나무 충돌 전용 거대 네온 레드 텍스트 */
+.dramatic-text.wood-crash-text {
+    position: absolute;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) scale(1.1);
+    color: #ff2a2a !important;
+    font-size: 32px !important;
+    font-weight: 900 !important;
+    text-align: center;
+    white-space: nowrap;
+    text-shadow: 0 0 15px #ff0000, 0 0 30px rgba(255, 0, 0, 0.8), 0 3px 6px #000 !important;
+    z-index: 9999 !important;
+    pointer-events: none;
+    animation: woodCrashPulse 0.3s ease-out;
+}
+
+@keyframes woodCrashPulse {
+    0% { transform: translate(-50%, -50%) scale(0.6); opacity: 0; }
+    50% { transform: translate(-50%, -50%) scale(1.25); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
+}
