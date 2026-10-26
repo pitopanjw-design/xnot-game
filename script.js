@@ -457,7 +457,7 @@ let startX = 0, startY = 0, startTime = 0;
 // 백그라운드 이미지
 const BG_FILES = [
     'images/foreground.png', 'images/midground.png', 'images/background.png',
-    'images/foreground_lake.png', 'images/midground_lake.png', 'images/background_lake.png',
+    'images/foreground_lake.webp', 'images/midground_lake.webp', 'images/background_lake.webp',
     'images/foreground_river.png', 'images/midground_river.png', 'images/background_river.png',
     'images/foreground_moon.webp', 'images/midground_moon.webp', 'images/background_moon.webp'
 ];
@@ -473,8 +473,11 @@ let currentTheme = 'lake';
 function changeRandomBg() {
     const themes = ['lake', 'river', 'moon'];
     currentTheme = themes[Math.floor(Math.random() * themes.length)];
-    const ext = currentTheme === 'moon' ? 'webp' : 'png';
+
+    // 🌟 lake와 moon은 신규 투명 webp 에셋 사용
+    const ext = (currentTheme === 'moon' || currentTheme === 'lake') ? 'webp' : 'png';
     currentBgPath = `images/foreground_${currentTheme}.${ext}`;
+
     const container = document.getElementById('game-container');
     if (container) container.style.background = `url('${currentBgPath}') no-repeat center/cover`;
 }
@@ -1791,7 +1794,8 @@ function drawScaledCenteredCoverImage(ctx, img, W, H, scale = 1.0) {
 }
 
 function getThemeImg(layer) {
-    const ext = currentTheme === 'moon' ? 'webp' : 'png';
+    // 🌟 lake와 moon은 webp 로드
+    const ext = (currentTheme === 'moon' || currentTheme === 'lake') ? 'webp' : 'png';
     return bgImgCache[`images/${layer}_${currentTheme}.${ext}`];
 }
 
@@ -1942,8 +1946,8 @@ class RhythmTarget {
         this.isFromLeft = Math.random() < 0.5;
         this.dirKey = this.isFromLeft ? 'L' : 'R';
 
-        // 🌟 산맥이 끝나고 잔잔한 호수가 시작되는 정확한 수평선 경계
-        this.waterStartY = Math.round(H * 0.485);
+        // 🌟 신규 로우폴리 호수 수평선 접점에 정확히 일치
+        this.waterStartY = (currentTheme === 'lake') ? Math.round(H * 0.515) : Math.round(H * 0.485);
         this.waterTargetY = STONE_FIXED_Y + 10;
 
         if (this.type === 'FROG') {
